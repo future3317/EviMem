@@ -1,0 +1,24 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.coverage
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.venv/
+dist/
+build/
+
+# Runtime state is never source code.
+dataset/
+artifacts/
+outputs/
+*.db
+*.db-shm
+*.db-wal
+
+# Local model and experiment output.
+checkpoints/
+runs/
+wandb/
+
