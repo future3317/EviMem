@@ -5,8 +5,8 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 
+from evimem.contracts import VerificationCertificate
 from evimem.controller import ControllerPolicy, SequentialCurationEngine
-from evimem.core.contracts import VerificationCertificate
 
 from .episode import BenchmarkEpisode, EpisodeEvaluation, OracleAnnotation
 from .metrics import BenchmarkMetrics, compute_benchmark_metrics

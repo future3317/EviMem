@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 
 import pytest
 
-from evimem.core.contracts import (
+from evimem.contracts import (
     ClaimSignature,
     CurationTrajectory,
     MemoryAuthority,

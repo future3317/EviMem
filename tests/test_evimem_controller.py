@@ -2,6 +2,13 @@ from __future__ import annotations
 
 import pytest
 
+from evimem.contracts import (
+    ActionCost,
+    CurationBudget,
+    SlotStatus,
+    VerificationSlot,
+    VerifierDelta,
+)
 from evimem.controller import (
     ActionExecutor,
     ActionToolResult,
@@ -14,13 +21,6 @@ from evimem.controller import (
     VerificationUpdate,
 )
 from evimem.controller.state import EvidenceIndexEntry
-from evimem.core.contracts import (
-    ActionCost,
-    CurationBudget,
-    SlotStatus,
-    VerificationSlot,
-    VerifierDelta,
-)
 
 from .evimem_helpers import candidate, evidence_ref
 

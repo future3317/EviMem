@@ -7,8 +7,8 @@ from collections.abc import Iterable
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
-from evimem.core.contracts import CurationStep, CurationTrajectory
-from evimem.core.ids import deterministic_id
+from evimem.contracts import CurationStep, CurationTrajectory
+from evimem.contracts.ids import deterministic_id
 
 if TYPE_CHECKING:
     from evimem.controller.state import ActionRecord, ControllerState

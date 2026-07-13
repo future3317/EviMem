@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import Any, ClassVar, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from .claim import ScientificClaim
 from .claim_state import SlotStatus
@@ -68,3 +68,13 @@ class VerificationCertificate(BaseModel):
     domain_pack_version: str
     domain_pack_hash: str
     verifier_version: str
+
+    @model_validator(mode="after")
+    def _validate_evidence_identity(self) -> VerificationCertificate:
+        if any(ref.release_id != self.evidence_release_id for ref in self.resolved_evidence):
+            raise ValueError("certificate evidence must belong to evidence_release_id")
+        if self.final_decision == "publish" and not self.resolved_evidence:
+            raise ValueError("publish certificate requires resolved immutable evidence")
+        if self.final_decision == "publish" and self.exclusion_reasons:
+            raise ValueError("publish certificate cannot carry exclusion reasons")
+        return self

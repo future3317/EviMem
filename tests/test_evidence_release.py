@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from evimem.core import EvidenceReleaseManager
-from evimem.core.contracts import evidence_ref_from_block
+from evimem.contracts import evidence_ref_from_block
+from evimem.evidence import EvidenceReleaseManager
 
 
 def test_release_is_checksumed_and_produces_canonical_refs(tmp_path) -> None:
@@ -49,3 +49,15 @@ def test_release_ids_cannot_escape_release_root(tmp_path) -> None:
     else:
         raise AssertionError("unsafe release ID was accepted")
 
+
+def test_doi_lookup_is_normalized_exact_match_not_substring(tmp_path) -> None:
+    manager = EvidenceReleaseManager(tmp_path / "evidence")
+    manager.create_release(
+        [
+            {"doi": "10.1000/example", "source": "fixture", "text": "first"},
+            {"doi": "10.1000/example-extra", "source": "fixture", "text": "second"},
+        ],
+        release_id="release-exact-doi",
+    )
+    blocks = manager.load_by_doi("release-exact-doi", "https://doi.org/10.1000/example")
+    assert [block["text"] for block in blocks] == ["first"]

@@ -9,7 +9,7 @@ from typing import Protocol
 
 from pydantic import BaseModel, ConfigDict
 
-from evimem.core.contracts import ClaimSignature, MemoryType, WarrantedMemoryItem
+from evimem.contracts import ClaimSignature, MemoryType, WarrantedMemoryItem
 
 from .governed_store import GovernedMemoryStore
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from evimem.contracts import CurationBudget
 from evimem.controller import (
     ActionType,
     CurationAction,
@@ -8,7 +9,6 @@ from evimem.controller import (
     StateBuilder,
     build_standard_action_registry,
 )
-from evimem.core.contracts import CurationBudget
 
 from .evimem_helpers import candidate, evidence_ref
 

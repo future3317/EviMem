@@ -10,7 +10,7 @@ from typing import Any, Protocol
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from evimem.core.contracts import (
+from evimem.contracts import (
     ActionCost,
     ClaimState,
     EvidenceRef,

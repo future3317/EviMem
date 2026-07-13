@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
-from evimem.core.contracts import (
+from evimem.contracts import (
     MemoryType,
     SlotStatus,
     VerificationCertificate,
@@ -96,6 +96,15 @@ class GovernedMemoryStore:
             reasons.append("policy_version_mismatch")
         if item.policy_hash != certificate.domain_pack_hash:
             reasons.append("policy_hash_mismatch")
+        if not certificate.resolved_evidence:
+            reasons.append("certificate_has_no_resolved_evidence")
+        if certificate.support_tier == "unbound":
+            reasons.append("unbound_certificate_not_admissible")
+        if any(
+            ref.release_id != certificate.evidence_release_id
+            for ref in certificate.resolved_evidence
+        ):
+            reasons.append("certificate_evidence_release_mismatch")
         if {ref.model_dump_json() for ref in item.evidence_refs} - {
             ref.model_dump_json() for ref in certificate.resolved_evidence
         }:
@@ -123,6 +132,8 @@ class GovernedMemoryStore:
                 reasons.append("rejected_memory_requires_stable_reason")
             if item.decision.status != "rejected":
                 reasons.append("rejected_memory_decision_mismatch")
+            if certificate.support_tier == "unbound":
+                reasons.append("rejected_memory_requires_bound_evidence")
         elif item.memory_type == MemoryType.CONFLICT:
             if certificate.conflict_result != "unresolved_conflict":
                 reasons.append("conflict_memory_requires_unresolved_conflict")

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from evimem.core.contracts import SlotStatus
+from evimem.contracts import SlotStatus
 
 from .state import ControllerState
 

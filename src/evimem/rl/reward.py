@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from evimem.core.contracts import CurationTrajectory, VerificationCertificate
+from evimem.contracts import CurationTrajectory, VerificationCertificate
 
 
 @dataclass(frozen=True)

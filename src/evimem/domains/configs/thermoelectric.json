@@ -1,0 +1,354 @@
+{
+  "domain_id": "thermoelectric",
+  "version": "1.1.0",
+  "display_name": "Thermoelectric Materials",
+  "description": "Thermoelectric material properties. Active DomainPack with human-reviewed gold benchmark, full ontology, and PGCE validation support.",
+  "status": "active",
+
+  "properties": {
+    "zt": {
+      "canonical_name": "ZT",
+      "aliases": ["figure of merit", "thermoelectric figure of merit", "zT", "ZT value", "dimensionless figure of merit", "ZT_max", "peak ZT", "average ZT", "ZT (figure of merit)"],
+      "units": ["dimensionless"],
+      "value_type": "float",
+      "expected_range": [0.0, 5.0],
+      "required_context": ["material", "condition"],
+      "description": "Thermoelectric figure of merit ZT = S²σT/κ."
+    },
+    "seebeck_coefficient": {
+      "canonical_name": "seebeck_coefficient",
+      "aliases": ["Seebeck coefficient", "thermopower", "S", "α", "alpha", "absolute Seebeck", "seebeck", "seebeck coeff", "seebeck coefficient", "thermoelectric power", "thermo power", "Seebeck", "absolute thermopower"],
+      "units": ["μV/K", "V/K", "mV/K", "uV/K"],
+      "value_type": "float",
+      "expected_range": [-5000.0, 5000.0],
+      "required_context": ["material", "condition"],
+      "description": "Seebeck coefficient (thermopower)."
+    },
+    "electrical_conductivity": {
+      "canonical_name": "electrical_conductivity",
+      "aliases": ["electrical conductivity", "σ", "conductivity", "sigma", "dc conductivity", "DC conductivity", "electronic conductivity", "sigma_rt"],
+      "units": ["S/m", "S/cm", "Ω⁻¹m⁻¹", "Ω⁻¹cm⁻¹", "1/Ω·m", "S/m"],
+      "value_type": "float",
+      "expected_range": [0.0, 100000000.0],
+      "required_context": ["material", "condition"],
+      "description": "Electrical conductivity."
+    },
+    "thermal_conductivity": {
+      "canonical_name": "thermal_conductivity",
+      "aliases": ["thermal conductivity", "κ", "kappa", "total thermal conductivity", "lattice thermal conductivity", "electronic thermal conductivity", "heat conductivity", "thermal diffusivity", "k total", "κ_lat", "κ_ele"],
+      "units": ["W/mK", "W/m·K", "W m⁻¹ K⁻¹", "W/m/K"],
+      "value_type": "float",
+      "expected_range": [0.0, 500.0],
+      "required_context": ["material", "condition"],
+      "description": "Thermal conductivity (total, lattice, or electronic component)."
+    },
+    "power_factor": {
+      "canonical_name": "power_factor",
+      "aliases": ["power factor", "PF", "S²σ", "S^2 sigma", "thermoelectric power factor", "powerfactor", "S^2*sigma", "S2σ"],
+      "units": ["μW/cmK²", "μW/(cm·K²)", "W/mK²", "mW/mK²", "uW/cmK2", "μW m⁻¹ K⁻²"],
+      "value_type": "float",
+      "expected_range": [0.0, 1000000.0],
+      "required_context": ["material", "condition"],
+      "description": "Thermoelectric power factor PF = S²σ."
+    },
+    "electrical_resistivity": {
+      "canonical_name": "electrical_resistivity",
+      "aliases": ["electrical resistivity", "resistivity", "ρ", "rho", "specific resistance", "dc resistivity"],
+      "units": ["Ω·m", "Ω·cm", "mΩ·cm", "μΩ·cm", "Ohm cm"],
+      "value_type": "float",
+      "expected_range": [0.0, 1000000.0],
+      "required_context": ["material", "condition"],
+      "description": "Electrical resistivity (inverse of conductivity).",
+      "status": "known"
+    },
+    "hall_coefficient": {
+      "canonical_name": "hall_coefficient",
+      "aliases": ["Hall coefficient", "R_H", "RH", "Hall constant", "hall coefficient"],
+      "units": ["cm³/C", "m³/C"],
+      "value_type": "float",
+      "expected_range": [-100000.0, 100000.0],
+      "required_context": ["material"],
+      "description": "Hall coefficient (carrier type and concentration indicator).",
+      "status": "known"
+    },
+    "carrier_mobility": {
+      "canonical_name": "carrier_mobility",
+      "aliases": ["carrier mobility", "μ", "mobility", "mu", "Hall mobility", "electron mobility", "hole mobility"],
+      "units": ["cm²/V·s", "cm2/Vs", "cm2 V-1 s-1", "m²/V·s"],
+      "value_type": "float",
+      "expected_range": [0.0, 100000.0],
+      "required_context": ["material"],
+      "description": "Charge carrier mobility.",
+      "status": "known"
+    },
+    "carrier_concentration": {
+      "canonical_name": "carrier_concentration",
+      "aliases": ["carrier concentration", "carrier density", "n_H", "nH", "Hall carrier concentration", "charge carrier concentration", "electron concentration", "hole concentration", "n-type carrier concentration", "p-type carrier concentration"],
+      "units": ["cm⁻³", "cm-3", "10^19 cm⁻³", "10^19 cm-3", "m⁻³", "m-3"],
+      "value_type": "float",
+      "expected_range": [0.0, 1e22],
+      "required_context": ["material"],
+      "description": "Charge carrier concentration (often Hall carrier concentration n_H).",
+      "status": "known"
+    },
+    "carrier_density": {
+      "canonical_name": "carrier_density",
+      "aliases": ["carrier density", "charge carrier density", "electron density", "hole density"],
+      "units": ["cm⁻³", "cm-3", "10^19 cm⁻³", "10^19 cm-3", "m⁻³", "m-3"],
+      "value_type": "float",
+      "expected_range": [0.0, 1e22],
+      "required_context": ["material"],
+      "description": "Charge carrier density (synonym for carrier concentration).",
+      "status": "known"
+    },
+    "effective_mass": {
+      "canonical_name": "effective_mass",
+      "aliases": ["effective mass", "m*", "m_s*", "m* / m_e", "effective mass ratio", "density-of-states effective mass"],
+      "units": ["m_e", "dimensionless"],
+      "value_type": "float",
+      "expected_range": [0.0, 100.0],
+      "required_context": ["material"],
+      "description": "Effective mass of charge carriers normalized to electron rest mass m_e.",
+      "status": "known"
+    },
+    "lattice_thermal_conductivity": {
+      "canonical_name": "lattice_thermal_conductivity",
+      "aliases": ["lattice thermal conductivity", "κ_lat", "kappa_lat", "phonon thermal conductivity", "κ_L", "k_lattice"],
+      "units": ["W/mK", "W/m·K", "W m⁻¹ K⁻¹", "W/m/K"],
+      "value_type": "float",
+      "expected_range": [0.0, 500.0],
+      "required_context": ["material", "condition"],
+      "description": "Lattice (phonon) contribution to thermal conductivity.",
+      "status": "known"
+    }
+  },
+
+  "conditions": {
+    "measurement_temperature": {
+      "canonical_name": "measurement_temperature",
+      "aliases": ["temperature", "T", "temp", "meas temp", "ambient temperature", "measurement temperature", "hot side temperature", "cold side temperature", "operating temperature"],
+      "units": ["K", "°C", "C", "kelvin"],
+      "process_keywords": ["at", "measured at", "temperature of"],
+      "description": "Temperature during thermoelectric property measurement."
+    },
+    "doping_level": {
+      "canonical_name": "doping_level",
+      "aliases": ["doping concentration", "carrier concentration", "dopant concentration", "doping", "n", "carrier density", "charge carrier concentration"],
+      "units": ["cm⁻³", "cm-3", "at%", "mol%", "wt%"],
+      "description": "Doping level or carrier concentration."
+    },
+    "temperature_difference": {
+      "canonical_name": "temperature_difference",
+      "aliases": ["temperature difference", "ΔT", "delta T", "temperature gradient", "thermal gradient"],
+      "units": ["K", "°C", "C"],
+      "process_keywords": ["ΔT", "delta T", "across", "gradient"],
+      "description": "Temperature difference across the sample during measurement.",
+      "status": "known"
+    },
+    "atmosphere": {
+      "canonical_name": "atmosphere",
+      "aliases": ["atmosphere", "gas", "ambient", "inert gas", "argon", "vacuum", "N2", "He"],
+      "units": ["atm", "Pa", "mbar", "torr"],
+      "description": "Atmosphere during synthesis or measurement.",
+      "status": "known"
+    }
+  },
+
+  "processes": {
+    "solid_state_synthesis": {
+      "canonical_name": "solid_state_synthesis",
+      "aliases": ["solid-state reaction", "solid state reaction", "SSR", "mixed oxide", "conventional ceramic"],
+      "keywords": ["ground", "mixed", "pelletized", "ball milled", "solid-state", "solid state", "mixed oxide"],
+      "description": "Solid-state reaction synthesis route."
+    },
+    "spark_plasma_sintering": {
+      "canonical_name": "spark_plasma_sintering",
+      "aliases": ["SPS", "spark plasma sintering", "field assisted sintering", "FAST", "pulse electric current sintering", "PECS"],
+      "keywords": ["SPS", "spark plasma sinter", "field assisted sintering", "pulse electric current"],
+      "description": "Spark plasma sintering (field-assisted sintering).",
+      "status": "known"
+    },
+    "hot_pressing": {
+      "canonical_name": "hot_pressing",
+      "aliases": ["hot pressing", "HP", "uniaxial hot pressing"],
+      "keywords": ["hot press", "hot pressing", "uniaxial press"],
+      "description": "Hot pressing densification method.",
+      "status": "known"
+    },
+    "zone_melting": {
+      "canonical_name": "zone_melting",
+      "aliases": ["zone melting", "zone refining", "traveling heater method", "THM"],
+      "keywords": ["zone melt", "zone melted", "traveling heater", "Bridgman"],
+      "description": "Zone melting or directional solidification.",
+      "status": "known"
+    },
+    "melting": {
+      "canonical_name": "melting",
+      "aliases": ["melting", "melt growth", "arc melting", "induction melting"],
+      "keywords": ["melted", "arc melt", "induction melt", "melt-grown", "melt growth"],
+      "description": "Melt-based synthesis or growth method."
+    },
+    "ball_milling": {
+      "canonical_name": "ball_milling",
+      "aliases": ["ball milling", "mechanical alloying", "high-energy ball milling", "planetary milling"],
+      "keywords": ["ball mill", "planetary mill", "mechanical alloy", "high-energy ball mill"],
+      "description": "Ball milling or mechanical alloying process."
+    },
+    "measurement": {
+      "canonical_name": "measurement",
+      "aliases": ["characterization", "thermoelectric measurement", "transport measurement", "ZEM"],
+      "keywords": ["ZEM", "LSR", "measured", "characterized", "Seebeck measurement", "thermal diffusivity"],
+      "description": "Thermoelectric property measurement."
+    }
+  },
+
+  "false_positive_patterns": {
+    "review_context": {
+      "pattern_id": "review_context",
+      "keywords": ["review", "overview", "summary of", "this review", "recent progress", "perspective", "mini-review", "comprehensive review", "critical review"],
+      "reason_code": "non_current_paper_comparison",
+      "risk_level": "medium",
+      "description": "Values cited from review articles — not original data."
+    },
+    "theory_prediction": {
+      "pattern_id": "theory_prediction",
+      "keywords": ["predicted", "theoretical", "calculated", "DFT", "first-principles", "computational", "simulation", "modeling", "Boltzmann transport"],
+      "reason_code": "simulation_not_experiment",
+      "risk_level": "high",
+      "description": "Computational/theoretical values that may not reflect experimental measurements."
+    },
+    "device_application": {
+      "pattern_id": "device_application",
+      "keywords": ["module", "thermoelectric generator", "TEG", "cooler", "Peltier", "device", "generator", "power generation"],
+      "reason_code": "device_context_not_material_property",
+      "risk_level": "medium",
+      "description": "Device or module-level values may not reflect intrinsic material properties."
+    },
+    "non_current_paper_comparison": {
+      "pattern_id": "non_current_paper_comparison",
+      "keywords": ["reported by", "found by", "observed by", "as reported", "previously reported", "literature value", "compared to", "higher than", "lower than", "similar to", "in agreement with"],
+      "reason_code": "non_current_paper_comparison",
+      "risk_level": "medium",
+      "description": "Comparison values from other papers — not original data."
+    },
+    "single_crystal_anisotropy": {
+      "pattern_id": "single_crystal_anisotropy",
+      "keywords": ["anisotropic", "single crystal", "oriented", "crystallographic direction", "ab-plane", "c-axis"],
+      "reason_code": "possible_context_missing",
+      "risk_level": "low",
+      "description": "Anisotropic or oriented sample values may need directional context.",
+      "status": "known"
+    }
+  },
+
+  "evidence_policy": {
+    "max_total_chars": 16000,
+    "target_narrative_chars": 2000,
+    "target_table_candidate_chars": 9000,
+    "target_table_row_chars": 4000,
+    "target_anchor_chars": 1000,
+    "max_table_candidates": 120,
+    "max_narrative_snippets": 15,
+    "max_table_rows": 40,
+    "max_audit_anchors": 10,
+    "table_mode": "table_candidates",
+    "ranking_mode": "hybrid"
+  },
+
+  "publication_policy": {
+    "blocked_materialization_properties": [],
+    "strict_materialization_allowed": false,
+    "requires_verified_strong_evidence": false,
+    "allow_structured_prompt_support": false
+  },
+
+  "benchmark_config": {
+    "status": "not_available",
+    "gold_path": null,
+    "default_matching_strictness": "loose_property_name_value_unit"
+  },
+
+  "retrieval": {
+    "source_connectors": {
+      "openalex": {"enabled": true, "max_results_per_query": 200},
+      "arxiv": {"enabled": true, "max_results_per_query": 100},
+      "elsevier": {"enabled": true, "max_results_per_query": 200},
+      "springer": {"enabled": true, "max_results_per_query": 100}
+    },
+    "query_families": {
+      "te_properties": {
+        "candidate_reason": "thermoelectric_property_focused",
+        "queries": [
+          {"name": "te_zT_value", "query": "Bi2Te3 thermoelectric Seebeck ZT", "material_family_hint": "bismuth_telluride"},
+          {"name": "te_snse", "query": "SnSe thermoelectric figure of merit ZT", "material_family_hint": "snse"},
+          {"name": "te_pbte_s", "query": "PbTe thermoelectric Seebeck power factor", "material_family_hint": "pbte"},
+          {"name": "te_mg3sb2", "query": "Mg3Sb2 thermoelectric ZT", "material_family_hint": "mg3sb2"},
+          {"name": "te_heusler", "query": "half-Heusler thermoelectric Seebeck coefficient", "material_family_hint": "half_heusler"},
+          {"name": "te_skutterudite2", "query": "skutterudite thermoelectric ZT", "material_family_hint": "skutterudite"},
+          {"name": "te_pf_sigma", "query": "thermoelectric power factor electrical conductivity thermal conductivity"},
+          {"name": "te_fom", "query": "thermoelectric figure of merit Seebeck coefficient"}
+        ]
+      },
+      "te_materials": {
+        "candidate_reason": "thermoelectric_materials_family",
+        "queries": [
+          {"name": "te_bismuth_telluride2", "query": "Bi2Te3 thermoelectric Seebeck", "material_family_hint": "bismuth_telluride"},
+          {"name": "te_snse2", "query": "SnSe thermoelectric Seebeck ZT", "material_family_hint": "snse"},
+          {"name": "te_pbte2", "query": "PbTe thermoelectric ZT Seebeck", "material_family_hint": "pbte"},
+          {"name": "te_sige2", "query": "SiGe thermoelectric ZT power factor", "material_family_hint": "sige"},
+          {"name": "te_mgsb2", "query": "Mg3Sb2 ZT thermoelectric", "material_family_hint": "mg3sb2"},
+          {"name": "te_heusler2", "query": "half-Heusler ZT thermoelectric", "material_family_hint": "half_heusler"},
+          {"name": "te_skutterudite3", "query": "skutterudite CoSb3 thermoelectric", "material_family_hint": "skutterudite"},
+          {"name": "te_tco2", "query": "oxide thermoelectric ZT Seebeck", "material_family_hint": "oxide_thermoelectric"},
+          {"name": "te_snte2", "query": "SnTe thermoelectric ZT", "material_family_hint": "snte"},
+          {"name": "te_in2te3", "query": "In2Te3 thermoelectric", "material_family_hint": "in2te3"},
+          {"name": "te_ag2te", "query": "Ag2Se thermoelectric", "material_family_hint": "ag2se"}
+        ]
+      },
+      "te_synthesis": {
+        "candidate_reason": "thermoelectric_synthesis",
+        "queries": [
+          {"name": "te_sps", "query": "spark plasma sintering thermoelectric ZT"}, {"name": "te_hot_press", "query": "hot pressing Bi2Te3 thermoelectric"},
+          {"name": "te_ball_mill", "query": "ball milling thermoelectric ZT"}
+        ]
+      }
+    },
+    "post_filter_terms": [
+      "hydrogen production",
+      "multi-generation",
+      "trigeneration",
+      "fuel cell",
+      "combustion",
+      "immersion cooling",
+      "battery thermal management",
+      "building energy",
+      "HVAC",
+      "desalination",
+      "photovoltaic thermal system",
+      "solar still",
+      "thermogalvanic",
+      "pyroelectric energy",
+      "solid oxide fuel cell",
+      "polymer electrolyte membrane"
+    ],
+    "soft_negative_terms": [
+      "solar",
+      "cooling",
+      "thermal management system",
+      "heat pump",
+      "refrigeration",
+      "heat exchanger",
+      "thermal comfort",
+      "waste heat recovery system",
+      "thermoelectric cooler",
+      "Peltier device",
+      "thermoelectric generator module"
+    ],
+    "corpus_filters": {
+      "year_start": 2000,
+      "year_end": 2026,
+      "require_abstract": false,
+      "require_pdf_url": false
+    }
+  }
+}

@@ -7,7 +7,7 @@ import sqlite3
 from datetime import UTC, datetime
 from pathlib import Path
 
-from evimem.core.contracts import CurationTrajectory
+from evimem.contracts import CurationTrajectory
 
 
 class TrajectoryReplayBuffer:

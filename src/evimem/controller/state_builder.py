@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from evimem.core.contracts import (
+from evimem.contracts import (
     CandidateObservation,
     ClaimState,
     CurationBudget,
@@ -40,7 +40,9 @@ class StateBuilder:
         slots: dict[str, VerificationSlot] = {}
         claim = candidate.claim
         for slot_name in required_slots:
-            if slot_name.startswith("condition."):
+            if slot_name == "condition":
+                present = bool(claim.conditions_raw or claim.conditions)
+            elif slot_name.startswith("condition."):
                 key = slot_name.removeprefix("condition.")
                 present = key in claim.conditions and claim.conditions[key] not in (None, "")
             else:

@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 
-from evimem.core.contracts import (
+from evimem.contracts import (
     CandidateObservation,
     ClaimSignature,
     CurationTrajectory,
@@ -15,7 +15,7 @@ from evimem.core.contracts import (
     VerificationCertificate,
     WarrantedMemoryItem,
 )
-from evimem.core.ids import deterministic_id
+from evimem.contracts.ids import deterministic_id
 
 
 @dataclass(frozen=True)
@@ -43,6 +43,16 @@ class MemoryConsolidator:
             return ConsolidationResult(False, None, ("candidate_trajectory_mismatch",))
         if trajectory.evidence_release_id != certificate.evidence_release_id:
             return ConsolidationResult(False, None, ("trajectory_release_mismatch",))
+        if trajectory.domain_pack_id != certificate.domain_pack_id:
+            return ConsolidationResult(False, None, ("trajectory_domain_pack_mismatch",))
+        if trajectory.domain_pack_version != certificate.domain_pack_version:
+            return ConsolidationResult(False, None, ("trajectory_policy_version_mismatch",))
+        if trajectory.domain_pack_hash != certificate.domain_pack_hash:
+            return ConsolidationResult(False, None, ("trajectory_policy_hash_mismatch",))
+        if not certificate.resolved_evidence:
+            return ConsolidationResult(False, None, ("certificate_has_no_resolved_evidence",))
+        if certificate.support_tier == "unbound":
+            return ConsolidationResult(False, None, ("unbound_certificate_not_admissible",))
 
         if certificate.final_decision == "publish" and certificate.support_tier == "verified_strong":
             memory_type = MemoryType.VERIFIED
@@ -100,5 +110,6 @@ class MemoryConsolidator:
             policy_version=certificate.domain_pack_version,
             policy_hash=certificate.domain_pack_hash,
             evidence_release_id=certificate.evidence_release_id,
+            valid_from=candidate.proposer_provenance.extraction_timestamp,
         )
         return ConsolidationResult(True, item, ())

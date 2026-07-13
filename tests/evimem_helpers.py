@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from evimem.core.contracts import (
+from evimem.contracts import (
     CandidateObservation,
     CheckResult,
     EvidenceRef,

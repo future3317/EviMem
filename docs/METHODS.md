@@ -1758,13 +1758,15 @@ DomainPack 更新后，旧记忆是否被正确降权、迁移或失效。
 ## 23.1 保留模块
 
 ```text
-src/evimem/core/contracts/
-src/evimem/core/evidence_release_manager.py
-src/publication/commit_service.py
-src/evidence/binding.py
-src/verify/
-src/domains/
-src/context/material_context.py
+src/evimem/contracts/
+src/evimem/evidence/release.py
+src/evimem/evidence/store.py
+src/evimem/evidence/binding.py
+src/evimem/domains/
+src/evimem/verification/
+src/evimem/publication/commit.py
+src/evimem/publication/store.py
+src/evimem/runtime.py
 ```
 
 ---
@@ -1790,9 +1792,11 @@ src/evimem/rl/
     trajectory.py
     reward.py
     replay_buffer.py
-    imitation.py
-    grpo_trainer.py
-    policy_model.py
+
+src/evimem/training/
+    dataset.py
+    policy.py
+    trainers.py
 
 src/evimem/benchmark/
     episode.py

@@ -7,7 +7,7 @@ from typing import Any, ClassVar, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from evimem.core.contracts import (
+from evimem.contracts import (
     ActionCost,
     CandidateObservation,
     ClaimState,

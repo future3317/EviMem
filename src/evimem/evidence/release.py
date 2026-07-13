@@ -33,7 +33,7 @@ from typing import Any
 import pandas as pd
 from structlog import get_logger
 
-from evimem.core.doi import normalize_doi
+from evimem.evidence.doi import normalize_doi
 
 logger = get_logger()
 
@@ -71,6 +71,25 @@ def _compute_sha256(path: Path) -> str:
 def _stable_json_bytes(obj: Any) -> bytes:
     """Canonical JSON bytes for deterministic hashing."""
     return json.dumps(obj, sort_keys=True, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+
+
+def block_checksum(block: dict[str, Any]) -> str:
+    """Return the checksum of a release block without runtime-only annotations."""
+
+    payload = {
+        key: value
+        for key, value in block.items()
+        if key not in {"evidence_release_id", "evidence_block_checksum"}
+    }
+    return "sha256:" + hashlib.sha256(
+        json.dumps(
+            payload,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+            default=str,
+        ).encode("utf-8")
+    ).hexdigest()
 
 
 @dataclass(frozen=True)
@@ -211,6 +230,32 @@ class EvidenceReleaseManager:
 
         if df.empty:
             raise ValueError("Cannot create an evidence release from empty blocks")
+
+        required = {"doi", "source"}
+        missing = required - set(df.columns)
+        if missing:
+            raise ValueError(f"blocks DataFrame missing required columns: {missing}")
+        df["doi"] = df["doi"].map(normalize_doi)
+        if (df["doi"] == "").any():
+            raise ValueError("every evidence block requires a valid DOI")
+        if "block_id" not in df.columns:
+            df["block_id"] = ""
+        for position, index in enumerate(df.index):
+            block_id = str(df.at[index, "block_id"] or "").strip()
+            if not block_id:
+                digest = hashlib.sha256(
+                    _stable_json_bytes(
+                        {
+                            "doi": df.at[index, "doi"],
+                            "source": str(df.at[index, "source"]),
+                            "text": str(df.at[index, "text"] if "text" in df.columns else ""),
+                            "index": position,
+                        }
+                    )
+                ).hexdigest()[:24]
+                df.at[index, "block_id"] = f"block-{digest}"
+        if df["block_id"].astype(str).duplicated().any():
+            raise ValueError("evidence block_id values must be unique within a release")
 
         if release_id is None:
             release_id = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
@@ -405,23 +450,15 @@ class EvidenceReleaseManager:
         if df.empty or "doi" not in df.columns or not doi_clean:
             return []
 
-        rows = df[df["doi"].astype(str).str.contains(doi_clean, na=False)]
+        normalized = df["doi"].astype(str).map(normalize_doi)
+        rows = df[normalized == doi_clean]
         if domain_name and "domain_name" in df.columns:
             rows = rows[rows["domain_name"] == domain_name]
 
         records = rows.to_dict("records")
         for block in records:
-            payload = json.dumps(
-                block,
-                sort_keys=True,
-                separators=(",", ":"),
-                ensure_ascii=False,
-                default=str,
-            )
             block["evidence_release_id"] = release_id
-            block["evidence_block_checksum"] = (
-                "sha256:" + hashlib.sha256(payload.encode("utf-8")).hexdigest()
-            )
+            block["evidence_block_checksum"] = block_checksum(block)
         return records
 
 
@@ -430,4 +467,5 @@ __all__ = [
     "EvidenceRelease",
     "EvidenceReleaseManager",
     "RELEASE_SCHEMA_VERSION",
+    "block_checksum",
 ]

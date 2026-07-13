@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from evimem.core.contracts import ActionCost, ClaimSignature, MemoryType
+from evimem.contracts import ActionCost, ClaimSignature, MemoryType
 from evimem.memory import MemoryRetriever, RetrievalQuery
 
 from .actions import ActionType, CurationAction

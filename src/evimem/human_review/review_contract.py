@@ -7,7 +7,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from evimem.core.contracts import EvidenceRef
+from evimem.contracts import EvidenceRef
 
 
 class HumanReviewRequest(BaseModel):

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from evimem.core.contracts import ActionCost, CurationStep, CurationTrajectory, VerifierDelta
+from evimem.contracts import ActionCost, CurationStep, CurationTrajectory, VerifierDelta
 from evimem.rl import TrajectoryReplayBuffer, VerifierShapedReward
 
 from .evimem_helpers import certificate

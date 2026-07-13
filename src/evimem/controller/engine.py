@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from evimem.core.contracts import CurationTrajectory
+from evimem.contracts import CurationTrajectory
 from evimem.rl.trajectory import TrajectoryRecorder
 
 from .actions import ActionType, CurationAction

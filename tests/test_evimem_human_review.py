@@ -1,7 +1,7 @@
 from __future__ import annotations
 
+from evimem.contracts import CurationBudget, SlotStatus, VerificationSlot
 from evimem.controller import StateBuilder
-from evimem.core.contracts import CurationBudget, SlotStatus, VerificationSlot
 from evimem.human_review import ExpectedValueReviewPolicy, HumanReviewRequest
 
 from .evimem_helpers import candidate, evidence_ref

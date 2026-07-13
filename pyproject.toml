@@ -12,6 +12,7 @@ dependencies = [
   "pandas>=2.1",
   "pyarrow>=14",
   "pydantic>=2.5",
+  "sqlalchemy>=2,<3",
   "structlog>=23.2",
 ]
 
@@ -38,6 +39,9 @@ package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+"evimem.domains" = ["configs/*.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

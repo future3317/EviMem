@@ -7,8 +7,8 @@ from typing import ClassVar
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from evimem.contracts import CurationTrajectory, EvidenceRef, VerificationCertificate
 from evimem.controller.state import ControllerState
-from evimem.core.contracts import CurationTrajectory, EvidenceRef, VerificationCertificate
 
 
 class HardCaseType(StrEnum):
