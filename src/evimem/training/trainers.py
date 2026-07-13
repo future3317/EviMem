@@ -1,11 +1,8 @@
-"""Maintained-library trainer factories for LoRA SFT and constrained GRPO."""
+"""Maintained-library configuration for supervised retriever and manager training."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
-
-from .rewards import ActionRewardOracle, VerifierRewardAdapter
 
 
 @dataclass(frozen=True)
@@ -25,36 +22,27 @@ class LoraSpec:
 
 
 @dataclass(frozen=True)
-class SFTJobConfig:
+class ManagerSFTConfig:
     output_dir: str
     learning_rate: float = 2e-4
     epochs: float = 3.0
     per_device_batch_size: int = 1
     gradient_accumulation_steps: int = 8
-    max_length: int = 2048
     logging_steps: int = 10
     save_steps: int = 100
     seed: int = 42
     bf16: bool = True
-    gradient_checkpointing: bool = True
 
 
 @dataclass(frozen=True)
-class GRPOJobConfig:
+class RetrieverTrainingConfig:
     output_dir: str
-    learning_rate: float = 1e-6
-    epochs: float = 1.0
-    per_device_batch_size: int = 1
-    gradient_accumulation_steps: int = 8
-    num_generations: int = 4
-    max_completion_length: int = 256
-    beta: float = 0.02
-    epsilon: float = 0.2
-    logging_steps: int = 5
-    save_steps: int = 100
+    learning_rate: float = 2e-5
+    epochs: float = 3.0
+    per_device_batch_size: int = 16
+    warmup_ratio: float = 0.1
     seed: int = 42
     bf16: bool = True
-    gradient_checkpointing: bool = True
 
 
 def build_lora_config(spec: LoraSpec | None = None):
@@ -71,17 +59,15 @@ def build_lora_config(spec: LoraSpec | None = None):
     )
 
 
-def build_sft_args(config: SFTJobConfig):
-    from trl import SFTConfig
+def build_manager_training_args(config: ManagerSFTConfig):
+    from transformers import TrainingArguments
 
-    return SFTConfig(
+    return TrainingArguments(
         output_dir=config.output_dir,
         learning_rate=config.learning_rate,
         num_train_epochs=config.epochs,
         per_device_train_batch_size=config.per_device_batch_size,
         gradient_accumulation_steps=config.gradient_accumulation_steps,
-        max_length=config.max_length,
-        completion_only_loss=True,
         logging_steps=config.logging_steps,
         save_steps=config.save_steps,
         save_strategy="steps",
@@ -89,78 +75,22 @@ def build_sft_args(config: SFTJobConfig):
         seed=config.seed,
         data_seed=config.seed,
         bf16=config.bf16,
-        gradient_checkpointing=config.gradient_checkpointing,
+        gradient_checkpointing=True,
         remove_unused_columns=True,
     )
 
 
-def build_grpo_args(config: GRPOJobConfig):
-    from trl import GRPOConfig
+def build_retriever_training_args(config: RetrieverTrainingConfig):
+    from sentence_transformers import SentenceTransformerTrainingArguments
 
-    return GRPOConfig(
+    return SentenceTransformerTrainingArguments(
         output_dir=config.output_dir,
         learning_rate=config.learning_rate,
         num_train_epochs=config.epochs,
         per_device_train_batch_size=config.per_device_batch_size,
-        gradient_accumulation_steps=config.gradient_accumulation_steps,
-        num_generations=config.num_generations,
-        max_completion_length=config.max_completion_length,
-        beta=config.beta,
-        epsilon=config.epsilon,
-        scale_rewards="group",
-        loss_type="grpo",
-        logging_steps=config.logging_steps,
-        save_steps=config.save_steps,
-        save_strategy="steps",
+        per_device_eval_batch_size=config.per_device_batch_size,
+        warmup_ratio=config.warmup_ratio,
         report_to="none",
         seed=config.seed,
-        data_seed=config.seed,
         bf16=config.bf16,
-        gradient_checkpointing=config.gradient_checkpointing,
-        remove_unused_columns=False,
     )
-
-
-def build_sft_trainer(
-    *,
-    model: str | Any,
-    train_dataset: Any,
-    config: SFTJobConfig,
-    eval_dataset: Any | None = None,
-    processing_class: Any | None = None,
-    lora: LoraSpec | None = None,
-):
-    from trl import SFTTrainer
-
-    return SFTTrainer(
-        model=model,
-        args=build_sft_args(config),
-        train_dataset=train_dataset,
-        eval_dataset=eval_dataset,
-        processing_class=processing_class,
-        peft_config=build_lora_config(lora),
-    )
-
-
-def build_grpo_trainer(
-    *,
-    model: str | Any,
-    train_dataset: Any,
-    reward_oracle: ActionRewardOracle,
-    config: GRPOJobConfig,
-    eval_dataset: Any | None = None,
-    processing_class: Any | None = None,
-    lora: LoraSpec | None = None,
-):
-    from trl import GRPOTrainer
-
-    return GRPOTrainer(
-        model=model,
-        reward_funcs=VerifierRewardAdapter(reward_oracle),
-        args=build_grpo_args(config),
-        train_dataset=train_dataset,
-        eval_dataset=eval_dataset,
-        processing_class=processing_class,
-        peft_config=build_lora_config(lora),
-    )
-

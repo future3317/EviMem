@@ -1,30 +1,41 @@
-"""Governed evidence-warranted memory."""
+"""Governed evidence-certified scientific memory."""
 
+from .baselines import FullHistoryBaseline, NoMemoryBaseline
 from .consolidation import ConsolidationResult, MemoryConsolidator
 from .governed_store import (
     AdmissionDecision,
     GovernedMemoryStore,
     MemoryAdmissionError,
+    MemoryAdmissionGate,
 )
 from .retriever import (
-    MemoryHints,
+    BM25SemanticScorer,
     MemoryRetriever,
     RetrievalQuery,
+    RetrievalWeights,
     RetrievedMemory,
+    SentenceTransformerSemanticScorer,
     TfidfSemanticScorer,
 )
-from .supersession import MemorySupersessionService
+from .update import TypedMemoryUpdateGate, TypedMemoryUpdateService, UpdateResult
 
 __all__ = [
     "AdmissionDecision",
+    "BM25SemanticScorer",
     "ConsolidationResult",
+    "FullHistoryBaseline",
     "GovernedMemoryStore",
     "MemoryAdmissionError",
+    "MemoryAdmissionGate",
     "MemoryConsolidator",
-    "MemoryHints",
     "MemoryRetriever",
-    "MemorySupersessionService",
+    "NoMemoryBaseline",
     "RetrievalQuery",
+    "RetrievalWeights",
     "RetrievedMemory",
+    "SentenceTransformerSemanticScorer",
     "TfidfSemanticScorer",
+    "TypedMemoryUpdateGate",
+    "TypedMemoryUpdateService",
+    "UpdateResult",
 ]

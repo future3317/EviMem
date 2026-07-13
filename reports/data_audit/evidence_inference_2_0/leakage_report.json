@@ -1,0 +1,15 @@
+{
+  "exact_normalized_claim_or_question_family_cross_split": {},
+  "leakage_safe_sample_count": 1,
+  "leakage_safe_split_counts": {
+    "train": 1
+  },
+  "oracle_model_input_physically_separated": true,
+  "passed": true,
+  "passed_after_quarantine": true,
+  "quarantine_policy": "exclude every sample in a cross-split document or exact normalized query family",
+  "quarantined_sample_count": 0,
+  "source_document_cross_split": {},
+  "temporal_ordering_scope": "within_official_split_only",
+  "test_memory_may_enter_train_memory": false
+}

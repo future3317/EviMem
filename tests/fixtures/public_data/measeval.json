@@ -1,0 +1,14 @@
+{
+  "fixture_kind": "exact MeasEval train span from S0006322312001096-1136 annotSet 1",
+  "source_revision": "1fa738b6bc9b72c84c88a80344ca3ab39a310a44",
+  "id": "1",
+  "document_id": "S0006322312001096-1136",
+  "text": "Data were drawn from the Whitehall II study with baseline examination in 1991; follow-up screenings in 1997, 2003, and 2008; and additional disease ascertainment from hospital data and registry linkage on 5318 participants (mean age 54.8 years, 31% women) without depressive symptoms at baseline.",
+  "measured_entity": "baseline examination",
+  "measured_entity_start": 49,
+  "measured_property": null,
+  "quantity": "1991",
+  "quantity_start": 73,
+  "unit": null,
+  "context": null
+}

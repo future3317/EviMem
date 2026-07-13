@@ -1,0 +1,25 @@
+{
+  "conversion_origins": {
+    "native": 1663
+  },
+  "converted_samples_by_view": {},
+  "dataset": "MeasEval",
+  "evaluation_usable_samples_by_view": {},
+  "native_tasks": {
+    "slot_extraction_only": 1663
+  },
+  "rejected_count": 0,
+  "sample_count": 1663,
+  "source_revision": "1fa738b6bc9b72c84c88a80344ca3ab39a310a44",
+  "source_snapshot": {
+    "aggregate_sha256": "sha256:b8b1dd9366e56488e7eb2a85536186098d6e8549102d6bde995662508bfed347",
+    "file_count": 856,
+    "files_omitted_from_report": true,
+    "reason": "aggregate checksum covers the sorted per-file manifest"
+  },
+  "training_usable_samples_by_view": {},
+  "views": {
+    "slot_extraction_only": 1663
+  },
+  "views_are_separate": true
+}

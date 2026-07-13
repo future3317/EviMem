@@ -1,108 +1,103 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
+from pathlib import Path
+
+import pytest
+
 from evimem.benchmark import (
     BenchmarkEpisode,
+    DatasetRegistry,
+    EpisodePrediction,
+    MemoryQuery,
     OracleAnnotation,
-    SequentialBenchmarkRunner,
+    ScientificDocument,
+    SciFactAdapter,
     build_episode_stream,
+    compute_benchmark_metrics,
 )
-from evimem.contracts import (
-    ActionCost,
-    CurationBudget,
-    SlotStatus,
-    VerificationSlot,
-    VerifierDelta,
-)
-from evimem.controller import (
-    ActionExecutor,
-    ActionToolResult,
-    ActionType,
-    HeuristicController,
-    RegisteredAction,
-    SequentialCurationEngine,
-    StateBuilder,
-    VerificationUpdate,
-)
+from evimem.contracts import AdmissionAction, ScientificClaimRecord, UpdateOperation
 
-from .evimem_helpers import candidate, certificate, evidence_ref
+ROOT = Path(__file__).resolve().parents[1]
 
 
-class _Verifier:
-    def verify(self, *, action, state, tool_result):
-        if not tool_result.evidence_refs:
-            return VerificationUpdate()
-        updates = {
-            name: VerificationSlot(
-                status=SlotStatus.VERIFIED,
-                evidence_refs=tool_result.evidence_refs,
-            )
-            for name in state.claim_state.unresolved_slots
-        }
-        return VerificationUpdate(
-            slot_updates=updates,
-            delta=VerifierDelta(newly_verified_slots=tuple(updates)),
-        )
-
-
-def _episode(episode_id: str, position: int) -> BenchmarkEpisode:
-    state = StateBuilder.build(
-        candidate=candidate().model_copy(update={"candidate_id": f"candidate-{episode_id}"}),
-        required_slots=("property", "value", "unit", "material"),
-        evidence_release_id="release-1",
-        domain_pack_id="piezoelectric",
-        domain_pack_version="1.3.0",
-        domain_pack_hash="policy-hash",
-        budget=CurationBudget(tool_calls=2, wall_clock_seconds=10),
-    )
+def _episode(position: int, year: int) -> BenchmarkEpisode:
     return BenchmarkEpisode(
-        episode_id=episode_id,
+        episode_id=f"episode-{position}",
         stream_position=position,
-        initial_state=state,
+        current_document=ScientificDocument(
+            document_id=f"doc-{position}",
+            text="claim text",
+            timestamp=datetime(year, 1, 1, tzinfo=UTC),
+            dataset_name="SciFact",
+            split="train",
+        ),
+        query=MemoryQuery(query_id=f"query-{position}", text="claim"),
     )
 
 
-def _runner() -> SequentialBenchmarkRunner:
-    executor = ActionExecutor(
-        actions={
-            ActionType.RETRIEVE_TABLE: RegisteredAction(
-                handler=lambda action, state: ActionToolResult(evidence_refs=(evidence_ref(),)),
-                cost=ActionCost(tool_calls=1),
-            ),
-            ActionType.RETRIEVE_PASSAGE: RegisteredAction(
-                handler=lambda action, state: ActionToolResult(evidence_refs=(evidence_ref(),)),
-                cost=ActionCost(tool_calls=1),
-            ),
+def test_dataset_manifest_separates_training_ood_scale_and_case_study() -> None:
+    registry = DatasetRegistry.load(ROOT / "configs" / "datasets.json")
+    assert registry.audit()["ok"] is True
+    assert registry.audit()["training_ready"] is False
+    assert "QASPER" in registry.audit()["blocked_core_training"]
+    registry.assert_split_allowed("SciREX", "train")
+    registry.assert_training_allowed("SciREX", "retrieval_view")
+    with pytest.raises(ValueError, match="blocked for training"):
+        registry.assert_training_allowed("QASPER", "retrieval_view")
+    with pytest.raises(ValueError, match="not in its official protocol"):
+        registry.assert_split_allowed("Materials-150-DOI", "train")
+
+
+def test_stream_rejects_future_ordering() -> None:
+    with pytest.raises(ValueError, match="future ordering"):
+        build_episode_stream([_episode(0, 2026), _episode(1, 2025)])
+
+
+def test_scifact_refute_is_not_promoted_to_rejected_memory() -> None:
+    episode, oracle = SciFactAdapter().convert(
+        {
+            "id": "claim-1",
+            "document_id": "doc-1",
+            "claim": "X increases Y",
+            "label": "CONTRADICT",
+            "abstract": "Evidence refutes the claim.",
         },
-        verifier=_Verifier(),
+        split="train",
+        stream_position=0,
     )
-    return SequentialBenchmarkRunner(
-        engine=SequentialCurationEngine(executor=executor, max_steps=3)
+    assert "gold" not in episode.model_dump()
+    assert episode.current_document.timestamp is None
+    assert oracle.final_record is None
+    assert oracle.admission is None
+    assert oracle.memory_operation is None
+
+
+def test_metrics_cover_retrieval_update_and_publication_safety() -> None:
+    claim = ScientificClaimRecord(subject="X", relation="increases", object="Y")
+    oracle = OracleAnnotation(
+        episode_id="e1",
+        relevant_memory_ids=("m1",),
+        final_record=claim,
+        admission=AdmissionAction.WRITE_VERIFIED,
+        memory_operation=UpdateOperation.LINK,
+        target_memory_ids=("m1",),
     )
-
-
-def test_stream_builder_orders_without_oracle_payload() -> None:
-    stream = build_episode_stream([_episode("b", 1), _episode("a", 0)])
-    assert [episode.episode_id for episode in stream] == ["a", "b"]
-    assert "gold" not in BenchmarkEpisode.model_fields
-
-
-def test_runner_keeps_oracle_out_of_policy_state() -> None:
-    episode = _episode("one", 0)
-    cert = certificate().model_copy(update={"candidate_id": "candidate-one"})
-    runs = _runner().run(
-        episodes=[episode],
-        controllers={"heuristic": HeuristicController()},
-        certificate_evaluator=lambda episode_id, outcome: cert,
-        oracle_annotations={
-            "one": OracleAnnotation(
-                episode_id="one",
-                expected_terminal_action="REQUEST_PUBLICATION",
-                gold_evidence_refs=(evidence_ref(),),
-            )
-        },
+    prediction = EpisodePrediction(
+        episode_id="e1",
+        retrieved_memory_ids=("m1", "m2"),
+        predicted_record=claim,
+        admission=AdmissionAction.WRITE_VERIFIED,
+        memory_operation=UpdateOperation.LINK,
+        target_memory_ids=("m1",),
+        publication_requested=True,
+        publication_authorized=True,
+        certificate_id="cert-1",
+        memory_size=10,
+        retrieval_tokens=20,
     )
-    run = runs["heuristic"]
-    assert run.metrics.episode_count == 1
-    assert run.metrics.verified_strong_count == 1
-    assert run.metrics.terminal_action_accuracy == 1.0
-    assert run.metrics.gold_evidence_hit_rate == 1.0
+    metrics = compute_benchmark_metrics([prediction], {"e1": oracle})
+    assert metrics.tuple_f1 == 1.0
+    assert metrics.recall_at_1 == 1.0
+    assert metrics.update_operation_accuracy == 1.0
+    assert metrics.unsupported_publication_rate == 0.0

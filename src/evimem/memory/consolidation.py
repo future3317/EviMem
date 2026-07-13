@@ -1,58 +1,50 @@
-"""Certificate-driven conversion from an episode outcome to warranted memory."""
+"""Certificate-driven conversion from a curation outcome to scientific memory."""
 
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass
 
 from evimem.contracts import (
     CandidateObservation,
     ClaimSignature,
-    CurationTrajectory,
     MemoryAuthority,
     MemoryDecision,
+    MemoryOrigin,
     MemoryType,
+    ScientificClaimRecord,
+    ScientificMemoryRecord,
     VerificationCertificate,
-    WarrantedMemoryItem,
 )
 from evimem.contracts.ids import deterministic_id
 
 
 @dataclass(frozen=True)
 class ConsolidationResult:
-    admitted_to_long_term: bool
-    item: WarrantedMemoryItem | None
+    eligible_for_admission: bool
+    record: ScientificMemoryRecord | None
     reason_codes: tuple[str, ...]
 
 
 class MemoryConsolidator:
-    """Build memory from audited outcomes, never from free-form reflection."""
+    """Build memory only from a verifier certificate, never free-form reflection."""
 
     @staticmethod
     def consolidate(
         *,
         candidate: CandidateObservation,
         certificate: VerificationCertificate,
-        trajectory: CurationTrajectory,
         domain: str,
-        material_family: str | None = None,
+        source_document: str,
+        origin: MemoryOrigin,
     ) -> ConsolidationResult:
         if certificate.candidate_id != candidate.candidate_id:
             return ConsolidationResult(False, None, ("candidate_certificate_mismatch",))
-        if trajectory.candidate_id != candidate.candidate_id:
-            return ConsolidationResult(False, None, ("candidate_trajectory_mismatch",))
-        if trajectory.evidence_release_id != certificate.evidence_release_id:
-            return ConsolidationResult(False, None, ("trajectory_release_mismatch",))
-        if trajectory.domain_pack_id != certificate.domain_pack_id:
-            return ConsolidationResult(False, None, ("trajectory_domain_pack_mismatch",))
-        if trajectory.domain_pack_version != certificate.domain_pack_version:
-            return ConsolidationResult(False, None, ("trajectory_policy_version_mismatch",))
-        if trajectory.domain_pack_hash != certificate.domain_pack_hash:
-            return ConsolidationResult(False, None, ("trajectory_policy_hash_mismatch",))
-        if not certificate.resolved_evidence:
-            return ConsolidationResult(False, None, ("certificate_has_no_resolved_evidence",))
-        if certificate.support_tier == "unbound":
-            return ConsolidationResult(False, None, ("unbound_certificate_not_admissible",))
+        if certificate.evidence_release_id not in {
+            ref.release_id for ref in candidate.proposed_evidence
+        }:
+            return ConsolidationResult(False, None, ("candidate_release_mismatch",))
+        if not certificate.resolved_evidence or certificate.support_tier == "unbound":
+            return ConsolidationResult(False, None, ("certificate_lacks_bound_evidence",))
 
         if certificate.final_decision == "publish" and certificate.support_tier == "verified_strong":
             memory_type = MemoryType.VERIFIED
@@ -69,47 +61,35 @@ class MemoryConsolidator:
             and certificate.final_decision in {"review", "defer"}
         ):
             memory_type = MemoryType.CONFLICT
-            status = "deferred"
+            status = "conflict"
             reason = "unresolved_conflict"
             authority_level = 2
         else:
             return ConsolidationResult(False, None, ("outcome_not_long_term_admissible",))
 
-        claim = certificate.normalized_claim
-        conditions = json.dumps(claim.conditions, sort_keys=True, separators=(",", ":"))
-        signature = ClaimSignature(
-            domain=domain,
-            property_key=claim.property_key,
-            material_family=material_family,
-            material_identity=claim.material_normalized or claim.material_raw,
-            composition=claim.composition_normalized or claim.composition_raw,
-            condition_signature=conditions if claim.conditions else claim.conditions_raw,
-        )
+        claim = ScientificClaimRecord.from_material_claim(certificate.normalized_claim)
+        signature = ClaimSignature.from_claim(claim, domain=domain)
         memory_id = deterministic_id(
             certificate.certificate_id,
             memory_type.value,
-            signature.model_dump_json(),
-            length=32,
+            claim.canonical_key(),
             namespace="mem",
+            length=32,
         )
-        item = WarrantedMemoryItem(
+        record = ScientificMemoryRecord(
             memory_id=memory_id,
             memory_type=memory_type,
+            claim=claim,
             claim_signature=signature,
-            normalized_content={
-                **claim.model_dump(mode="json"),
-                "successful_actions": [step.action for step in trajectory.steps],
-            },
             evidence_refs=tuple(certificate.resolved_evidence),
-            certificate_id=certificate.certificate_id,
+            certificate=certificate,
             decision=MemoryDecision(status=status, reason=reason),
-            authority=MemoryAuthority(
-                source="deterministic_harness",
-                level=authority_level,
-            ),
+            source_document=source_document,
+            observed_at=candidate.proposer_provenance.extraction_timestamp,
             policy_version=certificate.domain_pack_version,
             policy_hash=certificate.domain_pack_hash,
             evidence_release_id=certificate.evidence_release_id,
-            valid_from=candidate.proposer_provenance.extraction_timestamp,
+            authority=MemoryAuthority(source="deterministic_verifier", level=authority_level),
+            origin=origin,
         )
-        return ConsolidationResult(True, item, ())
+        return ConsolidationResult(True, record, ())

@@ -6,6 +6,7 @@ from pathlib import Path
 from evimem.contracts import CandidateObservation, ProposerProvenance, ScientificClaim
 from evimem.domains import DomainValidator, list_domain_packs, load_domain_pack
 from evimem.evidence import EvidenceBinder, EvidenceBlockStore, EvidenceReleaseManager
+from evimem.verification import TupleVerifier
 
 from .evimem_helpers import claim
 
@@ -27,9 +28,13 @@ def test_domain_validator_checks_property_unit_range_and_context() -> None:
     assert invalid.reason_codes == ("value_outside_expected_range",)
 
 
-def test_controller_package_has_no_publication_write_dependency() -> None:
-    controller_dir = Path(__file__).parents[1] / "src" / "evimem" / "controller"
-    source = "\n".join(path.read_text(encoding="utf-8") for path in controller_dir.glob("*.py"))
+def test_learning_packages_have_no_publication_write_dependency() -> None:
+    package = Path(__file__).parents[1] / "src" / "evimem"
+    source = "\n".join(
+        path.read_text(encoding="utf-8")
+        for component in ("memory", "training", "benchmark")
+        for path in (package / component).glob("*.py")
+    )
     assert "evimem.publication" not in source
 
 
@@ -82,3 +87,9 @@ def test_binding_can_verify_one_tuple_from_multiple_immutable_blocks(tmp_path) -
         "material-property",
         "value-condition",
     }
+    certificate = TupleVerifier(
+        domain_pack=load_domain_pack("piezoelectric"),
+        evidence_store=store,
+    ).certify(candidate=candidate, publication_requested=True)
+    assert certificate.final_decision == "publish"
+    assert certificate.certified_claim_hash.startswith("sha256:")

@@ -1,4 +1,4 @@
-"""V2 candidate observation contract.
+"""Canonical candidate observation contract.
 
 A ``CandidateObservation`` is the output of the proposer stage: a claim plus
 proposed evidence and proposer provenance.  It is intentionally not yet

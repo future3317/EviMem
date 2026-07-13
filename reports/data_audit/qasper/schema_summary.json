@@ -1,0 +1,54 @@
+{
+  "conversion_origins": {
+    "native": 7964
+  },
+  "converted_samples_by_view": {
+    "retrieval_view": 7964
+  },
+  "dataset": "QASPER",
+  "evaluation_usable_samples_by_view": {
+    "retrieval_view": 4555
+  },
+  "native_tasks": {
+    "question_evidence_retrieval": 7964
+  },
+  "rejected_count": 29,
+  "sample_count": 7964,
+  "source_revision": "baseline:afd0fb96bf78ce8cd8157639c6f6a6995e4f9089",
+  "source_snapshot": {
+    "aggregate_sha256": "sha256:4671d66636e7ba477c9b1d41ee8e25283995c3b5dcae18cca9025620ff768065",
+    "file_count": 5,
+    "files": [
+      {
+        "bytes": 11398686,
+        "name": "qasper-dev-v0.3.json",
+        "sha256": "sha256:2ae7ee62a65b1c4225791c70de80c2aad4e8998cf1fd4f09a53103db4f21af93"
+      },
+      {
+        "bytes": 18078957,
+        "name": "qasper-test-v0.3.json",
+        "sha256": "sha256:6e29ad410e6e39aa1936017fb965b30a20eb2e7751997f55b97c9d281aa884e5"
+      },
+      {
+        "bytes": 31969387,
+        "name": "qasper-train-v0.3.json",
+        "sha256": "sha256:9458bfe76074a8fa8d1685af02bcc73537aa6d338ad20591dfaff1946bc88bf4"
+      },
+      {
+        "bytes": 3865061,
+        "name": "test.tgz",
+        "sha256": "sha256:72a52a41193e2838b8074f80ac074b94f956b84886c36a61c58a7df4171bdd72"
+      },
+      {
+        "bytes": 10835856,
+        "name": "train-dev.tgz",
+        "sha256": "sha256:a28fdf966db827bcee3d873107d6b6669864fb7ca8fbf73a192f5e39191bdb5a"
+      }
+    ]
+  },
+  "training_usable_samples_by_view": {},
+  "views": {
+    "retrieval_view": 7964
+  },
+  "views_are_separate": true
+}

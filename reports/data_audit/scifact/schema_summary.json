@@ -1,0 +1,51 @@
+{
+  "conversion_origins": {
+    "native": 1295
+  },
+  "converted_samples_by_view": {
+    "retrieval_view": 1295
+  },
+  "dataset": "SciFact",
+  "evaluation_usable_samples_by_view": {
+    "retrieval_view": 139
+  },
+  "native_tasks": {
+    "claim_rationale_retrieval": 1295
+  },
+  "rejected_count": 0,
+  "sample_count": 1295,
+  "source_revision": "68b98a56d93e0f9da0d2aab4e6c3294699a0f72e",
+  "source_snapshot": {
+    "aggregate_sha256": "sha256:75ae371092d308bddd830d3ab07aa647cfeec4502f117ec5e00af15c78432c25",
+    "file_count": 4,
+    "files": [
+      {
+        "bytes": 65007,
+        "name": "claims_dev.jsonl",
+        "sha256": "sha256:86f0435d08fdb65d1aa41d1472684f57e6e71930626497bdf4d7a9ec1a632217"
+      },
+      {
+        "bytes": 33769,
+        "name": "claims_test.jsonl",
+        "sha256": "sha256:558930d75215c73f84a28fe538307d6d397c9de1ec7239514cf45f80d75d2ca3"
+      },
+      {
+        "bytes": 175616,
+        "name": "claims_train.jsonl",
+        "sha256": "sha256:f4c8fa82d8bd0653a9cc8d61a6ea48c25eacea64e90af5dbf390ebb1b74372f0"
+      },
+      {
+        "bytes": 8307875,
+        "name": "corpus.jsonl",
+        "sha256": "sha256:b8d6c89624cb2ed74dee8938effc4f5d8bd2086887880af8110d64be4ceade62"
+      }
+    ]
+  },
+  "training_usable_samples_by_view": {
+    "retrieval_view": 679
+  },
+  "views": {
+    "retrieval_view": 1295
+  },
+  "views_are_separate": true
+}

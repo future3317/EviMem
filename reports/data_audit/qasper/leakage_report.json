@@ -1,0 +1,544 @@
+{
+  "exact_normalized_claim_or_question_family_cross_split": {
+    "02129c906d314e28a13f": [
+      "dev",
+      "test"
+    ],
+    "03ee74ea3e3171aeae30": [
+      "dev",
+      "test",
+      "train"
+    ],
+    "04f59432d2fa638d380e": [
+      "dev",
+      "test",
+      "train"
+    ],
+    "07b104f8f49834de363c": [
+      "dev",
+      "test",
+      "train"
+    ],
+    "07c56a4bc7c373ca6fa6": [
+      "dev",
+      "test",
+      "train"
+    ],
+    "0c6fa66ea2921cbaa996": [
+      "dev",
+      "train"
+    ],
+    "0cee7d2fed55e8f36bd5": [
+      "dev",
+      "test",
+      "train"
+    ],
+    "0d3bab38aa9baf703d48": [
+      "test",
+      "train"
+    ],
+    "0e71ee28d953f1440765": [
+      "dev",
+      "test"
+    ],
+    "1145faa1660f7329be0c": [
+      "test",
+      "train"
+    ],
+    "11b077d0c5d011d4133f": [
+      "dev",
+      "test"
+    ],
+    "11c472b1fa6faf362313": [
+      "test",
+      "train"
+    ],
+    "12b323b21e6ac4de2d20": [
+      "dev",
+      "train"
+    ],
+    "133dc88ee12640cffc36": [
+      "dev",
+      "test",
+      "train"
+    ],
+    "149a4c5bc87d005b14c3": [
+      "dev",
+      "train"
+    ],
+    "15bad318f6de61001a1c": [
+      "dev",
+      "test",
+      "train"
+    ],
+    "172dc2c29394e131b0f5": [
+      "dev",
+      "train"
+    ],
+    "1798d99de4d421a9f0ef": [
+      "dev",
+      "train"
+    ],
+    "18138a61e4861f11df6c": [
+      "dev",
+      "train"
+    ],
+    "188dcb06b807bbf59767": [
+      "dev",
+      "test",
+      "train"
+    ],
+    "1893d3d4755272ca40d5": [
+      "dev",
+      "train"
+    ],
+    "1c042db5cea94a93c54e": [
+      "dev",
+      "test"
+    ],
+    "2125c55214e9ecd467fa": [
+      "dev",
+      "train"
+    ],
+    "2341a3f84d7ff272809f": [
+      "dev",
+      "test",
+      "train"
+    ],
+    "27aec194be43d7352a55": [
+      "test",
+      "train"
+    ],
+    "281d2c2ffec3d6e149f6": [
+      "dev",
+      "train"
+    ],
+    "2aec85dd123ad891f1f2": [
+      "dev",
+      "train"
+    ],
+    "2c1cd116311c7f2d474d": [
+      "dev",
+      "test",
+      "train"
+    ],
+    "2f744f91c0dbcd17aebb": [
+      "test",
+      "train"
+    ],
+    "2fcba86cfd1f5e98cf62": [
+      "test",
+      "train"
+    ],
+    "30bf7f30980732a46965": [
+      "dev",
+      "train"
+    ],
+    "31797a0fd82367524c2b": [
+      "test",
+      "train"
+    ],
+    "3396651ea8d2f46ba4b1": [
+      "test",
+      "train"
+    ],
+    "33bb8b5d833f0079f59d": [
+      "dev",
+      "test",
+      "train"
+    ],
+    "3a5e4afec29459e13fef": [
+      "dev",
+      "train"
+    ],
+    "3c42542ec4017f990176": [
+      "dev",
+      "test"
+    ],
+    "3f160b677057493fd3c8": [
+      "dev",
+      "test",
+      "train"
+    ],
+    "42e244d2e10b1c1b116e": [
+      "test",
+      "train"
+    ],
+    "43f3ab94840ea2a22c60": [
+      "dev",
+      "test"
+    ],
+    "47f33264c30559909986": [
+      "dev",
+      "test",
+      "train"
+    ],
+    "4b292661615ccb97f16a": [
+      "test",
+      "train"
+    ],
+    "4deefa3e49bba982cf4d": [
+      "test",
+      "train"
+    ],
+    "4ee2852658f92e344b9c": [
+      "dev",
+      "train"
+    ],
+    "572b2c57dc0397286274": [
+      "test",
+      "train"
+    ],
+    "5a5270ae6526db506e05": [
+      "test",
+      "train"
+    ],
+    "5dda95b74040cfae09ae": [
+      "dev",
+      "train"
+    ],
+    "645a052b5109f943c1fb": [
+      "dev",
+      "test"
+    ],
+    "682c5d52258ab52d62eb": [
+      "dev",
+      "train"
+    ],
+    "68abe12707cec7f03dc7": [
+      "test",
+      "train"
+    ],
+    "69e95b7bce6928edc3d8": [
+      "dev",
+      "train"
+    ],
+    "6aa0a8d45cc304d44a96": [
+      "dev",
+      "test",
+      "train"
+    ],
+    "6c86555b0da756718848": [
+      "test",
+      "train"
+    ],
+    "6f8e4ea55574a8b07205": [
+      "dev",
+      "test",
+      "train"
+    ],
+    "72e8769345eaa9fdcd7b": [
+      "dev",
+      "test"
+    ],
+    "72ff6317a25161e64fb5": [
+      "dev",
+      "train"
+    ],
+    "738626674c157e692b77": [
+      "test",
+      "train"
+    ],
+    "74e1582a81e5c90d21e4": [
+      "dev",
+      "test",
+      "train"
+    ],
+    "794a787023db59f535c4": [
+      "dev",
+      "train"
+    ],
+    "7e075e11902d0384049b": [
+      "dev",
+      "train"
+    ],
+    "7ebbad883e39e5a6c890": [
+      "dev",
+      "test",
+      "train"
+    ],
+    "7f4eec7a17a135bf8bb4": [
+      "dev",
+      "train"
+    ],
+    "82122e4954ab5af790a2": [
+      "test",
+      "train"
+    ],
+    "843207d9d17cc382577f": [
+      "test",
+      "train"
+    ],
+    "88f4fdde2c36dba8aaab": [
+      "dev",
+      "test"
+    ],
+    "8a9ddf379d4650598d7c": [
+      "dev",
+      "test",
+      "train"
+    ],
+    "8b7ad49255653ff88141": [
+      "dev",
+      "train"
+    ],
+    "8ed35c4986551e365fe4": [
+      "dev",
+      "test",
+      "train"
+    ],
+    "8fbcf340bbd9186482e5": [
+      "test",
+      "train"
+    ],
+    "92a71a7330c92a874a21": [
+      "dev",
+      "train"
+    ],
+    "95e163a5ff7ca27bd6a9": [
+      "dev",
+      "test"
+    ],
+    "99bb0cf515749491b8a7": [
+      "dev",
+      "test",
+      "train"
+    ],
+    "9a4cb7d441735b668064": [
+      "dev",
+      "train"
+    ],
+    "9da94359a36530b18626": [
+      "dev",
+      "test"
+    ],
+    "a26e45085bdf8baf7b08": [
+      "test",
+      "train"
+    ],
+    "a45f6fdf96cac2a6293b": [
+      "test",
+      "train"
+    ],
+    "a5b13087dda1bd7be68d": [
+      "test",
+      "train"
+    ],
+    "a88f6f189f532fc1b2cd": [
+      "dev",
+      "test"
+    ],
+    "aa3bf604a2373fa434a4": [
+      "dev",
+      "test"
+    ],
+    "ae12bff5b965d4c5f0da": [
+      "dev",
+      "train"
+    ],
+    "ae71270243b07668278f": [
+      "dev",
+      "test",
+      "train"
+    ],
+    "b092e386b1b387f9ca55": [
+      "dev",
+      "test",
+      "train"
+    ],
+    "b3e271ea6e6aa24d2ce4": [
+      "dev",
+      "train"
+    ],
+    "b66e2e34bf1ea3afe6b6": [
+      "dev",
+      "test"
+    ],
+    "b6c8c769a66adfc3ac1e": [
+      "dev",
+      "train"
+    ],
+    "b9ac3e9bf15605875626": [
+      "test",
+      "train"
+    ],
+    "b9f96a26d81b25e96ae8": [
+      "dev",
+      "train"
+    ],
+    "ba8c8a0c34995deeed17": [
+      "test",
+      "train"
+    ],
+    "bb05bb024b09ee1bc7db": [
+      "dev",
+      "test",
+      "train"
+    ],
+    "bb749b76791f5d1fc077": [
+      "test",
+      "train"
+    ],
+    "bb94fd132cf513948f02": [
+      "test",
+      "train"
+    ],
+    "bcc60fca4567680c56c2": [
+      "test",
+      "train"
+    ],
+    "bcfebdfe3b8169918810": [
+      "test",
+      "train"
+    ],
+    "bd23dce56eb9ae22e2bb": [
+      "dev",
+      "test",
+      "train"
+    ],
+    "bd58fce88403f9ea5899": [
+      "dev",
+      "train"
+    ],
+    "bdb023ed7b368e0028ab": [
+      "test",
+      "train"
+    ],
+    "bf205a30a9bb0e9cb44c": [
+      "test",
+      "train"
+    ],
+    "c16fa7517bb54dc5bccc": [
+      "test",
+      "train"
+    ],
+    "c44476bf09786fdd5e46": [
+      "dev",
+      "test",
+      "train"
+    ],
+    "c66747df2d2f059ee395": [
+      "test",
+      "train"
+    ],
+    "c7208fedc01ac6b86b8f": [
+      "test",
+      "train"
+    ],
+    "c73f15c4d2658d93029a": [
+      "dev",
+      "test",
+      "train"
+    ],
+    "cbc62307c7305714a699": [
+      "dev",
+      "test",
+      "train"
+    ],
+    "cca7c9505ed1ed0df96f": [
+      "test",
+      "train"
+    ],
+    "cfca18849bbd7f0fc4b9": [
+      "test",
+      "train"
+    ],
+    "d053c2b60ac0f30e86c7": [
+      "dev",
+      "train"
+    ],
+    "d2d7ef630818e96f5d6f": [
+      "dev",
+      "train"
+    ],
+    "d362aec5973addcd5596": [
+      "test",
+      "train"
+    ],
+    "d710a748f38add43976b": [
+      "test",
+      "train"
+    ],
+    "d76d07ceca572e000457": [
+      "dev",
+      "train"
+    ],
+    "da34fba53e2b80e02a05": [
+      "dev",
+      "test",
+      "train"
+    ],
+    "e099a58ad2c693453ae4": [
+      "dev",
+      "test",
+      "train"
+    ],
+    "e33608f2dd7d7e211136": [
+      "dev",
+      "test",
+      "train"
+    ],
+    "e36f0a5aa2c4a84cad02": [
+      "dev",
+      "test"
+    ],
+    "e5f56bf7d355a592e502": [
+      "dev",
+      "test",
+      "train"
+    ],
+    "e9b9a805a3dc3b1defed": [
+      "dev",
+      "test",
+      "train"
+    ],
+    "eae3fd67cb523072f409": [
+      "dev",
+      "test"
+    ],
+    "edce87ed4e2318d603d0": [
+      "test",
+      "train"
+    ],
+    "ee2933241c60528008d2": [
+      "dev",
+      "train"
+    ],
+    "f05bbd2b841819e7ba77": [
+      "dev",
+      "train"
+    ],
+    "f1fe09bc4af15affe5d4": [
+      "dev",
+      "test"
+    ],
+    "facc5cc7c01eeca73530": [
+      "dev",
+      "test",
+      "train"
+    ],
+    "fc2390d8e5e8c5d002a1": [
+      "dev",
+      "test",
+      "train"
+    ],
+    "fcd3bdfae74f22fe603c": [
+      "dev",
+      "test"
+    ]
+  },
+  "leakage_safe_sample_count": 6969,
+  "leakage_safe_split_counts": {
+    "dev": 1488,
+    "test": 3067,
+    "train": 2414
+  },
+  "oracle_model_input_physically_separated": true,
+  "passed": false,
+  "passed_after_quarantine": true,
+  "quarantine_policy": "exclude every sample in a cross-split document or exact normalized query family",
+  "quarantined_sample_count": 995,
+  "source_document_cross_split": {},
+  "temporal_ordering_scope": "within_official_split_only",
+  "test_memory_may_enter_train_memory": false
+}

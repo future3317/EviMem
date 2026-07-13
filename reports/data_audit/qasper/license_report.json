@@ -1,0 +1,75 @@
+{
+  "components": {
+    "annotations": {
+      "attribution_requirements": "Attribute QASPER authors and indicate derived transformations.",
+      "license_file_checksum": null,
+      "redistribution_allowed": false,
+      "retrieved_at": "2026-07-14",
+      "source_url": "https://allenai.org/data/qasper",
+      "spdx_identifier": "CC-BY-4.0",
+      "status": "ambiguous",
+      "training_allowed": false
+    },
+    "code": {
+      "attribution_requirements": "Retain copyright, license, and NOTICE notices; mark modifications.",
+      "license_file_checksum": "sha256:1eb85fc97224598dad1852b5d6483bbcf0aa8608790dcc657a5a2a761ae9c8c6",
+      "redistribution_allowed": true,
+      "retrieved_at": "2026-07-14",
+      "source_url": "https://github.com/allenai/qasper-led-baseline/blob/afd0fb96bf78ce8cd8157639c6f6a6995e4f9089/LICENSE",
+      "spdx_identifier": "Apache-2.0",
+      "status": "confirmed",
+      "training_allowed": true
+    },
+    "derived_artifacts": {
+      "attribution_requirements": "Carry QASPER attribution into derived records.",
+      "license_file_checksum": null,
+      "redistribution_allowed": false,
+      "retrieved_at": "2026-07-14",
+      "source_url": "https://allenai.org/data/qasper",
+      "spdx_identifier": "CC-BY-4.0",
+      "status": "ambiguous",
+      "training_allowed": false
+    },
+    "source_text": {
+      "attribution_requirements": "Per-paper provenance and attribution must be retained.",
+      "license_file_checksum": null,
+      "redistribution_allowed": false,
+      "retrieved_at": "2026-07-14",
+      "source_url": "https://allenai.org/data/qasper",
+      "spdx_identifier": "CC-BY-4.0",
+      "status": "ambiguous",
+      "training_allowed": false
+    }
+  },
+  "dataset": "QASPER",
+  "official_license_precedence": "official LICENSE or per-document terms; HF metadata is non-authoritative",
+  "retrieved_at": "2026-07-14",
+  "training_blockers": {
+    "admission_view": [
+      "view_not_enabled",
+      "annotations:status=ambiguous",
+      "annotations:training_forbidden",
+      "annotations:license_checksum_missing",
+      "source_text:status=ambiguous",
+      "source_text:training_forbidden",
+      "source_text:license_checksum_missing"
+    ],
+    "retrieval_view": [
+      "annotations:status=ambiguous",
+      "annotations:training_forbidden",
+      "annotations:license_checksum_missing",
+      "source_text:status=ambiguous",
+      "source_text:training_forbidden",
+      "source_text:license_checksum_missing"
+    ],
+    "update_view": [
+      "view_not_enabled",
+      "annotations:status=ambiguous",
+      "annotations:training_forbidden",
+      "annotations:license_checksum_missing",
+      "source_text:status=ambiguous",
+      "source_text:training_forbidden",
+      "source_text:license_checksum_missing"
+    ]
+  }
+}

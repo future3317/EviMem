@@ -1,129 +1,61 @@
-# EviMem-RL Runtime Architecture
+# EviMem architecture
 
-This document describes the implemented EviMem substrate derived from
-`METHODS.md`. EviMem learns or selects curation actions, while the
-deterministic verification and publication harness retains exclusive
-verification and write authority.
+## Authority boundaries
 
-## Safety boundary
+EviMem has two independent governed writes:
+
+1. **Memory admission** accepts a `ScientificMemoryRecord` only when immutable evidence, a complete `VerificationCertificate`, and policy version/hash agree. A learned `MemoryManagerAction` is a request to this gate.
+2. **Publication** accepts only a deterministic publish certificate. `publication_requested` is not publication authority, and the memory package never imports the publication writer.
+
+Verification slots are outputs of deterministic evidence binding and tuple verification. Neither retrieval nor the learned manager may edit them.
+
+## Canonical memory
+
+`src/evimem/contracts/memory.py` defines:
+
+- `ScientificClaimRecord`: minimal cross-dataset subject/relation/object/value/unit/condition schema;
+- `ScientificMemoryRecord`: claim + evidence + certificate + decision + source/time + policy + origin;
+- `AdmissionAction`: `WRITE_VERIFIED`, `WRITE_REJECTED`, `WRITE_CONFLICT`, `EPHEMERAL_ONLY`, `IGNORE`;
+- `UpdateOperation`: `ADD`, `MERGE`, `LINK`, `CONFLICT`, `SUPERSEDE`, `IGNORE`;
+- `MemoryManagerAction`: the strict, extra-fields-forbidden learned output.
+
+Missing source fields remain null or empty. Adapters may not invent values. Controlled corruptions are marked in `MemoryOrigin.annotation_kind` and cannot masquerade as natural conflicts.
+
+Supersession is an append-only edge. Reading the old record yields an effective `superseded` status and successor lineage; the original serialized payload remains intact.
+
+## Retrieval
+
+`MemoryRetriever` scores every eligible record with explicit components:
 
 ```text
-CandidateObservation (always unpublished)
-        |
-        v
-ControllerState + Warranted Memory
-        |
-        v
-ControllerPolicy -> CurationAction
-        |
-        v
-ActionExecutor -> deterministic verifier state update
-        |
-        v
-REQUEST_PUBLICATION (request only)
-        |
-        v
-external deterministic harness -> VerificationCertificate
-        |
-        +-- reject/defer -> audit + governed memory
-        |
-        `-- publish -> PublicationCommitService (sole durable writer)
+semantic + structure + authority + temporal + policy
+         - unresolved-conflict risk - superseded penalty
 ```
 
-The controller package does not import any publication store. Terminal
-actions are executor-owned and cannot be registered as tool
-handlers. This prevents a learned policy or benchmark controller from
-acquiring database write access through dependency injection.
+`RetrievalQuery.as_of` is mandatory benchmark state (defaulting to current UTC for ordinary use). The store excludes records observed after that time. Results return the complete memory record, including evidence and certificate, rather than an ungrounded text chunk.
 
-## Canonical contracts
+TF-IDF is the local sparse baseline. Learned bi-encoders are trained outside the store through maintained Sentence Transformers APIs.
 
-The immutable Pydantic contracts live in `src/evimem/contracts/`:
+## Typed updates
 
-- `EvidenceRef`: pins release, document, block, typed locator and SHA-256.
-- `CandidateObservation`: proposer output whose only publication status is
-  `unpublished`.
-- `ClaimState`: verifier-owned slot, conflict and remaining-budget state.
-- `VerificationCertificate`: complete deterministic gate result.
-- `WarrantedMemoryItem`: evidence-, certificate- and policy-bound memory.
-- `CurationTrajectory`: replayable candidate action sequence, including the
-  structured rationale codes required to reconstruct exact state hashes.
+`TypedMemoryUpdateService` processes a model prediction in this order:
 
-`ScientificClaim` is the shared claim value object nested by candidates,
-certificates and published records. There is no V1/V2 compatibility package.
-Mutable binding diagnostics are not accepted as memory or publication
-evidence; canonical refs must be created directly from an immutable release.
+1. load target records;
+2. deterministically check operation semantics;
+3. run certificate-governed admission;
+4. append the new record;
+5. append typed lineage/conflict/link edges.
 
-## Governed memory
+The update gate rejects, among other cases, merging non-identical claims, conflicts without an identical context, links without a related subject/relation, and supersession by older or lower-authority evidence.
 
-`src/evimem/memory/` implements:
+## SciMem-Curate benchmark
 
-- append-only SQLite admission in a database separate from publication data;
-- certificate, evidence-release and policy-identity checks;
-- verified, rejected, conflict, correction and policy memory types;
-- structured retrieval with policy, authority, staleness and conflict terms;
-- optional scikit-learn TF-IDF semantic scoring;
-- supersession events that preserve the old item and audit chain;
-- certificate-driven consolidation with no free-form self-reflection path.
+`BenchmarkEpisode` contains only history, the current document, and a query. `OracleAnnotation` is physically separate and is introduced only during scoring. Episode validation rejects future memories. Missing publication time remains null; undated documents cannot receive timestamped history and are never assigned a fabricated epoch.
 
-Memory and replay paths are supplied explicitly by the caller. Creating these
-files is a runtime action, never an import side effect.
+The manifest in `configs/datasets.json` records component-level licenses and enforces task-view gates. `ViewSample` keeps `retrieval_view`, `admission_view`, and `update_view` disjoint; `InferenceViewInput` and `OracleViewTarget` are separate strict contracts. The public adapters preserve native labels and exact evidence offsets. They do not infer admission or update gold from claim veracity, QA evidence, relation extraction, or measurement slots. Raw upstream releases are audited from temporary external paths and are not bundled.
 
-## Controller and replay
+Metrics cover tuple/evidence quality, Recall@1/5/10, MRR, nDCG@10, admission precision, typed-update accuracy, conflict resolution, stale-memory errors, unsupported publication, negative-control publication, memory size, and retrieval tokens.
 
-`src/evimem/controller/` provides the discrete action enum, fixed episode
-state, state builder, standard evidence/memory tools, deterministic baselines,
-termination checks and the single executor. Every episode pins one evidence
-release and one DomainPack version/hash. State changes to verification slots
-come only from the injected deterministic verifier.
+## Deterministic safety substrate
 
-`src/evimem/rl/` provides canonical trajectory recording, integrity-checked
-SQLite replay and verifier-shaped reward. Reward reads only audited trajectory
-deltas and the final certificate. It never reads model self-confidence or
-rationale text.
-
-`src/evimem/runtime.py` exposes two composition levels. `EviMemRuntime` records
-the certified trajectory and consolidates admissible memory without publication
-write authority. `DeterministicPhase0Runtime` is the harness-level end-to-end
-composition: it builds a release, executes controller actions, generates a real
-certificate, calls the sole publication commit service or rejection audit, and
-only then consolidates governed memory.
-
-## Deterministic Phase 0 harness
-
-`src/evimem/domains/` loads packaged Pydantic DomainPacks and computes their
-canonical SHA-256 identity. `src/evimem/evidence/` provides exact normalized DOI
-lookup, immutable block checksums, quote/locator validation, deterministic
-retrieval and single- or multi-block slot binding.
-
-`src/evimem/verification/` owns action-time slot updates, tuple certification,
-predictive/hypothetical language detection, domain validation, conflict
-classification and the publication gate. Certificates are generated by this
-path; the proposer and controller cannot provide one.
-
-`src/evimem/publication/` uses SQLAlchemy transactions. A successful commit
-writes observation, certificate, commit metadata and run state atomically and
-deduplicates retries by idempotency key. Non-published certificates are stored
-in a physically separate audit SQLite database.
-
-## Sequential benchmark
-
-`src/evimem/benchmark/` separates policy-visible `BenchmarkEpisode` from
-`OracleAnnotation`. Gold evidence is introduced only after inference for
-scoring. Metrics cover verified-strong yield, publication-request rejection,
-negative-control false publication, tool/token/human cost, trajectory length
-and oracle action/evidence accuracy.
-
-The built-in `HeuristicController` and `NoMemoryController` are transparent
-non-learning baselines. `TfidfSemanticScorer` is the vector-memory baseline;
-the governed retriever is the warranted-memory baseline.
-
-## Training boundary
-
-`src/evimem/training/` implements a Phase 2/3 interface layer without
-reimplementing optimization algorithms. It compiles replayable trajectories
-into document-split next-action examples, renders only policy-visible state,
-decodes strict legal actions, and connects externally certified rewards to
-TRL's `SFTTrainer` and `GRPOTrainer` with PEFT LoRA. Training code returns only
-a `CurationAction` and does not import publication storage.
-No SFT or GRPO dataset has been built, and no training or paper experiment has
-been run in this repository.
+The retained `evidence`, `domains`, `verification`, and `publication` packages provide immutable releases, typed locators, DomainPack validation, evidence binding, conflict checks, certificates, and atomic/idempotent publication. `TupleVerifier.certify` consumes a candidate and immutable evidence directly; it no longer depends on an action trajectory.

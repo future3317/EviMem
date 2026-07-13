@@ -1,0 +1,8 @@
+{
+  "evidence_span_count": 4382,
+  "exact_round_trip_count": 4382,
+  "passed": true,
+  "scirex_table_missing_excluded_from_retrieval_view": true,
+  "scirex_table_missing_relations": 0,
+  "unaligned_count": 0
+}

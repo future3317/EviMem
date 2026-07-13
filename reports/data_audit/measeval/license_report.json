@@ -1,0 +1,76 @@
+{
+  "components": {
+    "annotations": {
+      "attribution_requirements": "Unknown until an explicit dataset license is published.",
+      "license_file_checksum": null,
+      "redistribution_allowed": false,
+      "retrieved_at": "2026-07-14",
+      "source_url": "https://github.com/harperco/MeasEval",
+      "spdx_identifier": null,
+      "status": "blocked",
+      "training_allowed": false
+    },
+    "code": {
+      "attribution_requirements": "Unknown; repository has no root license file.",
+      "license_file_checksum": null,
+      "redistribution_allowed": false,
+      "retrieved_at": "2026-07-14",
+      "source_url": "https://github.com/harperco/MeasEval",
+      "spdx_identifier": null,
+      "status": "blocked",
+      "training_allowed": false
+    },
+    "derived_artifacts": {
+      "attribution_requirements": "Unknown until upstream licensing is explicit.",
+      "license_file_checksum": null,
+      "redistribution_allowed": false,
+      "retrieved_at": "2026-07-14",
+      "source_url": "https://github.com/harperco/MeasEval",
+      "spdx_identifier": null,
+      "status": "blocked",
+      "training_allowed": false
+    },
+    "source_text": {
+      "attribution_requirements": "Resolve source-article licenses independently.",
+      "license_file_checksum": null,
+      "redistribution_allowed": false,
+      "retrieved_at": "2026-07-14",
+      "source_url": "https://github.com/elsevierlabs/OA-STM-Corpus",
+      "spdx_identifier": null,
+      "status": "blocked",
+      "training_allowed": false
+    }
+  },
+  "dataset": "MeasEval",
+  "official_license_precedence": "official LICENSE or per-document terms; HF metadata is non-authoritative",
+  "retrieved_at": "2026-07-14",
+  "training_blockers": {
+    "admission_view": [
+      "view_not_enabled",
+      "annotations:status=blocked",
+      "annotations:training_forbidden",
+      "annotations:license_checksum_missing",
+      "source_text:status=blocked",
+      "source_text:training_forbidden",
+      "source_text:license_checksum_missing"
+    ],
+    "retrieval_view": [
+      "view_not_enabled",
+      "annotations:status=blocked",
+      "annotations:training_forbidden",
+      "annotations:license_checksum_missing",
+      "source_text:status=blocked",
+      "source_text:training_forbidden",
+      "source_text:license_checksum_missing"
+    ],
+    "update_view": [
+      "view_not_enabled",
+      "annotations:status=blocked",
+      "annotations:training_forbidden",
+      "annotations:license_checksum_missing",
+      "source_text:status=blocked",
+      "source_text:training_forbidden",
+      "source_text:license_checksum_missing"
+    ]
+  }
+}

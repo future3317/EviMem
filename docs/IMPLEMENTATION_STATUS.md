@@ -1,66 +1,46 @@
-# Methods implementation status
+# Implementation status
 
-This file distinguishes executable research code from contracts and planned
-experiments. A schema or trainer factory alone is not counted as a completed
-method.
+Status is intentionally conservative: code contracts and data audits are not experimental results. Phase 1 is **not complete** and no model training or paper-result generation was performed in Phase 1A.
 
-Status meanings:
+## System components
 
-- `IMPLEMENTED`: exercised by real deterministic code and tests.
-- `PARTIAL`: useful executable behavior exists, but the full Methods claim is not complete.
-- `CONTRACT_ONLY`: typed interface/factory exists without the required data or experiment.
-- `MISSING`: no implementation is present.
+| Component | Status | Evidence |
+|---|---|---|
+| Unified cross-domain memory schema | Implemented | `contracts/memory.py`; schema/governance tests |
+| Embedded evidence + certificate + policy warrant | Implemented | record validation and admission gate tests |
+| Verified/rejected/conflict admission | Implemented | `memory/governed_store.py` |
+| Append-only supersession lineage | Implemented | `memory/update.py`; supersession tests |
+| Typed ADD/MERGE/LINK/CONFLICT/SUPERSEDE/IGNORE gate | Implemented | semantic precondition tests |
+| Certificate-aware structured retriever | Implemented baseline | weighted retrieval and as-of leakage test |
+| No Memory / Full History / TF-IDF / BM25 / dense baselines | Implemented interfaces | common chronological store boundary; no paper results |
+| Learned dense retriever | Interface only | no trained weights or results |
+| Supervised memory manager | Interface only | no QLoRA, training, or generated results |
+| Component-level public dataset manifest | Implemented for Phase 1A | `configs/datasets.json`; official LICENSE files take precedence over HF metadata |
+| Separate retrieval/admission/update views | Implemented | `benchmark/views.py`; oracle payload is physically separate from model input |
+| Semantic/alignment/leakage audit generator | Implemented | `benchmark/audit.py`; `tools/run_phase1a_audit.py` |
 
-| Methods component | Status | Executable code | Evidence/tests |
-|---|---|---|---|
-| Immutable EvidenceRelease | IMPLEMENTED | `evimem/evidence/release.py` | checksum, immutability, exact DOI and canonical-ref tests |
-| EvidenceRef and typed locators | IMPLEMENTED | `evimem/contracts/evidence.py`, `locators.py` | contract and release tests |
-| CandidateObservation | IMPLEMENTED | `evimem/contracts/candidate.py`; consumed by controller/runtime | controller and E2E tests |
-| ClaimState | IMPLEMENTED | `evimem/contracts/claim_state.py`, `controller/state_builder.py` | verifier-owned state tests |
-| VerificationCertificate | IMPLEMENTED | `verification/tuple_verifier.py` generates it from evidence | both Phase 0 E2E tests; not manually constructed there |
-| DomainPack schema/loader/hash | IMPLEMENTED | `evimem/domains/` and packaged configs | all three packs load and validate |
-| Evidence block store/retrieval | IMPLEMENTED | `evimem/evidence/store.py` | checksum, quote, locator and E2E retrieval |
-| Evidence binding cascade | IMPLEMENTED | `evimem/evidence/binding.py` | exact tuple, slot and multi-block paths |
-| Tuple-level verification | IMPLEMENTED | `verification/tuple_verifier.py` | publish/reject E2E |
-| Multi-block distributed verification | IMPLEMENTED | slot evidence is resolved across multiple immutable refs in `binding.py` | component path covered indirectly; broader corpus evaluation not run |
-| Prediction/hypothesis rejection | IMPLEMENTED | `verification/gate.py` | predictive negative-control E2E |
-| Conflict resolution | PARTIAL | deterministic duplicate/same-context conflict classifier in `verification/conflicts.py` | unit behavior available; no longitudinal benchmark yet |
-| Publication gate | IMPLEMENTED | `verification/gate.py` | controller publication request is rejected by negative control |
-| Atomic idempotent commit | IMPLEMENTED | `publication/commit.py`, `store.py` | publish E2E verifies retry; failure injection verifies full rollback |
-| Separate rejection audit | IMPLEMENTED | `publication/audit.py` | reject E2E verifies zero publication and one audit row |
-| Warranted-memory admission | IMPLEMENTED | `memory/governed_store.py` | certificate/release/policy/support checks and idempotency tests |
-| Memory retrieval | IMPLEMENTED | `memory/retriever.py` | structural/policy ranking tests |
-| Memory consolidation | IMPLEMENTED | `memory/consolidation.py` | verified and rejected E2E memory |
-| Memory supersession | IMPLEMENTED | `memory/supersession.py` | preservation and audit-chain tests |
-| Action controller and masking | IMPLEMENTED | `controller/` | legal-action, budget and terminal tests |
-| Deterministic executor | IMPLEMENTED | `controller/executor.py` | controller tests; no publication dependency |
-| Trajectory/replay/reward | IMPLEMENTED | `rl/` | integrity and verifier-shaped reward tests |
-| Heuristic/no-memory baselines | IMPLEMENTED | `controller/policies.py` | benchmark/controller tests |
-| Sequential benchmark contracts | PARTIAL | `benchmark/` | runner and oracle-isolation tests; no paper-scale episodes |
-| Oracle trajectory builder | MISSING | none | Phase 1 work |
-| Production LLM proposer adapter | MISSING | Phase 0 accepts an externally proposed `ScientificClaim` | no provider integration |
-| Human review | PARTIAL | request and expected-value policy in `human_review/` | contract/policy tests; no user-service integration |
-| SFT controller | CONTRACT_ONLY | TRL/PEFT factory, dataset codec and CLI in `training/` | no frozen dataset, training run or result |
-| GRPO controller | CONTRACT_ONLY | TRL GRPO factory and reward adapter in `training/` | no episodes, model training, seeds or result |
-| Continual-learning experiments | MISSING | none | no experiment artifacts |
+## Public-data readiness
 
-## Confirmed Phase 0 boundary
+“Training ready” below applies only to the named task view and the leakage-safe official-train subset. It does not authorize admission/update training.
 
-The following chain is currently executable:
+| Dataset | Data adapter implemented | Semantic audit | License | Training ready | Synthetic-derived labels | Human annotation required |
+|---|---|---|---|---|---|---|
+| SciREX | Yes, official v1 JSONL | Passed for 694 filtered retrieval relations; 1,454 table-missing relations are separately excluded | Confirmed Apache-2.0; official LICENSE SHA-256 recorded | Retrieval only: 517 train samples | Yes: deterministic relation-to-query/evidence projection, explicitly marked | Yes for every admission/update operation |
+| QASPER | Yes, official v0.3 | Not passed for training: 29 annotations rejected for non-round-tripping evidence and 995 samples quarantined for cross-split query families | Dataset/source-text CC-BY-4.0 claim remains ambiguous because no official dataset LICENSE checksum was recovered; baseline code Apache-2.0 confirmed | No; 4,555 leakage-safe dev/test retrieval samples are local-evaluation-only | No operation labels; evidence is native | Yes for admission/update labels |
+| SciFact | Yes, official release | Raw official claim split fails document isolation (110 documents; 477 samples); quarantine-derived subset passes | Confirmed: annotations CC-BY-4.0, abstracts ODC-By-1.0, code Apache-2.0 | Retrieval only: 679 train samples after quarantine; 139 dev samples for evaluation | No operation labels; rationale spans are native | Yes for admission/update, especially CONFLICT/SUPERSEDE |
+| Evidence Inference 2.0 | Normalized adapter plus pinned real fixture; full-release adapter audit incomplete | Fixture alignment passed; full release not passed | Annotations/code MIT confirmed; source articles blocked unless per-document OA terms are resolved | No | No operation labels | Yes; also per-document license review |
+| MeasEval | Yes, official TSV/text | Slot extraction alignment passed for 1,663 annotation sets; no EviMem data view is produced | Blocked: repository has no explicit dataset/root code license | No; local fixture tests only until license clarification | No operation labels | Yes for licensing and any admission/update task |
+| POLYIE | External OOD protocol only | Adapter semantics not audited in Phase 1A | Apache-2.0 confirmed at pinned commit; official checksum recorded | No; OOD only | N/A | Semantic audit before OOD evaluation |
+| BioRED | External OOD protocol only | Not audited in Phase 1A | Blocked pending dataset-specific license | No | N/A | License confirmation |
 
-```text
-document -> immutable release -> externally proposed claim -> controller action
--> verifier-owned slot updates -> automatically generated certificate
--> atomic publish or deterministic rejection -> governed memory
-```
+## Safety conclusions
 
-The publish fixture is `tests/e2e/test_publishable_phase0.py`. The negative
-control is `tests/e2e/test_rejected_phase0.py`; its controller requests
-publication, but predictive language causes a deterministic rejection, zero
-published rows, an audit record and rejected memory.
+- SUPPORT/CONTRADICT labels are retained as claim-veracity targets and never converted to PUBLISH/REJECT, admission actions, or SUPERSEDE.
+- QASPER evidence is retrieval/evidence supervision only.
+- MeasEval is slot extraction only and cannot enter training while blocked.
+- Missing material, condition, time, certificate, evidence, value, and unit fields remain null/absent; no 1970 timestamp is injected.
+- Every converted record is marked `native`, `deterministic_derived`, or `controlled_corruption`; Phase 1A generated no controlled-corruption records.
+- No public dataset supplies trustworthy natural gold for ADD, MERGE, LINK, CONFLICT, SUPERSEDE, or IGNORE under EviMem policy semantics.
+- A human-reviewed SciMem-Update set is required before admission/update training or evaluation can be claimed.
 
-## Explicitly not claimed
-
-Phase 1 benchmark episodes have not been assembled. The SFT and GRPO modules
-are integration interfaces only: there is no training dataset, checkpoint,
-multi-seed experiment, learned controller result or completed Phase 2/3 claim.
+Not yet completed: full Evidence Inference per-document OA resolution, explicit QASPER dataset LICENSE checksum, MeasEval licensing, POLYIE/BioRED component audits, human SciMem-Update annotation, learned-model training, multi-seed experiments, OOD runs, scale runs, or paper tables.

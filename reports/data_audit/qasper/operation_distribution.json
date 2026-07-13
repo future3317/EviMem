@@ -1,0 +1,18 @@
+{
+  "label_sources": {
+    "NO_UPDATE_GOLD": {
+      "native_qasper_answer_evidence": 7964
+    }
+  },
+  "natural_gold": {
+    "ADD": 0,
+    "CONFLICT": 0,
+    "IGNORE": 0,
+    "LINK": 0,
+    "MERGE": 0,
+    "SUPERSEDE": 0
+  },
+  "operations": {
+    "NO_UPDATE_GOLD": 7964
+  }
+}

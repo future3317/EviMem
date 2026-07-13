@@ -1,0 +1,366 @@
+{
+  "datasets": [
+    {
+      "name": "SciREX",
+      "role": "core_train",
+      "source_url": "https://github.com/allenai/SciREX",
+      "source_revision": "7daad660fe94f504433590b7a781cfabe1e179c6",
+      "source_checksum": null,
+      "allowed_splits": ["train", "dev", "test"],
+      "adapter": "SciRexAdapter",
+      "enabled_views": ["retrieval_view"],
+      "view_components": {
+        "retrieval_view": ["annotations", "source_text"],
+        "admission_view": ["annotations", "source_text"],
+        "update_view": ["annotations", "source_text"]
+      },
+      "licenses": {
+        "annotations": {
+          "spdx_identifier": "Apache-2.0",
+          "source_url": "https://github.com/allenai/SciREX/blob/7daad660fe94f504433590b7a781cfabe1e179c6/LICENSE",
+          "retrieved_at": "2026-07-14",
+          "license_file_checksum": "sha256:1eb85fc97224598dad1852b5d6483bbcf0aa8608790dcc657a5a2a761ae9c8c6",
+          "attribution_requirements": "Retain copyright, license, and NOTICE notices; mark modifications.",
+          "redistribution_allowed": true,
+          "training_allowed": true,
+          "status": "confirmed"
+        },
+        "source_text": {
+          "spdx_identifier": "Apache-2.0",
+          "source_url": "https://github.com/allenai/SciREX/blob/7daad660fe94f504433590b7a781cfabe1e179c6/LICENSE",
+          "retrieved_at": "2026-07-14",
+          "license_file_checksum": "sha256:1eb85fc97224598dad1852b5d6483bbcf0aa8608790dcc657a5a2a761ae9c8c6",
+          "attribution_requirements": "Retain copyright, license, and NOTICE notices; mark modifications.",
+          "redistribution_allowed": true,
+          "training_allowed": true,
+          "status": "confirmed"
+        },
+        "code": {
+          "spdx_identifier": "Apache-2.0",
+          "source_url": "https://github.com/allenai/SciREX/blob/7daad660fe94f504433590b7a781cfabe1e179c6/LICENSE",
+          "retrieved_at": "2026-07-14",
+          "license_file_checksum": "sha256:1eb85fc97224598dad1852b5d6483bbcf0aa8608790dcc657a5a2a761ae9c8c6",
+          "attribution_requirements": "Retain copyright, license, and NOTICE notices; mark modifications.",
+          "redistribution_allowed": true,
+          "training_allowed": true,
+          "status": "confirmed"
+        },
+        "derived_artifacts": {
+          "spdx_identifier": "Apache-2.0",
+          "source_url": "https://github.com/allenai/SciREX/blob/7daad660fe94f504433590b7a781cfabe1e179c6/LICENSE",
+          "retrieved_at": "2026-07-14",
+          "license_file_checksum": "sha256:1eb85fc97224598dad1852b5d6483bbcf0aa8608790dcc657a5a2a761ae9c8c6",
+          "attribution_requirements": "Preserve SciREX attribution and label transformations as derived.",
+          "redistribution_allowed": true,
+          "training_allowed": true,
+          "status": "confirmed"
+        }
+      },
+      "notes": "Retrieval supervision only in Phase 1A. Relations missing from tables are reported separately under the official filtered protocol."
+    },
+    {
+      "name": "QASPER",
+      "role": "core_train",
+      "source_url": "https://allenai.org/data/qasper",
+      "source_revision": "baseline:afd0fb96bf78ce8cd8157639c6f6a6995e4f9089",
+      "source_checksum": null,
+      "allowed_splits": ["train", "dev", "test"],
+      "adapter": "QasperAdapter",
+      "enabled_views": ["retrieval_view"],
+      "view_components": {
+        "retrieval_view": ["annotations", "source_text"],
+        "admission_view": ["annotations", "source_text"],
+        "update_view": ["annotations", "source_text"]
+      },
+      "licenses": {
+        "annotations": {
+          "spdx_identifier": "CC-BY-4.0",
+          "source_url": "https://allenai.org/data/qasper",
+          "retrieved_at": "2026-07-14",
+          "license_file_checksum": null,
+          "attribution_requirements": "Attribute QASPER authors and indicate derived transformations.",
+          "redistribution_allowed": false,
+          "training_allowed": false,
+          "status": "ambiguous"
+        },
+        "source_text": {
+          "spdx_identifier": "CC-BY-4.0",
+          "source_url": "https://allenai.org/data/qasper",
+          "retrieved_at": "2026-07-14",
+          "license_file_checksum": null,
+          "attribution_requirements": "Per-paper provenance and attribution must be retained.",
+          "redistribution_allowed": false,
+          "training_allowed": false,
+          "status": "ambiguous"
+        },
+        "code": {
+          "spdx_identifier": "Apache-2.0",
+          "source_url": "https://github.com/allenai/qasper-led-baseline/blob/afd0fb96bf78ce8cd8157639c6f6a6995e4f9089/LICENSE",
+          "retrieved_at": "2026-07-14",
+          "license_file_checksum": "sha256:1eb85fc97224598dad1852b5d6483bbcf0aa8608790dcc657a5a2a761ae9c8c6",
+          "attribution_requirements": "Retain copyright, license, and NOTICE notices; mark modifications.",
+          "redistribution_allowed": true,
+          "training_allowed": true,
+          "status": "confirmed"
+        },
+        "derived_artifacts": {
+          "spdx_identifier": "CC-BY-4.0",
+          "source_url": "https://allenai.org/data/qasper",
+          "retrieved_at": "2026-07-14",
+          "license_file_checksum": null,
+          "attribution_requirements": "Carry QASPER attribution into derived records.",
+          "redistribution_allowed": false,
+          "training_allowed": false,
+          "status": "ambiguous"
+        }
+      },
+      "notes": "Dataset is described as CC-BY-4.0, but no official dataset LICENSE checksum was recovered. Evidence is retrieval/evidence supervision only."
+    },
+    {
+      "name": "SciFact",
+      "role": "core_train",
+      "source_url": "https://github.com/allenai/scifact",
+      "source_revision": "68b98a56d93e0f9da0d2aab4e6c3294699a0f72e",
+      "source_checksum": null,
+      "allowed_splits": ["train", "dev", "test"],
+      "adapter": "SciFactAdapter",
+      "enabled_views": ["retrieval_view"],
+      "view_components": {
+        "retrieval_view": ["annotations", "source_text"],
+        "admission_view": ["annotations", "source_text"],
+        "update_view": ["annotations", "source_text"]
+      },
+      "licenses": {
+        "annotations": {
+          "spdx_identifier": "CC-BY-4.0",
+          "source_url": "https://github.com/allenai/scifact/blob/68b98a56d93e0f9da0d2aab4e6c3294699a0f72e/LICENSE.md",
+          "retrieved_at": "2026-07-14",
+          "license_file_checksum": "sha256:a253253598ed93afe5ea8f96be2bcbf6a7caf745ad3f0145ac847df8d13377fc",
+          "attribution_requirements": "Credit SciFact authors, link CC BY 4.0, and indicate changes.",
+          "redistribution_allowed": true,
+          "training_allowed": true,
+          "status": "confirmed"
+        },
+        "source_text": {
+          "spdx_identifier": "ODC-By-1.0",
+          "source_url": "https://github.com/allenai/scifact/blob/68b98a56d93e0f9da0d2aab4e6c3294699a0f72e/LICENSE.md",
+          "retrieved_at": "2026-07-14",
+          "license_file_checksum": "sha256:a253253598ed93afe5ea8f96be2bcbf6a7caf745ad3f0145ac847df8d13377fc",
+          "attribution_requirements": "Attribute S2ORC and comply with ODC-By notice requirements.",
+          "redistribution_allowed": true,
+          "training_allowed": true,
+          "status": "confirmed"
+        },
+        "code": {
+          "spdx_identifier": "Apache-2.0",
+          "source_url": "https://github.com/allenai/scifact/blob/68b98a56d93e0f9da0d2aab4e6c3294699a0f72e/LICENSE.md",
+          "retrieved_at": "2026-07-14",
+          "license_file_checksum": "sha256:a253253598ed93afe5ea8f96be2bcbf6a7caf745ad3f0145ac847df8d13377fc",
+          "attribution_requirements": "Retain copyright, license, and NOTICE notices; mark modifications.",
+          "redistribution_allowed": true,
+          "training_allowed": true,
+          "status": "confirmed"
+        },
+        "derived_artifacts": {
+          "spdx_identifier": "LicenseRef-SciFact-Composite",
+          "source_url": "https://github.com/allenai/scifact/blob/68b98a56d93e0f9da0d2aab4e6c3294699a0f72e/LICENSE.md",
+          "retrieved_at": "2026-07-14",
+          "license_file_checksum": "sha256:a253253598ed93afe5ea8f96be2bcbf6a7caf745ad3f0145ac847df8d13377fc",
+          "attribution_requirements": "Propagate CC-BY-4.0 for annotations and ODC-By-1.0 for abstracts separately.",
+          "redistribution_allowed": true,
+          "training_allowed": true,
+          "status": "confirmed"
+        }
+      },
+      "notes": "Retrieval/rationale supervision is licensed; SUPPORT/CONTRADICT is not an admission or publication decision."
+    },
+    {
+      "name": "Evidence Inference 2.0",
+      "role": "core_train",
+      "source_url": "https://github.com/jayded/evidence-inference",
+      "source_revision": "a661e8c14f973398380c8865cf2f27a535aaaf6d",
+      "source_checksum": null,
+      "allowed_splits": ["train", "dev", "test"],
+      "adapter": "EvidenceInferenceAdapter",
+      "enabled_views": ["retrieval_view"],
+      "view_components": {
+        "retrieval_view": ["annotations", "source_text"],
+        "admission_view": ["annotations", "source_text"],
+        "update_view": ["annotations", "source_text"]
+      },
+      "licenses": {
+        "annotations": {
+          "spdx_identifier": "MIT",
+          "source_url": "https://github.com/jayded/evidence-inference/blob/a661e8c14f973398380c8865cf2f27a535aaaf6d/LICENSE",
+          "retrieved_at": "2026-07-14",
+          "license_file_checksum": "sha256:f76b1ceb8940c3717c3658d56d799af405355786b638683f68b9754a7fc77089",
+          "attribution_requirements": "Retain the MIT copyright and permission notice after the official file is verified.",
+          "redistribution_allowed": true,
+          "training_allowed": true,
+          "status": "confirmed"
+        },
+        "source_text": {
+          "spdx_identifier": null,
+          "source_url": "per-document PubMed Central open-access license",
+          "retrieved_at": "2026-07-14",
+          "license_file_checksum": null,
+          "attribution_requirements": "Resolve and retain the OA license for every source article.",
+          "redistribution_allowed": false,
+          "training_allowed": false,
+          "status": "blocked"
+        },
+        "code": {
+          "spdx_identifier": "MIT",
+          "source_url": "https://github.com/jayded/evidence-inference/blob/a661e8c14f973398380c8865cf2f27a535aaaf6d/LICENSE",
+          "retrieved_at": "2026-07-14",
+          "license_file_checksum": "sha256:f76b1ceb8940c3717c3658d56d799af405355786b638683f68b9754a7fc77089",
+          "attribution_requirements": "Retain the MIT copyright and permission notice after the official file is verified.",
+          "redistribution_allowed": true,
+          "training_allowed": true,
+          "status": "confirmed"
+        },
+        "derived_artifacts": {
+          "spdx_identifier": null,
+          "source_url": "per-document PubMed Central open-access license",
+          "retrieved_at": "2026-07-14",
+          "license_file_checksum": null,
+          "attribution_requirements": "Propagate each source article license and annotation attribution.",
+          "redistribution_allowed": false,
+          "training_allowed": false,
+          "status": "blocked"
+        }
+      },
+      "notes": "Source articles require per-document OA resolution; no article text is training-ready by dataset-level inference."
+    },
+    {
+      "name": "MeasEval",
+      "role": "core_train",
+      "source_url": "https://github.com/harperco/MeasEval",
+      "source_revision": "1fa738b6bc9b72c84c88a80344ca3ab39a310a44",
+      "source_checksum": null,
+      "allowed_splits": ["train", "trial", "eval"],
+      "adapter": "MeasEvalAdapter",
+      "enabled_views": [],
+      "view_components": {
+        "retrieval_view": ["annotations", "source_text"],
+        "admission_view": ["annotations", "source_text"],
+        "update_view": ["annotations", "source_text"]
+      },
+      "licenses": {
+        "annotations": {
+          "spdx_identifier": null,
+          "source_url": "https://github.com/harperco/MeasEval",
+          "retrieved_at": "2026-07-14",
+          "license_file_checksum": null,
+          "attribution_requirements": "Unknown until an explicit dataset license is published.",
+          "redistribution_allowed": false,
+          "training_allowed": false,
+          "status": "blocked"
+        },
+        "source_text": {
+          "spdx_identifier": null,
+          "source_url": "https://github.com/elsevierlabs/OA-STM-Corpus",
+          "retrieved_at": "2026-07-14",
+          "license_file_checksum": null,
+          "attribution_requirements": "Resolve source-article licenses independently.",
+          "redistribution_allowed": false,
+          "training_allowed": false,
+          "status": "blocked"
+        },
+        "code": {
+          "spdx_identifier": null,
+          "source_url": "https://github.com/harperco/MeasEval",
+          "retrieved_at": "2026-07-14",
+          "license_file_checksum": null,
+          "attribution_requirements": "Unknown; repository has no root license file.",
+          "redistribution_allowed": false,
+          "training_allowed": false,
+          "status": "blocked"
+        },
+        "derived_artifacts": {
+          "spdx_identifier": null,
+          "source_url": "https://github.com/harperco/MeasEval",
+          "retrieved_at": "2026-07-14",
+          "license_file_checksum": null,
+          "attribution_requirements": "Unknown until upstream licensing is explicit.",
+          "redistribution_allowed": false,
+          "training_allowed": false,
+          "status": "blocked"
+        }
+      },
+      "notes": "Slot extraction only; never admission/update supervision. Blocked from training pending an explicit dataset license."
+    },
+    {
+      "name": "POLYIE",
+      "role": "ood",
+      "source_url": "https://github.com/jerry3027/PolyIE",
+      "source_revision": "671a45222f1c53432b8b78e9630bef1f31353417",
+      "source_checksum": null,
+      "allowed_splits": ["ood", "few_shot", "upper_bound"],
+      "adapter": "external_official_protocol",
+      "enabled_views": ["retrieval_view"],
+      "view_components": {"retrieval_view": ["annotations", "source_text"]},
+      "licenses": {
+        "annotations": {"spdx_identifier": "Apache-2.0", "source_url": "https://github.com/jerry3027/PolyIE/blob/671a45222f1c53432b8b78e9630bef1f31353417/LICENSE", "retrieved_at": "2026-07-14", "license_file_checksum": "sha256:c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4", "attribution_requirements": "Retain copyright, license, and NOTICE notices; mark modifications.", "redistribution_allowed": true, "training_allowed": true, "status": "confirmed"},
+        "source_text": {"spdx_identifier": "Apache-2.0", "source_url": "https://github.com/jerry3027/PolyIE/blob/671a45222f1c53432b8b78e9630bef1f31353417/LICENSE", "retrieved_at": "2026-07-14", "license_file_checksum": "sha256:c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4", "attribution_requirements": "Retain copyright, license, and NOTICE notices; mark modifications.", "redistribution_allowed": true, "training_allowed": true, "status": "confirmed"},
+        "code": {"spdx_identifier": "Apache-2.0", "source_url": "https://github.com/jerry3027/PolyIE/blob/671a45222f1c53432b8b78e9630bef1f31353417/LICENSE", "retrieved_at": "2026-07-14", "license_file_checksum": "sha256:c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4", "attribution_requirements": "Retain copyright, license, and NOTICE notices; mark modifications.", "redistribution_allowed": true, "training_allowed": true, "status": "confirmed"},
+        "derived_artifacts": {"spdx_identifier": "Apache-2.0", "source_url": "https://github.com/jerry3027/PolyIE/blob/671a45222f1c53432b8b78e9630bef1f31353417/LICENSE", "retrieved_at": "2026-07-14", "license_file_checksum": "sha256:c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4", "attribution_requirements": "Preserve POLYIE attribution and mark derived transformations.", "redistribution_allowed": true, "training_allowed": true, "status": "confirmed"}
+      },
+      "notes": "OOD only; never used for the main model training split."
+    },
+    {
+      "name": "BioRED",
+      "role": "ood",
+      "source_url": "https://ftp.ncbi.nlm.nih.gov/pub/lu/BioRED/",
+      "source_revision": null,
+      "source_checksum": null,
+      "allowed_splits": ["ood"],
+      "adapter": "external_official_protocol",
+      "enabled_views": [],
+      "view_components": {"retrieval_view": ["annotations", "source_text"]},
+      "licenses": {
+        "annotations": {"spdx_identifier": null, "source_url": "https://ftp.ncbi.nlm.nih.gov/pub/lu/BioRED/", "retrieved_at": "2026-07-14", "license_file_checksum": null, "attribution_requirements": "Unknown until dataset-specific terms are confirmed.", "redistribution_allowed": false, "training_allowed": false, "status": "blocked"},
+        "source_text": {"spdx_identifier": null, "source_url": "https://ftp.ncbi.nlm.nih.gov/pub/lu/BioRED/", "retrieved_at": "2026-07-14", "license_file_checksum": null, "attribution_requirements": "Resolve publication text rights separately.", "redistribution_allowed": false, "training_allowed": false, "status": "blocked"},
+        "code": {"spdx_identifier": null, "source_url": "https://ftp.ncbi.nlm.nih.gov/pub/lu/BioRED/", "retrieved_at": "2026-07-14", "license_file_checksum": null, "attribution_requirements": "Unknown.", "redistribution_allowed": false, "training_allowed": false, "status": "blocked"},
+        "derived_artifacts": {"spdx_identifier": null, "source_url": "https://ftp.ncbi.nlm.nih.gov/pub/lu/BioRED/", "retrieved_at": "2026-07-14", "license_file_checksum": null, "attribution_requirements": "Unknown.", "redistribution_allowed": false, "training_allowed": false, "status": "blocked"}
+      },
+      "notes": "Blocked until a dataset-specific license is confirmed."
+    },
+    {
+      "name": "SciFact-Open",
+      "role": "scale",
+      "source_url": "https://github.com/allenai/scifact-open",
+      "source_revision": null,
+      "source_checksum": null,
+      "allowed_splits": ["scale"],
+      "adapter": "external_official_protocol",
+      "enabled_views": [],
+      "view_components": {"retrieval_view": ["annotations", "source_text"]},
+      "licenses": {
+        "annotations": {"spdx_identifier": null, "source_url": "https://github.com/allenai/scifact-open", "retrieved_at": "2026-07-14", "license_file_checksum": null, "attribution_requirements": "Component audit required.", "redistribution_allowed": false, "training_allowed": false, "status": "blocked"},
+        "source_text": {"spdx_identifier": null, "source_url": "https://github.com/allenai/scifact-open", "retrieved_at": "2026-07-14", "license_file_checksum": null, "attribution_requirements": "Component audit required.", "redistribution_allowed": false, "training_allowed": false, "status": "blocked"},
+        "code": {"spdx_identifier": null, "source_url": "https://github.com/allenai/scifact-open", "retrieved_at": "2026-07-14", "license_file_checksum": null, "attribution_requirements": "Component audit required.", "redistribution_allowed": false, "training_allowed": false, "status": "blocked"},
+        "derived_artifacts": {"spdx_identifier": null, "source_url": "https://github.com/allenai/scifact-open", "retrieved_at": "2026-07-14", "license_file_checksum": null, "attribution_requirements": "Component audit required.", "redistribution_allowed": false, "training_allowed": false, "status": "blocked"}
+      },
+      "notes": "Scale protocol only; excluded from Phase 1A training readiness."
+    },
+    {
+      "name": "Materials-150-DOI",
+      "role": "case_study",
+      "source_url": "local-only",
+      "source_revision": null,
+      "source_checksum": null,
+      "allowed_splits": ["case_study"],
+      "adapter": "none",
+      "enabled_views": [],
+      "view_components": {},
+      "licenses": {
+        "annotations": {"spdx_identifier": null, "source_url": "local-only", "retrieved_at": "2026-07-14", "license_file_checksum": null, "attribution_requirements": "Private case-study terms.", "redistribution_allowed": false, "training_allowed": false, "status": "blocked"},
+        "source_text": {"spdx_identifier": null, "source_url": "local-only", "retrieved_at": "2026-07-14", "license_file_checksum": null, "attribution_requirements": "Per-document private terms.", "redistribution_allowed": false, "training_allowed": false, "status": "blocked"},
+        "code": {"spdx_identifier": null, "source_url": "local-only", "retrieved_at": "2026-07-14", "license_file_checksum": null, "attribution_requirements": "Not applicable.", "redistribution_allowed": false, "training_allowed": false, "status": "blocked"},
+        "derived_artifacts": {"spdx_identifier": null, "source_url": "local-only", "retrieved_at": "2026-07-14", "license_file_checksum": null, "attribution_requirements": "No redistribution.", "redistribution_allowed": false, "training_allowed": false, "status": "blocked"}
+      },
+      "notes": "Never used for training or as the sole benchmark result."
+    }
+  ]
+}

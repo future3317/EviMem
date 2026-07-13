@@ -1,0 +1,16 @@
+{
+  "fixture_kind": "exact SciFact release v1.0 claim and cited abstract",
+  "source_archive_sha256": "sha256:11c621288d41ac144d29b13b0f8503b3820b7d6e8b1f6ff24dff335c196d76be",
+  "id": "2:0",
+  "document_id": "13734012",
+  "claim": "1 in 5 million in UK have abnormal PrP positivity.",
+  "label": "CONTRADICT",
+  "evidence_sentence_ids": [4],
+  "abstract_sentences": [
+    "OBJECTIVES To carry out a further survey of archived appendix samples to understand better the differences between existing estimates of the prevalence of subclinical infection with prions after the bovine spongiform encephalopathy epizootic and to see whether a broader birth cohort was affected, and to understand better the implications for the management of blood and blood products and for the handling of surgical instruments.   \n",
+    "DESIGN Irreversibly unlinked and anonymised large scale survey of archived appendix samples.   \n",
+    "SETTING Archived appendix samples from the pathology departments of 41 UK hospitals participating in the earlier survey, and additional hospitals in regions with lower levels of participation in that survey.   ",
+    "SAMPLE 32,441 archived appendix samples fixed in formalin and embedded in paraffin and tested for the presence of abnormal prion protein (PrP).   \n",
+    "RESULTS Of the 32,441 appendix samples 16 were positive for abnormal PrP, indicating an overall prevalence of 493 per million population (95% confidence interval 282 to 801 per million)."
+  ]
+}

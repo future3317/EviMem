@@ -1,7 +1,8 @@
-"""Append-only SQLite store with certificate-governed memory admission."""
+"""Append-only storage with certificate- and action-governed memory admission."""
 
 from __future__ import annotations
 
+import hashlib
 import sqlite3
 from collections.abc import Iterable
 from dataclasses import dataclass
@@ -9,15 +10,17 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from evimem.contracts import (
+    AdmissionAction,
+    MemoryStatus,
     MemoryType,
+    ScientificMemoryRecord,
     SlotStatus,
-    VerificationCertificate,
-    WarrantedMemoryItem,
+    UpdateOperation,
 )
 
 
 class MemoryAdmissionError(ValueError):
-    """Raised when an item cannot cross the long-term memory boundary."""
+    """Raised when a record cannot cross the long-term memory boundary."""
 
 
 @dataclass(frozen=True)
@@ -28,11 +31,13 @@ class AdmissionDecision:
 
 
 _SCHEMA = """
-CREATE TABLE IF NOT EXISTS warranted_memory_items (
+CREATE TABLE IF NOT EXISTS scientific_memory_records (
     memory_id TEXT PRIMARY KEY,
     memory_type TEXT NOT NULL,
     domain TEXT NOT NULL,
-    property_key TEXT NOT NULL,
+    subject TEXT NOT NULL,
+    relation TEXT NOT NULL,
+    observed_at TEXT NOT NULL,
     policy_version TEXT NOT NULL,
     policy_hash TEXT NOT NULL,
     evidence_release_id TEXT NOT NULL,
@@ -42,33 +47,89 @@ CREATE TABLE IF NOT EXISTS warranted_memory_items (
     admitted_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_memory_signature
-ON warranted_memory_items(domain, property_key, memory_type);
-CREATE INDEX IF NOT EXISTS idx_memory_policy
-ON warranted_memory_items(policy_version, policy_hash);
+ON scientific_memory_records(domain, subject, relation, memory_type);
+CREATE INDEX IF NOT EXISTS idx_memory_time
+ON scientific_memory_records(observed_at);
 
-CREATE TABLE IF NOT EXISTS warranted_memory_supersessions (
-    superseded_memory_id TEXT PRIMARY KEY,
-    successor_memory_id TEXT NOT NULL,
+CREATE TABLE IF NOT EXISTS memory_relations (
+    source_memory_id TEXT NOT NULL,
+    target_memory_id TEXT NOT NULL,
+    operation TEXT NOT NULL,
     reason TEXT NOT NULL,
     created_at TEXT NOT NULL,
-    FOREIGN KEY(superseded_memory_id) REFERENCES warranted_memory_items(memory_id),
-    FOREIGN KEY(successor_memory_id) REFERENCES warranted_memory_items(memory_id)
+    PRIMARY KEY(source_memory_id, target_memory_id, operation),
+    FOREIGN KEY(source_memory_id) REFERENCES scientific_memory_records(memory_id),
+    FOREIGN KEY(target_memory_id) REFERENCES scientific_memory_records(memory_id)
 );
 """
 
 
-def _canonical_payload(item: WarrantedMemoryItem) -> str:
-    return item.model_dump_json(exclude_none=False)
+def _canonical_payload(record: ScientificMemoryRecord) -> str:
+    return record.model_dump_json(exclude_none=False)
 
 
 def _payload_hash(payload: str) -> str:
-    import hashlib
-
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
+class MemoryAdmissionGate:
+    """Hard constraints that a learned admission prediction cannot override."""
+
+    _EXPECTED_ACTION = {
+        MemoryType.VERIFIED: AdmissionAction.WRITE_VERIFIED,
+        MemoryType.REJECTED: AdmissionAction.WRITE_REJECTED,
+        MemoryType.CONFLICT: AdmissionAction.WRITE_CONFLICT,
+    }
+
+    @classmethod
+    def assess(
+        cls,
+        record: ScientificMemoryRecord,
+        requested_action: AdmissionAction,
+    ) -> AdmissionDecision:
+        if requested_action in {AdmissionAction.EPHEMERAL_ONLY, AdmissionAction.IGNORE}:
+            return AdmissionDecision(False, (requested_action.value.lower(),))
+
+        reasons: list[str] = []
+        certificate = record.certificate
+        if requested_action != cls._EXPECTED_ACTION[record.memory_type]:
+            reasons.append("admission_memory_type_mismatch")
+        if not certificate.resolved_evidence:
+            reasons.append("certificate_has_no_resolved_evidence")
+        if certificate.support_tier == "unbound":
+            reasons.append("unbound_certificate_not_admissible")
+        if record.memory_type == MemoryType.VERIFIED:
+            if certificate.final_decision != "publish":
+                reasons.append("verified_memory_requires_publish_decision")
+            if certificate.support_tier != "verified_strong":
+                reasons.append("verified_memory_requires_verified_strong")
+            if certificate.constraint_result != "pass":
+                reasons.append("verified_memory_requires_constraint_pass")
+            if certificate.conflict_result not in {"pass", "distinct_context", "exact_duplicate"}:
+                reasons.append("verified_memory_requires_conflict_clearance")
+            if any(status != SlotStatus.VERIFIED for status in certificate.slot_verification.values()):
+                reasons.append("verified_memory_has_unverified_slots")
+            if record.decision.status != "published":
+                reasons.append("verified_memory_decision_not_published")
+        elif record.memory_type == MemoryType.REJECTED:
+            if certificate.final_decision != "reject":
+                reasons.append("rejected_memory_requires_reject_decision")
+            if not certificate.exclusion_reasons:
+                reasons.append("rejected_memory_requires_stable_reason")
+            if record.decision.status != "rejected":
+                reasons.append("rejected_memory_decision_mismatch")
+        elif record.memory_type == MemoryType.CONFLICT:
+            if certificate.conflict_result != "unresolved_conflict":
+                reasons.append("conflict_memory_requires_unresolved_conflict")
+            if certificate.final_decision not in {"review", "defer"}:
+                reasons.append("conflict_memory_requires_review_or_defer")
+            if record.decision.status != "conflict":
+                reasons.append("conflict_memory_decision_mismatch")
+        return AdmissionDecision(not reasons, tuple(reasons))
+
+
 class GovernedMemoryStore:
-    """Durable memory store, deliberately separate from publication storage."""
+    """Durable memory store, physically separate from publication storage."""
 
     def __init__(self, db_path: str | Path):
         self.db_path = Path(db_path)
@@ -82,143 +143,81 @@ class GovernedMemoryStore:
         connection.execute("PRAGMA foreign_keys = ON")
         return connection
 
-    @staticmethod
-    def assess(
-        item: WarrantedMemoryItem,
-        certificate: VerificationCertificate,
-    ) -> AdmissionDecision:
-        reasons: list[str] = []
-        if item.certificate_id != certificate.certificate_id:
-            reasons.append("certificate_id_mismatch")
-        if item.evidence_release_id != certificate.evidence_release_id:
-            reasons.append("evidence_release_mismatch")
-        if item.policy_version != certificate.domain_pack_version:
-            reasons.append("policy_version_mismatch")
-        if item.policy_hash != certificate.domain_pack_hash:
-            reasons.append("policy_hash_mismatch")
-        if not certificate.resolved_evidence:
-            reasons.append("certificate_has_no_resolved_evidence")
-        if certificate.support_tier == "unbound":
-            reasons.append("unbound_certificate_not_admissible")
-        if any(
-            ref.release_id != certificate.evidence_release_id
-            for ref in certificate.resolved_evidence
-        ):
-            reasons.append("certificate_evidence_release_mismatch")
-        if {ref.model_dump_json() for ref in item.evidence_refs} - {
-            ref.model_dump_json() for ref in certificate.resolved_evidence
-        }:
-            reasons.append("memory_evidence_not_certified")
-
-        if item.memory_type == MemoryType.VERIFIED:
-            if certificate.final_decision != "publish":
-                reasons.append("verified_memory_requires_publish_decision")
-            if certificate.support_tier != "verified_strong":
-                reasons.append("verified_memory_requires_verified_strong")
-            if certificate.constraint_result != "pass":
-                reasons.append("verified_memory_requires_constraint_pass")
-            if certificate.conflict_result not in {
-                "pass", "distinct_context", "exact_duplicate"
-            }:
-                reasons.append("verified_memory_requires_conflict_clearance")
-            if any(status != SlotStatus.VERIFIED for status in certificate.slot_verification.values()):
-                reasons.append("verified_memory_has_unverified_slots")
-            if item.decision.status != "published":
-                reasons.append("verified_memory_decision_not_published")
-        elif item.memory_type == MemoryType.REJECTED:
-            if certificate.final_decision != "reject":
-                reasons.append("rejected_memory_requires_reject_decision")
-            if not certificate.exclusion_reasons:
-                reasons.append("rejected_memory_requires_stable_reason")
-            if item.decision.status != "rejected":
-                reasons.append("rejected_memory_decision_mismatch")
-            if certificate.support_tier == "unbound":
-                reasons.append("rejected_memory_requires_bound_evidence")
-        elif item.memory_type == MemoryType.CONFLICT:
-            if certificate.conflict_result != "unresolved_conflict":
-                reasons.append("conflict_memory_requires_unresolved_conflict")
-            if certificate.final_decision not in {"review", "defer"}:
-                reasons.append("conflict_memory_requires_review_or_defer")
-        elif item.memory_type in {MemoryType.CORRECTION, MemoryType.POLICY}:
-            if item.authority.source != "human_curator":
-                reasons.append("human_authority_required")
-
-        return AdmissionDecision(admitted=not reasons, reason_codes=tuple(reasons))
-
     def admit(
         self,
-        item: WarrantedMemoryItem,
-        certificate: VerificationCertificate,
+        record: ScientificMemoryRecord,
+        requested_action: AdmissionAction,
     ) -> AdmissionDecision:
-        """Admit an item iff its deterministic warrant is internally consistent."""
-
-        decision = self.assess(item, certificate)
+        decision = MemoryAdmissionGate.assess(record, requested_action)
         if not decision.admitted:
+            if requested_action in {AdmissionAction.EPHEMERAL_ONLY, AdmissionAction.IGNORE}:
+                return decision
             raise MemoryAdmissionError(",".join(decision.reason_codes))
 
-        payload = _canonical_payload(item)
+        payload = _canonical_payload(record)
         digest = _payload_hash(payload)
-        now = datetime.now(UTC).isoformat()
         with self._connect() as connection:
             existing = connection.execute(
-                "SELECT payload_hash FROM warranted_memory_items WHERE memory_id = ?",
-                (item.memory_id,),
+                "SELECT payload_hash FROM scientific_memory_records WHERE memory_id = ?",
+                (record.memory_id,),
             ).fetchone()
             if existing is not None:
                 if existing["payload_hash"] != digest:
                     raise MemoryAdmissionError("memory_id_collision")
-                return AdmissionDecision(admitted=True, reason_codes=(), idempotent=True)
+                return AdmissionDecision(True, (), idempotent=True)
             connection.execute(
                 """
-                INSERT INTO warranted_memory_items(
-                    memory_id, memory_type, domain, property_key,
-                    policy_version, policy_hash, evidence_release_id,
-                    certificate_id, payload_json, payload_hash, admitted_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO scientific_memory_records(
+                    memory_id, memory_type, domain, subject, relation, observed_at,
+                    policy_version, policy_hash, evidence_release_id, certificate_id,
+                    payload_json, payload_hash, admitted_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
-                    item.memory_id,
-                    item.memory_type.value,
-                    item.claim_signature.domain,
-                    item.claim_signature.property_key,
-                    item.policy_version,
-                    item.policy_hash,
-                    item.evidence_release_id,
-                    item.certificate_id,
+                    record.memory_id,
+                    record.memory_type.value,
+                    record.claim_signature.domain,
+                    record.claim.subject,
+                    record.claim.relation,
+                    record.observed_at.isoformat(),
+                    record.policy_version,
+                    record.policy_hash,
+                    record.evidence_release_id,
+                    record.certificate_id,
                     payload,
                     digest,
-                    now,
+                    datetime.now(UTC).isoformat(),
                 ),
             )
         return decision
 
-    def get(self, memory_id: str) -> WarrantedMemoryItem | None:
+    def get(self, memory_id: str) -> ScientificMemoryRecord | None:
         with self._connect() as connection:
             row = connection.execute(
-                "SELECT payload_json FROM warranted_memory_items WHERE memory_id = ?",
+                "SELECT payload_json FROM scientific_memory_records WHERE memory_id = ?",
                 (memory_id,),
             ).fetchone()
             if row is None:
                 return None
             supersession = connection.execute(
                 """
-                SELECT successor_memory_id, reason
-                FROM warranted_memory_supersessions
-                WHERE superseded_memory_id = ?
+                SELECT source_memory_id, reason, created_at
+                FROM memory_relations
+                WHERE target_memory_id = ? AND operation = ?
+                ORDER BY created_at ASC, source_memory_id ASC
                 """,
-                (memory_id,),
-            ).fetchone()
-        item = WarrantedMemoryItem.model_validate_json(row["payload_json"])
-        if supersession is None:
-            return item
-        return item.model_copy(
+                (memory_id, UpdateOperation.SUPERSEDE.value),
+            ).fetchall()
+        record = ScientificMemoryRecord.model_validate_json(row["payload_json"])
+        if not supersession:
+            return record
+        return record.model_copy(
             update={
-                "status": "superseded",
-                "decision": item.decision.model_copy(update={"status": "superseded"}),
-                "contradicted_by": tuple(
-                    dict.fromkeys((*item.contradicted_by, supersession["successor_memory_id"]))
-                ),
-                "supersession_reason": supersession["reason"],
+                "status": MemoryStatus.SUPERSEDED,
+                "decision": record.decision.model_copy(update={"status": "superseded"}),
+                "valid_until": datetime.fromisoformat(supersession[0]["created_at"]),
+                "superseded_by": tuple(item["source_memory_id"] for item in supersession),
+                "supersession_reason": supersession[0]["reason"],
             }
         )
 
@@ -226,86 +225,87 @@ class GovernedMemoryStore:
         self,
         *,
         domain: str,
-        property_key: str | None = None,
+        relation: str | None = None,
+        subject: str | None = None,
         memory_types: Iterable[MemoryType] | None = None,
+        observed_before: datetime | None = None,
         include_superseded: bool = False,
         limit: int = 100,
-    ) -> list[WarrantedMemoryItem]:
+    ) -> list[ScientificMemoryRecord]:
         clauses = ["m.domain = ?"]
         params: list[object] = [domain]
-        if property_key is not None:
-            clauses.append("m.property_key = ?")
-            params.append(property_key)
+        if relation is not None:
+            clauses.append("m.relation = ?")
+            params.append(relation)
+        if subject is not None:
+            clauses.append("m.subject = ?")
+            params.append(subject)
         selected_types = tuple(memory_types or ())
         if selected_types:
             marks = ",".join("?" for _ in selected_types)
             clauses.append(f"m.memory_type IN ({marks})")
             params.extend(item.value for item in selected_types)
+        if observed_before is not None:
+            clauses.append("m.observed_at <= ?")
+            params.append(observed_before.isoformat())
         if not include_superseded:
-            clauses.append("s.superseded_memory_id IS NULL")
+            clauses.append("s.target_memory_id IS NULL")
         params.append(max(1, limit))
         sql = f"""
-            SELECT m.memory_id
-            FROM warranted_memory_items m
-            LEFT JOIN warranted_memory_supersessions s
-              ON s.superseded_memory_id = m.memory_id
+            SELECT DISTINCT m.memory_id
+            FROM scientific_memory_records m
+            LEFT JOIN memory_relations s
+              ON s.target_memory_id = m.memory_id AND s.operation = 'SUPERSEDE'
             WHERE {' AND '.join(clauses)}
-            ORDER BY m.admitted_at DESC, m.memory_id ASC
+            ORDER BY m.observed_at DESC, m.memory_id ASC
             LIMIT ?
         """
         with self._connect() as connection:
             ids = [row["memory_id"] for row in connection.execute(sql, params).fetchall()]
-        return [item for memory_id in ids if (item := self.get(memory_id)) is not None]
+        return [record for memory_id in ids if (record := self.get(memory_id)) is not None]
 
-    def register_supersession(
+    def register_relation(
         self,
         *,
-        superseded_memory_id: str,
-        successor_memory_id: str,
+        source_memory_id: str,
+        target_memory_id: str,
+        operation: UpdateOperation,
         reason: str,
     ) -> bool:
-        if superseded_memory_id == successor_memory_id:
-            raise MemoryAdmissionError("memory cannot supersede itself")
+        if operation in {UpdateOperation.ADD, UpdateOperation.IGNORE}:
+            raise MemoryAdmissionError(f"{operation.value} is not a binary memory relation")
+        if source_memory_id == target_memory_id:
+            raise MemoryAdmissionError("memory relation cannot target itself")
         reason = reason.strip()
         if not reason:
-            raise MemoryAdmissionError("supersession requires a reason")
+            raise MemoryAdmissionError("memory relation requires a reason")
         with self._connect() as connection:
             rows = connection.execute(
-                "SELECT memory_id FROM warranted_memory_items WHERE memory_id IN (?, ?)",
-                (superseded_memory_id, successor_memory_id),
+                "SELECT memory_id FROM scientific_memory_records WHERE memory_id IN (?, ?)",
+                (source_memory_id, target_memory_id),
             ).fetchall()
             if len(rows) != 2:
-                raise MemoryAdmissionError("both memories must be admitted before supersession")
-            existing = connection.execute(
-                "SELECT successor_memory_id, reason FROM warranted_memory_supersessions WHERE superseded_memory_id = ?",
-                (superseded_memory_id,),
-            ).fetchone()
-            if existing is not None:
-                if (
-                    existing["successor_memory_id"] == successor_memory_id
-                    and existing["reason"] == reason
-                ):
-                    return False
-                raise MemoryAdmissionError("memory already has a different successor")
-            connection.execute(
+                raise MemoryAdmissionError("both memories must be admitted before linking")
+            cursor = connection.execute(
                 """
-                INSERT INTO warranted_memory_supersessions(
-                    superseded_memory_id, successor_memory_id, reason, created_at
-                ) VALUES (?, ?, ?, ?)
+                INSERT OR IGNORE INTO memory_relations(
+                    source_memory_id, target_memory_id, operation, reason, created_at
+                ) VALUES (?, ?, ?, ?, ?)
                 """,
                 (
-                    superseded_memory_id,
-                    successor_memory_id,
+                    source_memory_id,
+                    target_memory_id,
+                    operation.value,
                     reason,
                     datetime.now(UTC).isoformat(),
                 ),
             )
-        return True
+        return cursor.rowcount == 1
 
     def verify_integrity(self) -> dict[str, object]:
         with self._connect() as connection:
             rows = connection.execute(
-                "SELECT memory_id, payload_json, payload_hash FROM warranted_memory_items"
+                "SELECT memory_id, payload_json, payload_hash FROM scientific_memory_records"
             ).fetchall()
         corrupt = [
             row["memory_id"]

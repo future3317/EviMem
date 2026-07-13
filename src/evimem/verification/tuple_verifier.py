@@ -5,13 +5,14 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from evimem.contracts import (
+    CandidateObservation,
     CheckResult,
+    EvidenceRef,
     ScientificClaim,
     VerificationCertificate,
     make_certificate_id,
 )
 from evimem.contracts.ids import deterministic_id
-from evimem.controller import EpisodeOutcome
 from evimem.domains import DomainPack, DomainValidator
 from evimem.evidence import EvidenceBinder, EvidenceBlockStore
 
@@ -36,9 +37,18 @@ class TupleVerifier:
         self.gate = PublicationGate(domain_pack)
         self.existing_claims = existing_claims or (lambda claim: ())
 
-    def certify(self, *, outcome: EpisodeOutcome) -> VerificationCertificate:
-        candidate = outcome.final_state.candidate
-        refs = outcome.final_state.gathered_evidence or tuple(candidate.proposed_evidence)
+    def certify(
+        self,
+        *,
+        candidate: CandidateObservation,
+        publication_requested: bool,
+        evidence_refs: tuple[EvidenceRef, ...] | None = None,
+    ) -> VerificationCertificate:
+        """Certify current evidence without accepting verifier state from a model."""
+
+        refs = evidence_refs or tuple(candidate.proposed_evidence)
+        if not refs:
+            raise ValueError("tuple certification requires immutable evidence references")
         binding = self.binder.bind(candidate, evidence_refs=refs)
         domain_result = self.domain_validator.validate(candidate.claim)
         normalized_claim = candidate.claim.model_copy(
@@ -54,7 +64,7 @@ class TupleVerifier:
         evidence_text = "\n".join(ref.quote or "" for ref in binding.resolved_evidence)
         gate = self.gate.evaluate(
             evidence_text=evidence_text,
-            publication_requested=outcome.publication_requested,
+            publication_requested=publication_requested,
             domain_validation=domain_result,
             binding=binding,
             conflict_result=conflict.result,
@@ -102,6 +112,7 @@ class TupleVerifier:
             run_id=candidate.run_id,
             candidate_id=candidate.candidate_id,
             normalized_claim=normalized_claim,
+            certified_claim_hash=normalized_claim.memory_fingerprint(),
             resolved_evidence=resolved,
             checks=checks,
             slot_verification=binding.slot_status,
@@ -111,7 +122,7 @@ class TupleVerifier:
             conflict_result=conflict.result,
             final_decision=gate.final_decision,
             exclusion_reasons=list(gate.reason_codes),
-            evidence_release_id=outcome.final_state.claim_state.evidence_release_id,
+            evidence_release_id=resolved[0].release_id if resolved else refs[0].release_id,
             domain_pack_id=self.domain_pack.domain_id,
             domain_pack_version=self.domain_pack.version,
             domain_pack_hash=self.domain_pack.pack_hash,
@@ -127,4 +138,3 @@ class TupleVerifier:
             severity="info" if passed else "error",
             reason=reason,
         )
-

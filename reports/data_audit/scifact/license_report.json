@@ -1,0 +1,56 @@
+{
+  "components": {
+    "annotations": {
+      "attribution_requirements": "Credit SciFact authors, link CC BY 4.0, and indicate changes.",
+      "license_file_checksum": "sha256:a253253598ed93afe5ea8f96be2bcbf6a7caf745ad3f0145ac847df8d13377fc",
+      "redistribution_allowed": true,
+      "retrieved_at": "2026-07-14",
+      "source_url": "https://github.com/allenai/scifact/blob/68b98a56d93e0f9da0d2aab4e6c3294699a0f72e/LICENSE.md",
+      "spdx_identifier": "CC-BY-4.0",
+      "status": "confirmed",
+      "training_allowed": true
+    },
+    "code": {
+      "attribution_requirements": "Retain copyright, license, and NOTICE notices; mark modifications.",
+      "license_file_checksum": "sha256:a253253598ed93afe5ea8f96be2bcbf6a7caf745ad3f0145ac847df8d13377fc",
+      "redistribution_allowed": true,
+      "retrieved_at": "2026-07-14",
+      "source_url": "https://github.com/allenai/scifact/blob/68b98a56d93e0f9da0d2aab4e6c3294699a0f72e/LICENSE.md",
+      "spdx_identifier": "Apache-2.0",
+      "status": "confirmed",
+      "training_allowed": true
+    },
+    "derived_artifacts": {
+      "attribution_requirements": "Propagate CC-BY-4.0 for annotations and ODC-By-1.0 for abstracts separately.",
+      "license_file_checksum": "sha256:a253253598ed93afe5ea8f96be2bcbf6a7caf745ad3f0145ac847df8d13377fc",
+      "redistribution_allowed": true,
+      "retrieved_at": "2026-07-14",
+      "source_url": "https://github.com/allenai/scifact/blob/68b98a56d93e0f9da0d2aab4e6c3294699a0f72e/LICENSE.md",
+      "spdx_identifier": "LicenseRef-SciFact-Composite",
+      "status": "confirmed",
+      "training_allowed": true
+    },
+    "source_text": {
+      "attribution_requirements": "Attribute S2ORC and comply with ODC-By notice requirements.",
+      "license_file_checksum": "sha256:a253253598ed93afe5ea8f96be2bcbf6a7caf745ad3f0145ac847df8d13377fc",
+      "redistribution_allowed": true,
+      "retrieved_at": "2026-07-14",
+      "source_url": "https://github.com/allenai/scifact/blob/68b98a56d93e0f9da0d2aab4e6c3294699a0f72e/LICENSE.md",
+      "spdx_identifier": "ODC-By-1.0",
+      "status": "confirmed",
+      "training_allowed": true
+    }
+  },
+  "dataset": "SciFact",
+  "official_license_precedence": "official LICENSE or per-document terms; HF metadata is non-authoritative",
+  "retrieved_at": "2026-07-14",
+  "training_blockers": {
+    "admission_view": [
+      "view_not_enabled"
+    ],
+    "retrieval_view": [],
+    "update_view": [
+      "view_not_enabled"
+    ]
+  }
+}

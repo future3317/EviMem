@@ -5,9 +5,16 @@ from datetime import UTC, datetime
 from evimem.contracts import (
     CandidateObservation,
     CheckResult,
+    ClaimSignature,
     EvidenceRef,
+    MemoryAuthority,
+    MemoryDecision,
+    MemoryOrigin,
+    MemoryType,
     ProposerProvenance,
     ScientificClaim,
+    ScientificClaimRecord,
+    ScientificMemoryRecord,
     SlotStatus,
     TextSpanLocator,
     VerificationCertificate,
@@ -69,12 +76,15 @@ def certificate(
     support_tier: str = "verified_strong",
     conflict_result: str = "pass",
     exclusion_reasons: list[str] | None = None,
+    normalized_claim: ScientificClaim | None = None,
 ) -> VerificationCertificate:
+    selected_claim = normalized_claim or claim()
     return VerificationCertificate(
         certificate_id=certificate_id,
         run_id="run-1",
         candidate_id="candidate-1",
-        normalized_claim=claim(),
+        normalized_claim=selected_claim,
+        certified_claim_hash=selected_claim.memory_fingerprint(),
         resolved_evidence=[evidence_ref()],
         checks=[
             CheckResult(
@@ -102,3 +112,66 @@ def certificate(
         domain_pack_hash="policy-hash",
         verifier_version="harness-1",
     )
+
+
+def memory_record(
+    memory_id: str = "memory-1",
+    *,
+    value: float = 350.0,
+    memory_type: MemoryType = MemoryType.VERIFIED,
+    observed_at: datetime | None = None,
+) -> ScientificMemoryRecord:
+    certified_material_claim = claim().model_copy(
+        update={"value_raw": str(value), "value_num": value}
+    )
+    if memory_type == MemoryType.VERIFIED:
+        cert = certificate(normalized_claim=certified_material_claim)
+        status = "published"
+        reason = "verified_strong"
+    elif memory_type == MemoryType.REJECTED:
+        cert = certificate(
+            final_decision="reject",
+            support_tier="ambiguous",
+            conflict_result="not_run",
+            exclusion_reasons=["prediction_not_measurement"],
+            normalized_claim=certified_material_claim,
+        )
+        status = "rejected"
+        reason = "prediction_not_measurement"
+    else:
+        cert = certificate(
+            final_decision="defer",
+            support_tier="ambiguous",
+            conflict_result="unresolved_conflict",
+            normalized_claim=certified_material_claim,
+        )
+        status = "conflict"
+        reason = "same_context_incompatible_value"
+    record_claim = ScientificClaimRecord.from_material_claim(certified_material_claim)
+    return ScientificMemoryRecord(
+        memory_id=memory_id,
+        memory_type=memory_type,
+        claim=record_claim,
+        claim_signature=ClaimSignature.from_claim(record_claim, domain="piezoelectric"),
+        evidence_refs=(evidence_ref(),),
+        certificate=cert,
+        decision=MemoryDecision(status=status, reason=reason),
+        source_document="doi:10.1000/example",
+        observed_at=observed_at or datetime(2026, 7, 13, tzinfo=UTC),
+        policy_version="1.3.0",
+        policy_hash="policy-hash",
+        evidence_release_id="release-1",
+        authority=MemoryAuthority(source="deterministic_verifier", level=3),
+        origin=MemoryOrigin(
+            dataset_name="fixture",
+            split="train",
+            annotation_kind="deterministic_verifier",
+            license_id="test-only",
+        ),
+    )
+    MemoryAuthority,
+    MemoryDecision,
+    MemoryOrigin,
+    MemoryType,
+    ScientificClaimRecord,
+    ScientificMemoryRecord,

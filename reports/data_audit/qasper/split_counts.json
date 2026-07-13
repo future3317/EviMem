@@ -1,0 +1,8 @@
+{
+  "official_split_counts": {
+    "dev": 1761,
+    "test": 3536,
+    "train": 2667
+  },
+  "official_splits_preserved": true
+}

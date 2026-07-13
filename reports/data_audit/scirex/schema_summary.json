@@ -1,0 +1,48 @@
+{
+  "conversion_origins": {
+    "deterministic_derived": 2148
+  },
+  "converted_samples_by_view": {
+    "retrieval_view": 694
+  },
+  "dataset": "SciREX",
+  "evaluation_usable_samples_by_view": {
+    "retrieval_view": 177
+  },
+  "native_tasks": {
+    "filtered_relation_table_missing": 1454,
+    "n_ary_relation_retrieval": 694
+  },
+  "rejected_count": 0,
+  "sample_count": 2148,
+  "source_revision": "7daad660fe94f504433590b7a781cfabe1e179c6",
+  "source_snapshot": {
+    "aggregate_sha256": "sha256:df97f79955903ca400c0eabbf5774f6d37921a8e8dc6e333524ecea3fa2a04de",
+    "file_count": 3,
+    "files": [
+      {
+        "bytes": 4032390,
+        "name": "dev.jsonl",
+        "sha256": "sha256:b0dfc34d8e12e25d11e4b2bb53ecbe65e0336ef538b06bf34a431aa881344fe5"
+      },
+      {
+        "bytes": 4869030,
+        "name": "test.jsonl",
+        "sha256": "sha256:c2ddd9334e843c1acfff1845c9917fc3297988c4f01584a1e925b9d461179866"
+      },
+      {
+        "bytes": 20510651,
+        "name": "train.jsonl",
+        "sha256": "sha256:c72cc490561327f65ab2add8b42f77a994970bc57f4433981b969302f9addd7b"
+      }
+    ]
+  },
+  "training_usable_samples_by_view": {
+    "retrieval_view": 517
+  },
+  "views": {
+    "filtered_relation_table_missing": 1454,
+    "retrieval_view": 694
+  },
+  "views_are_separate": true
+}

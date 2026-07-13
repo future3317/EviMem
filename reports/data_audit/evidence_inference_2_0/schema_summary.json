@@ -1,0 +1,32 @@
+{
+  "conversion_origins": {
+    "native": 1
+  },
+  "converted_samples_by_view": {
+    "retrieval_view": 1
+  },
+  "dataset": "Evidence Inference 2.0",
+  "evaluation_usable_samples_by_view": {},
+  "native_tasks": {
+    "ico_evidence_retrieval": 1
+  },
+  "rejected_count": 0,
+  "sample_count": 1,
+  "source_revision": "a661e8c14f973398380c8865cf2f27a535aaaf6d",
+  "source_snapshot": {
+    "aggregate_sha256": "sha256:de83a749aff12700d57096ba451053558b3ce2980d94eeb324949519951e3d61",
+    "file_count": 1,
+    "files": [
+      {
+        "bytes": 800,
+        "name": "evidence_inference.json",
+        "sha256": "sha256:41c72c28990e6a974c0897f0b200a8f99205a1f0eeaa749a3b61ea9efabcc364"
+      }
+    ]
+  },
+  "training_usable_samples_by_view": {},
+  "views": {
+    "retrieval_view": 1
+  },
+  "views_are_separate": true
+}

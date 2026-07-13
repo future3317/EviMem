@@ -1,2 +1,1 @@
-"""Tests for the standalone EviMem-RL package."""
-
+"""Tests for the standalone EviMem package."""

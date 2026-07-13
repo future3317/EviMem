@@ -43,10 +43,10 @@ def test_clean_project_contains_no_runtime_data_directories() -> None:
     assert [name for name in forbidden if (root / name).exists()] == []
 
 
-def test_controller_and_training_cannot_import_publication_or_database_writers() -> None:
+def test_learning_components_cannot_import_publication_writers() -> None:
     package_root = Path(__file__).resolve().parents[1] / "src" / "evimem"
     violations: list[str] = []
-    for component in ("controller", "training"):
+    for component in ("training", "benchmark"):
         for path in (package_root / component).rglob("*.py"):
             tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
             for node in ast.walk(tree):

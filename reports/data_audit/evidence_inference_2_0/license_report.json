@@ -1,0 +1,66 @@
+{
+  "components": {
+    "annotations": {
+      "attribution_requirements": "Retain the MIT copyright and permission notice after the official file is verified.",
+      "license_file_checksum": "sha256:f76b1ceb8940c3717c3658d56d799af405355786b638683f68b9754a7fc77089",
+      "redistribution_allowed": true,
+      "retrieved_at": "2026-07-14",
+      "source_url": "https://github.com/jayded/evidence-inference/blob/a661e8c14f973398380c8865cf2f27a535aaaf6d/LICENSE",
+      "spdx_identifier": "MIT",
+      "status": "confirmed",
+      "training_allowed": true
+    },
+    "code": {
+      "attribution_requirements": "Retain the MIT copyright and permission notice after the official file is verified.",
+      "license_file_checksum": "sha256:f76b1ceb8940c3717c3658d56d799af405355786b638683f68b9754a7fc77089",
+      "redistribution_allowed": true,
+      "retrieved_at": "2026-07-14",
+      "source_url": "https://github.com/jayded/evidence-inference/blob/a661e8c14f973398380c8865cf2f27a535aaaf6d/LICENSE",
+      "spdx_identifier": "MIT",
+      "status": "confirmed",
+      "training_allowed": true
+    },
+    "derived_artifacts": {
+      "attribution_requirements": "Propagate each source article license and annotation attribution.",
+      "license_file_checksum": null,
+      "redistribution_allowed": false,
+      "retrieved_at": "2026-07-14",
+      "source_url": "per-document PubMed Central open-access license",
+      "spdx_identifier": null,
+      "status": "blocked",
+      "training_allowed": false
+    },
+    "source_text": {
+      "attribution_requirements": "Resolve and retain the OA license for every source article.",
+      "license_file_checksum": null,
+      "redistribution_allowed": false,
+      "retrieved_at": "2026-07-14",
+      "source_url": "per-document PubMed Central open-access license",
+      "spdx_identifier": null,
+      "status": "blocked",
+      "training_allowed": false
+    }
+  },
+  "dataset": "Evidence Inference 2.0",
+  "official_license_precedence": "official LICENSE or per-document terms; HF metadata is non-authoritative",
+  "retrieved_at": "2026-07-14",
+  "training_blockers": {
+    "admission_view": [
+      "view_not_enabled",
+      "source_text:status=blocked",
+      "source_text:training_forbidden",
+      "source_text:license_checksum_missing"
+    ],
+    "retrieval_view": [
+      "source_text:status=blocked",
+      "source_text:training_forbidden",
+      "source_text:license_checksum_missing"
+    ],
+    "update_view": [
+      "view_not_enabled",
+      "source_text:status=blocked",
+      "source_text:training_forbidden",
+      "source_text:license_checksum_missing"
+    ]
+  }
+}

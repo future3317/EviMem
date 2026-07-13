@@ -1,65 +1,94 @@
-"""Inference-visible episode data and separately held oracle annotations."""
+"""Leakage-safe continual episodes and separately held oracle annotations."""
 
 from __future__ import annotations
 
-from enum import StrEnum
-from typing import ClassVar
+from datetime import datetime
+from typing import Any, ClassVar
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from evimem.contracts import CurationTrajectory, EvidenceRef, VerificationCertificate
-from evimem.controller.state import ControllerState
+from evimem.contracts import (
+    AdmissionAction,
+    EvidenceRef,
+    ScientificClaimRecord,
+    ScientificMemoryRecord,
+    UpdateOperation,
+)
 
 
-class HardCaseType(StrEnum):
-    SINGLE_BLOCK = "single_block"
-    TABLE_ONLY = "table_only"
-    CAPTION_ONLY = "caption_only"
-    DISTRIBUTED_EVIDENCE = "distributed_evidence"
-    MULTIPLE_MATERIALS = "same_value_multiple_materials"
-    MULTIPLE_CONDITIONS = "same_material_multiple_conditions"
-    CROSS_PAPER_CORRECTION = "cross_paper_correction"
-    CONFLICTING_MEASUREMENTS = "conflicting_measurements"
-    OBSOLETE_POLICY = "obsolete_policy"
-    NEGATIVE_CONTROL = "negative_control"
-    REVIEW_OR_PREDICTION = "review_or_prediction"
-    UNSUPPORTED_MEMORY = "unsupported_memory"
-    MISSING_CONDITION = "missing_condition"
-    UNIT_CONVERSION = "unit_conversion"
-    MATERIAL_ALIAS_DRIFT = "material_alias_drift"
+class ScientificDocument(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    document_id: str
+    text: str
+    timestamp: datetime | None = None
+    dataset_name: str
+    split: str
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class MemoryQuery(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    query_id: str
+    text: str
+    candidate_claim: ScientificClaimRecord | None = None
 
 
 class BenchmarkEpisode(BaseModel):
-    """The complete state visible to an inference policy."""
+    """Everything visible during inference; no gold field is permitted."""
 
-    model_config = ConfigDict(frozen=True)
-    schema_version: ClassVar[str] = "evimem.benchmark_episode.v1"
+    model_config = ConfigDict(frozen=True, extra="forbid")
+    schema_version: ClassVar[str] = "scimem_curate.episode.v1"
 
     episode_id: str
     stream_position: int = Field(ge=0)
-    initial_state: ControllerState
-    hard_cases: tuple[HardCaseType, ...] = ()
-    negative_control: bool = False
+    history: tuple[ScientificMemoryRecord, ...] = ()
+    current_document: ScientificDocument
+    query: MemoryQuery
+
+    @model_validator(mode="after")
+    def _reject_future_memory(self) -> BenchmarkEpisode:
+        if self.current_document.timestamp is None:
+            if self.history:
+                raise ValueError("undated documents cannot receive timestamped memory history")
+            return self
+        future = [
+            record.memory_id
+            for record in self.history
+            if record.observed_at > self.current_document.timestamp
+        ]
+        if future:
+            raise ValueError(f"history contains future memories: {sorted(future)}")
+        return self
 
 
 class OracleAnnotation(BaseModel):
-    """Gold data held outside the policy-facing episode object."""
+    """Gold data stored outside policy-facing episodes and used only for scoring."""
 
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     episode_id: str
-    expected_terminal_action: str
-    gold_evidence_refs: tuple[EvidenceRef, ...] = ()
-    gold_certificate_id: str | None = None
+    relevant_memory_ids: tuple[str, ...] = ()
+    evidence_refs: tuple[EvidenceRef, ...] = ()
+    final_record: ScientificClaimRecord | None = None
+    admission: AdmissionAction | None = None
+    memory_operation: UpdateOperation | None = None
+    target_memory_ids: tuple[str, ...] = ()
 
 
-class EpisodeEvaluation(BaseModel):
-    model_config = ConfigDict(frozen=True)
+class EpisodePrediction(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
-    controller_name: str
     episode_id: str
-    negative_control: bool
-    trajectory: CurationTrajectory
-    certificate: VerificationCertificate
-    terminal_action_correct: bool | None = None
-    gold_evidence_hit: bool | None = None
+    retrieved_memory_ids: tuple[str, ...] = ()
+    predicted_record: ScientificClaimRecord | None = None
+    evidence_refs: tuple[EvidenceRef, ...] = ()
+    admission: AdmissionAction
+    memory_operation: UpdateOperation
+    target_memory_ids: tuple[str, ...] = ()
+    publication_requested: bool = False
+    publication_authorized: bool = False
+    certificate_id: str | None = None
+    memory_size: int = Field(default=0, ge=0)
+    retrieval_tokens: int = Field(default=0, ge=0)

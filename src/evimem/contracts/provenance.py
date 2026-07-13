@@ -1,4 +1,4 @@
-"""Provenance records for V2 proposers and verifiers.
+"""Provenance records for proposers and deterministic verifiers.
 
 Provenance is split into two immutable structures: one describing *who*
 proposed a candidate, and one describing *which* verifier certified it.

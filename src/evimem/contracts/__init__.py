@@ -1,4 +1,4 @@
-"""Canonical Pydantic contracts for EviMem-RL.
+"""Canonical Pydantic contracts for EviMem.
 
 All models are frozen, serializable and versioned. Publication and governed
 memory code must consume these contracts directly rather than inferred legacy
@@ -10,7 +10,7 @@ from __future__ import annotations
 from .candidate import CandidateObservation
 from .certificate import CheckResult, VerificationCertificate
 from .claim import ScientificClaim
-from .claim_state import ClaimState, CurationBudget, SlotStatus, VerificationSlot
+from .claim_state import SlotStatus, VerificationSlot
 from .evidence import EvidenceRef, evidence_ref_from_block
 from .identity import (
     make_candidate_fingerprint,
@@ -22,42 +22,47 @@ from .identity import (
 )
 from .locators import CaptionLocator, TableCellLocator, TextSpanLocator
 from .memory import (
+    AdmissionAction,
     ClaimSignature,
     MemoryAuthority,
     MemoryDecision,
+    MemoryManagerAction,
+    MemoryOrigin,
+    MemoryStatus,
     MemoryType,
-    WarrantedMemoryItem,
+    ScientificClaimRecord,
+    ScientificMemoryRecord,
+    UpdateOperation,
 )
 from .provenance import ProposerProvenance, VerifierProvenance
 from .published import PublishedObservation
-from .trajectory import ActionCost, CurationStep, CurationTrajectory, VerifierDelta
 
 __all__ = [
+    "AdmissionAction",
     "CandidateObservation",
     "CaptionLocator",
     "ClaimSignature",
-    "ClaimState",
     "CheckResult",
-    "CurationBudget",
-    "CurationStep",
-    "CurationTrajectory",
     "EvidenceRef",
     "evidence_ref_from_block",
     "MemoryAuthority",
     "MemoryDecision",
+    "MemoryManagerAction",
+    "MemoryOrigin",
+    "MemoryStatus",
     "MemoryType",
     "ProposerProvenance",
     "PublishedObservation",
     "ScientificClaim",
+    "ScientificClaimRecord",
+    "ScientificMemoryRecord",
     "SlotStatus",
     "TableCellLocator",
     "TextSpanLocator",
     "VerificationCertificate",
     "VerificationSlot",
     "VerifierProvenance",
-    "VerifierDelta",
-    "WarrantedMemoryItem",
-    "ActionCost",
+    "UpdateOperation",
     "make_candidate_fingerprint",
     "make_candidate_id",
     "make_certificate_id",

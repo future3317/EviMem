@@ -1,4 +1,4 @@
-"""Deterministic publication gate; controller/model declarations carry no authority."""
+"""Deterministic publication gate; model declarations carry no authority."""
 
 from __future__ import annotations
 
@@ -73,4 +73,3 @@ class PublicationGate:
         if not publication_requested:
             return GateDecision("defer", ("publication_not_requested",), predictive)
         return GateDecision("publish", (), predictive)
-

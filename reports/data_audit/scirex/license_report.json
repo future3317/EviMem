@@ -1,0 +1,56 @@
+{
+  "components": {
+    "annotations": {
+      "attribution_requirements": "Retain copyright, license, and NOTICE notices; mark modifications.",
+      "license_file_checksum": "sha256:1eb85fc97224598dad1852b5d6483bbcf0aa8608790dcc657a5a2a761ae9c8c6",
+      "redistribution_allowed": true,
+      "retrieved_at": "2026-07-14",
+      "source_url": "https://github.com/allenai/SciREX/blob/7daad660fe94f504433590b7a781cfabe1e179c6/LICENSE",
+      "spdx_identifier": "Apache-2.0",
+      "status": "confirmed",
+      "training_allowed": true
+    },
+    "code": {
+      "attribution_requirements": "Retain copyright, license, and NOTICE notices; mark modifications.",
+      "license_file_checksum": "sha256:1eb85fc97224598dad1852b5d6483bbcf0aa8608790dcc657a5a2a761ae9c8c6",
+      "redistribution_allowed": true,
+      "retrieved_at": "2026-07-14",
+      "source_url": "https://github.com/allenai/SciREX/blob/7daad660fe94f504433590b7a781cfabe1e179c6/LICENSE",
+      "spdx_identifier": "Apache-2.0",
+      "status": "confirmed",
+      "training_allowed": true
+    },
+    "derived_artifacts": {
+      "attribution_requirements": "Preserve SciREX attribution and label transformations as derived.",
+      "license_file_checksum": "sha256:1eb85fc97224598dad1852b5d6483bbcf0aa8608790dcc657a5a2a761ae9c8c6",
+      "redistribution_allowed": true,
+      "retrieved_at": "2026-07-14",
+      "source_url": "https://github.com/allenai/SciREX/blob/7daad660fe94f504433590b7a781cfabe1e179c6/LICENSE",
+      "spdx_identifier": "Apache-2.0",
+      "status": "confirmed",
+      "training_allowed": true
+    },
+    "source_text": {
+      "attribution_requirements": "Retain copyright, license, and NOTICE notices; mark modifications.",
+      "license_file_checksum": "sha256:1eb85fc97224598dad1852b5d6483bbcf0aa8608790dcc657a5a2a761ae9c8c6",
+      "redistribution_allowed": true,
+      "retrieved_at": "2026-07-14",
+      "source_url": "https://github.com/allenai/SciREX/blob/7daad660fe94f504433590b7a781cfabe1e179c6/LICENSE",
+      "spdx_identifier": "Apache-2.0",
+      "status": "confirmed",
+      "training_allowed": true
+    }
+  },
+  "dataset": "SciREX",
+  "official_license_precedence": "official LICENSE or per-document terms; HF metadata is non-authoritative",
+  "retrieved_at": "2026-07-14",
+  "training_blockers": {
+    "admission_view": [
+      "view_not_enabled"
+    ],
+    "retrieval_view": [],
+    "update_view": [
+      "view_not_enabled"
+    ]
+  }
+}

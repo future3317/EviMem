@@ -3,9 +3,9 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "evimem-rl"
-version = "0.1.0"
-description = "Evidence-warranted memory and constrained sequential control for scientific curation"
+name = "evimem"
+version = "0.2.0"
+description = "Evidence-certified memory for continual scientific curation"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
@@ -17,13 +17,17 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-semantic = ["scikit-learn>=1.3"]
+semantic = [
+  "rank-bm25>=0.2.2,<1",
+  "scikit-learn>=1.3",
+  "sentence-transformers>=3,<6",
+]
 train = [
   "accelerate>=1.10,<2",
   "datasets>=4,<6",
   "peft>=0.19,<1",
   "transformers>=5,<6",
-  "trl>=1.8,<2",
+  "sentence-transformers>=3,<6",
 ]
 dev = [
   "pytest>=7.4",
@@ -32,7 +36,7 @@ dev = [
 ]
 
 [project.scripts]
-evimem-train = "evimem.training.cli:main"
+evimem-data = "evimem.training.cli:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}

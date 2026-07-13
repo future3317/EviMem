@@ -1,0 +1,457 @@
+{
+  "exact_normalized_claim_or_question_family_cross_split": {},
+  "leakage_safe_sample_count": 818,
+  "leakage_safe_split_counts": {
+    "dev": 139,
+    "train": 679
+  },
+  "oracle_model_input_physically_separated": true,
+  "passed": false,
+  "passed_after_quarantine": true,
+  "quarantine_policy": "exclude every sample in a cross-split document or exact normalized query family",
+  "quarantined_sample_count": 477,
+  "source_document_cross_split": {
+    "10071552": [
+      "dev",
+      "train"
+    ],
+    "10165258": [
+      "dev",
+      "train"
+    ],
+    "10582939": [
+      "dev",
+      "train"
+    ],
+    "10648422": [
+      "dev",
+      "train"
+    ],
+    "10984005": [
+      "dev",
+      "train"
+    ],
+    "11254556": [
+      "dev",
+      "train"
+    ],
+    "11603066": [
+      "dev",
+      "train"
+    ],
+    "11614737": [
+      "dev",
+      "train"
+    ],
+    "11886686": [
+      "dev",
+      "train"
+    ],
+    "11899391": [
+      "dev",
+      "train"
+    ],
+    "12009265": [
+      "dev",
+      "train"
+    ],
+    "12486491": [
+      "dev",
+      "train"
+    ],
+    "12580014": [
+      "dev",
+      "train"
+    ],
+    "12631697": [
+      "dev",
+      "train"
+    ],
+    "12670680": [
+      "dev",
+      "train"
+    ],
+    "12827098": [
+      "dev",
+      "train"
+    ],
+    "13734012": [
+      "dev",
+      "train"
+    ],
+    "13770184": [
+      "dev",
+      "train"
+    ],
+    "13900610": [
+      "dev",
+      "train"
+    ],
+    "13905670": [
+      "dev",
+      "train"
+    ],
+    "13906581": [
+      "dev",
+      "train"
+    ],
+    "13923140": [
+      "dev",
+      "train"
+    ],
+    "13940200": [
+      "dev",
+      "train"
+    ],
+    "14376683": [
+      "dev",
+      "train"
+    ],
+    "14803797": [
+      "dev",
+      "train"
+    ],
+    "15305881": [
+      "dev",
+      "train"
+    ],
+    "15319019": [
+      "dev",
+      "train"
+    ],
+    "15476777": [
+      "dev",
+      "train"
+    ],
+    "15482274": [
+      "dev",
+      "train"
+    ],
+    "1568684": [
+      "dev",
+      "train"
+    ],
+    "15928989": [
+      "dev",
+      "train"
+    ],
+    "16056514": [
+      "dev",
+      "train"
+    ],
+    "16284655": [
+      "dev",
+      "train"
+    ],
+    "16322674": [
+      "dev",
+      "train"
+    ],
+    "1642727": [
+      "dev",
+      "train"
+    ],
+    "16472469": [
+      "dev",
+      "train"
+    ],
+    "16737210": [
+      "dev",
+      "train"
+    ],
+    "16966326": [
+      "dev",
+      "train"
+    ],
+    "17077004": [
+      "dev",
+      "train"
+    ],
+    "17450673": [
+      "dev",
+      "train"
+    ],
+    "17587795": [
+      "dev",
+      "train"
+    ],
+    "17628888": [
+      "dev",
+      "train"
+    ],
+    "17741440": [
+      "dev",
+      "train"
+    ],
+    "17755060": [
+      "dev",
+      "train"
+    ],
+    "17930286": [
+      "dev",
+      "train"
+    ],
+    "1805641": [
+      "dev",
+      "train"
+    ],
+    "18174210": [
+      "dev",
+      "train"
+    ],
+    "18340282": [
+      "dev",
+      "train"
+    ],
+    "18872233": [
+      "dev",
+      "train"
+    ],
+    "19005293": [
+      "dev",
+      "train"
+    ],
+    "19675911": [
+      "dev",
+      "train"
+    ],
+    "19736671": [
+      "dev",
+      "train"
+    ],
+    "19799455": [
+      "dev",
+      "train"
+    ],
+    "1982286": [
+      "dev",
+      "train"
+    ],
+    "2095573": [
+      "dev",
+      "train"
+    ],
+    "22180793": [
+      "dev",
+      "train"
+    ],
+    "23349986": [
+      "dev",
+      "train"
+    ],
+    "23460562": [
+      "dev",
+      "train"
+    ],
+    "23557241": [
+      "dev",
+      "train"
+    ],
+    "24142891": [
+      "dev",
+      "train"
+    ],
+    "2425364": [
+      "dev",
+      "train"
+    ],
+    "24338780": [
+      "dev",
+      "train"
+    ],
+    "24341590": [
+      "dev",
+      "train"
+    ],
+    "25254425": [
+      "dev",
+      "train"
+    ],
+    "26016929": [
+      "dev",
+      "train"
+    ],
+    "26851674": [
+      "dev",
+      "train"
+    ],
+    "27123743": [
+      "dev",
+      "train"
+    ],
+    "27873158": [
+      "dev",
+      "train"
+    ],
+    "28617573": [
+      "dev",
+      "train"
+    ],
+    "28937856": [
+      "dev",
+      "train"
+    ],
+    "29564505": [
+      "dev",
+      "train"
+    ],
+    "306006": [
+      "dev",
+      "train"
+    ],
+    "33370": [
+      "dev",
+      "train"
+    ],
+    "33499189": [
+      "dev",
+      "train"
+    ],
+    "33872649": [
+      "dev",
+      "train"
+    ],
+    "3475317": [
+      "dev",
+      "train"
+    ],
+    "36444198": [
+      "dev",
+      "train"
+    ],
+    "36606083": [
+      "dev",
+      "train"
+    ],
+    "37480103": [
+      "dev",
+      "train"
+    ],
+    "37549932": [
+      "dev",
+      "train"
+    ],
+    "3898784": [
+      "dev",
+      "train"
+    ],
+    "39281140": [
+      "dev",
+      "train"
+    ],
+    "39381118": [
+      "dev",
+      "train"
+    ],
+    "4347374": [
+      "dev",
+      "train"
+    ],
+    "4388470": [
+      "dev",
+      "train"
+    ],
+    "4406819": [
+      "dev",
+      "train"
+    ],
+    "4414547": [
+      "dev",
+      "train"
+    ],
+    "4427392": [
+      "dev",
+      "train"
+    ],
+    "45638119": [
+      "dev",
+      "train"
+    ],
+    "46695481": [
+      "dev",
+      "train"
+    ],
+    "4687948": [
+      "dev",
+      "train"
+    ],
+    "4709641": [
+      "dev",
+      "train"
+    ],
+    "4883040": [
+      "dev",
+      "train"
+    ],
+    "49556906": [
+      "dev",
+      "train"
+    ],
+    "4961038": [
+      "dev",
+      "train"
+    ],
+    "5483793": [
+      "dev",
+      "train"
+    ],
+    "5531479": [
+      "dev",
+      "train"
+    ],
+    "5884524": [
+      "dev",
+      "train"
+    ],
+    "5912283": [
+      "dev",
+      "train"
+    ],
+    "5956380": [
+      "dev",
+      "train"
+    ],
+    "6157837": [
+      "dev",
+      "train"
+    ],
+    "6309659": [
+      "dev",
+      "train"
+    ],
+    "6828370": [
+      "dev",
+      "train"
+    ],
+    "7370282": [
+      "dev",
+      "train"
+    ],
+    "791050": [
+      "dev",
+      "train"
+    ],
+    "8551160": [
+      "dev",
+      "train"
+    ],
+    "8780599": [
+      "dev",
+      "train"
+    ],
+    "9638032": [
+      "dev",
+      "train"
+    ],
+    "9745001": [
+      "dev",
+      "train"
+    ],
+    "9764256": [
+      "dev",
+      "train"
+    ]
+  },
+  "temporal_ordering_scope": "within_official_split_only",
+  "test_memory_may_enter_train_memory": false
+}

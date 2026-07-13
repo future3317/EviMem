@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import Any, ClassVar, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from .claim import ScientificClaim
 from .claim_state import SlotStatus
@@ -41,6 +41,7 @@ class VerificationCertificate(BaseModel):
     run_id: str
     candidate_id: str
     normalized_claim: ScientificClaim
+    certified_claim_hash: str
     resolved_evidence: list[EvidenceRef]
     checks: list[CheckResult]
     slot_verification: dict[str, SlotStatus]
@@ -69,6 +70,14 @@ class VerificationCertificate(BaseModel):
     domain_pack_hash: str
     verifier_version: str
 
+    @field_validator("certified_claim_hash")
+    @classmethod
+    def _validate_claim_hash(cls, value: str) -> str:
+        digest = value.removeprefix("sha256:")
+        if len(digest) != 64 or any(ch not in "0123456789abcdefABCDEF" for ch in digest):
+            raise ValueError("certified_claim_hash must be a SHA-256 digest")
+        return f"sha256:{digest.lower()}"
+
     @model_validator(mode="after")
     def _validate_evidence_identity(self) -> VerificationCertificate:
         if any(ref.release_id != self.evidence_release_id for ref in self.resolved_evidence):
@@ -77,4 +86,6 @@ class VerificationCertificate(BaseModel):
             raise ValueError("publish certificate requires resolved immutable evidence")
         if self.final_decision == "publish" and self.exclusion_reasons:
             raise ValueError("publish certificate cannot carry exclusion reasons")
+        if self.certified_claim_hash != self.normalized_claim.memory_fingerprint():
+            raise ValueError("certified_claim_hash does not match normalized_claim")
         return self

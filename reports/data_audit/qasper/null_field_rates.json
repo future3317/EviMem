@@ -1,0 +1,12 @@
+{
+  "admission": 1.0,
+  "claim": 1.0,
+  "claim_condition": null,
+  "claim_object": null,
+  "claim_qualifiers": null,
+  "claim_unit": null,
+  "claim_value": null,
+  "fabricated_certificate_count": 0,
+  "fabricated_time_count": 0,
+  "memory_operation": 1.0
+}
