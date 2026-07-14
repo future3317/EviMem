@@ -79,6 +79,24 @@ with tag `phase1a-data-validity-audit`. Phase 1B has:
 - built 360 **unlabeled** SciMem-Update candidates and a standard Label Studio
   configuration.
 
+### Annotation-safety status
+
+The pilot's generated local external annotation export is
+`annotation/scimem_update_pilot_external_safe.jsonl` (not versioned in Git).
+It removes `sampling_stratum_not_gold` and `candidate_is_gold` while retaining
+the minimum source and evidence provenance required for review. The original
+unlabeled pool is an internal artifact and must not be supplied to external
+annotators or external models.
+
+Model-produced annotations are currently **debugging and planning artifacts
+only**. They are not human-reviewed labels, SciMem-Update gold, update-manager
+training data, or paper results. Earlier candidate outputs that exposed native
+sampling strata are quarantined locally. Current independent-model and
+protocol-recheck outputs remain unmerged until they pass the annotation QA gates described in the
+[annotation guidelines](docs/SCIMEM_UPDATE_ANNOTATION_GUIDELINES.md). In
+particular, source-level Crossref/Retraction Watch metadata cannot establish a
+claim-level relation, authority comparison, or supersession.
+
 The primary fine-tuned three-seed mean is Recall@10 `0.9747 ± 0.0032` and MRR
 `0.7562 ± 0.0034`. These are retrieval-validity pilot measurements, not formal
 paper main results. Certificate-aware gain is not estimable because the licensed
@@ -86,8 +104,8 @@ retrieval views contain no certificate/memory-type gold; the fail-closed reranke
 does not invent it. See [retrieval results](reports/phase1b/retrieval_results.md)
 and [implementation status](docs/IMPLEMENTATION_STATUS.md).
 
-Human annotation has not started. The candidate file is not gold, the update
-manager was not trained, and no QLoRA run was performed. See the
+Human annotation has not started. No model consensus is human consensus, the
+update manager was not trained, and no QLoRA run was performed. See the
 [annotation guidelines](docs/SCIMEM_UPDATE_ANNOTATION_GUIDELINES.md) and
 [labelbook](docs/SCIMEM_UPDATE_LABELBOOK.md).
 

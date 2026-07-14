@@ -1,0 +1,9 @@
+{
+  "name": "evimem-ai-adjudication",
+  "description": "AI-adjudicated silver annotation workflow for SciMem-Update Phase 1B. Provides packet generation, blind juror review, critic review, judge adjudication, lossless normalization, and fail-closed validation. Does not create human annotation, SciMem-Update gold, memory operations, or training data.",
+  "version": "0.1.0",
+  "author": {
+    "name": "EviMem",
+    "email": "evimem@example.com"
+  }
+}
