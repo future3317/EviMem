@@ -43,6 +43,82 @@ class UpdateOperation(StrEnum):
     IGNORE = "IGNORE"
 
 
+class SemanticRelation(StrEnum):
+    EQUIVALENT = "EQUIVALENT"
+    COMPATIBLE_DISTINCT = "COMPATIBLE_DISTINCT"
+    CONTRADICTORY = "CONTRADICTORY"
+    UNRELATED = "UNRELATED"
+    INSUFFICIENT_CONTEXT = "INSUFFICIENT_CONTEXT"
+
+
+class ScopeRelation(StrEnum):
+    SAME_SCOPE = "SAME_SCOPE"
+    NARROWER_SCOPE = "NARROWER_SCOPE"
+    BROADER_SCOPE = "BROADER_SCOPE"
+    DIFFERENT_SCOPE = "DIFFERENT_SCOPE"
+    UNKNOWN_SCOPE = "UNKNOWN_SCOPE"
+
+
+class AuthorityRelation(StrEnum):
+    NEWER_MORE_AUTHORITATIVE = "NEWER_MORE_AUTHORITATIVE"
+    OLDER_MORE_AUTHORITATIVE = "OLDER_MORE_AUTHORITATIVE"
+    EQUAL_AUTHORITY = "EQUAL_AUTHORITY"
+    UNRESOLVED = "UNRESOLVED"
+    NOT_APPLICABLE = "NOT_APPLICABLE"
+
+
+class EvidenceSufficiency(StrEnum):
+    SUFFICIENT = "SUFFICIENT"
+    PARTIAL = "PARTIAL"
+    INSUFFICIENT = "INSUFFICIENT"
+
+
+class CorrectionBasis(StrEnum):
+    NONE = "NONE"
+    CORRECTION = "CORRECTION"
+    RETRACTION = "RETRACTION"
+    CURATOR_CORRECTION = "CURATOR_CORRECTION"
+
+
+class CorrectionEvidenceScope(StrEnum):
+    SOURCE_LEVEL = "SOURCE_LEVEL"
+    CLAIM_LEVEL = "CLAIM_LEVEL"
+
+
+class VerifiedCorrectionEvidence(BaseModel):
+    """Non-model evidence authorizing a destructive claim-level update."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    basis: CorrectionBasis
+    scope: CorrectionEvidenceScope
+    source_id: str
+    source_checksum: str
+    verified_by: Literal["deterministic_verifier", "human_curator"]
+
+    @field_validator("source_id")
+    @classmethod
+    def _require_source_id(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("correction evidence requires a source identity")
+        return normalized
+
+    @field_validator("source_checksum")
+    @classmethod
+    def _require_sha256(cls, value: str) -> str:
+        digest = value.removeprefix("sha256:")
+        if len(digest) != 64 or any(ch not in "0123456789abcdefABCDEF" for ch in digest):
+            raise ValueError("source_checksum must be a SHA-256 digest")
+        return f"sha256:{digest.lower()}"
+
+    @model_validator(mode="after")
+    def _reject_empty_basis(self) -> VerifiedCorrectionEvidence:
+        if self.basis == CorrectionBasis.NONE:
+            raise ValueError("verified correction evidence cannot use NONE")
+        return self
+
+
 class ScientificClaimRecord(BaseModel):
     """Minimal cross-dataset claim schema; absent fields remain null."""
 
@@ -206,30 +282,40 @@ class ScientificMemoryRecord(BaseModel):
 
 
 class MemoryManagerAction(BaseModel):
-    """The only output accepted from a learned memory manager."""
+    """Hierarchical relation assessment accepted from a learned manager.
+
+    The contract deliberately has no compiled operation field. Only the
+    deterministic ``UpdateCompiler`` may derive an ``UpdateOperation``.
+    """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     admission: AdmissionAction
-    update_operation: UpdateOperation
+    semantic_relation: SemanticRelation
+    scope_relation: ScopeRelation
+    authority_relation: AuthorityRelation
+    evidence_sufficiency: EvidenceSufficiency
     target_memory_ids: tuple[str, ...] = ()
     reason_code: str
 
     @model_validator(mode="after")
     def _validate_targets(self) -> MemoryManagerAction:
-        requires_target = self.update_operation in {
-            UpdateOperation.MERGE,
-            UpdateOperation.LINK,
-            UpdateOperation.CONFLICT,
-            UpdateOperation.SUPERSEDE,
-        }
-        if requires_target and not self.target_memory_ids:
-            raise ValueError(f"{self.update_operation} requires at least one target memory")
-        if self.update_operation in {UpdateOperation.ADD, UpdateOperation.IGNORE} and self.target_memory_ids:
-            raise ValueError(f"{self.update_operation} cannot target existing memories")
         if self.admission in {AdmissionAction.EPHEMERAL_ONLY, AdmissionAction.IGNORE}:
-            if self.update_operation != UpdateOperation.IGNORE:
-                raise ValueError("non-writing admission must use IGNORE update")
+            if self.evidence_sufficiency == EvidenceSufficiency.SUFFICIENT:
+                raise ValueError("non-writing admission cannot claim sufficient evidence")
+        if not self.target_memory_ids:
+            if self.semantic_relation not in {
+                SemanticRelation.UNRELATED,
+                SemanticRelation.INSUFFICIENT_CONTEXT,
+            }:
+                raise ValueError("relational labels require at least one target memory")
+            if self.scope_relation not in {
+                ScopeRelation.DIFFERENT_SCOPE,
+                ScopeRelation.UNKNOWN_SCOPE,
+            }:
+                raise ValueError("target-free assessment cannot assert matching scope")
+            if self.authority_relation != AuthorityRelation.NOT_APPLICABLE:
+                raise ValueError("target-free assessment requires NOT_APPLICABLE authority")
         if not self.reason_code.strip():
             raise ValueError("memory manager action requires a reason code")
         return self

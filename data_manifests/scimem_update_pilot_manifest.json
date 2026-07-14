@@ -1,0 +1,53 @@
+{
+  "annotation_file": "annotation/scimem_update_pilot_unlabeled.jsonl",
+  "annotation_file_checksum": "sha256:f96e1065427f309c61450ac9b65e9375a5eb326e179ddadbb87ac6b3eee432fe",
+  "annotation_format": "Label Studio JSONL task import",
+  "annotation_status": "unlabeled",
+  "candidate_count": 360,
+  "candidate_is_gold": false,
+  "compiled_operation_present": false,
+  "created_at": "2026-07-14T00:54:24.091599+00:00",
+  "phase": "1B",
+  "safety": {
+    "annotators_cannot_see_compiled_operation": true,
+    "claim_level_supersession_requires_human_evidence_annotation": true,
+    "crossref_source_status_is_not_claim_supersession": true,
+    "no_copyrighted_full_text": true
+  },
+  "schema_version": "evimem.scimem_update_pilot_manifest.v1",
+  "source_snapshots": {
+    "crossref_api": [
+      {
+        "raw_response_committed": false,
+        "response_checksum": "sha256:665d2955311f83d4f1ceae40ce065d4c92a86f9a678068d64516177c85332ed9",
+        "source": "https://api.crossref.org/v1/works?filter=update-type%3Aretraction&rows=100",
+        "update_type": "retraction"
+      },
+      {
+        "raw_response_committed": false,
+        "response_checksum": "sha256:6e48ea52a7d8da0274dd40ecb2d379ee0df950378459f2616d0377421c5b5830",
+        "source": "https://api.crossref.org/v1/works?filter=update-type%3Acorrection&rows=100",
+        "update_type": "correction"
+      }
+    ],
+    "dataset_files": [
+      {
+        "name": "claims_train.jsonl",
+        "sha256": "sha256:f4c8fa82d8bd0653a9cc8d61a6ea48c25eacea64e90af5dbf390ebb1b74372f0"
+      },
+      {
+        "name": "corpus.jsonl",
+        "sha256": "sha256:b8d6c89624cb2ed74dee8938effc4f5d8bd2086887880af8110d64be4ceade62"
+      },
+      {
+        "name": "train.jsonl",
+        "sha256": "sha256:c72cc490561327f65ab2add8b42f77a994970bc57f4433981b969302f9addd7b"
+      }
+    ]
+  },
+  "validation": {
+    "candidate_count": 360,
+    "forbidden_document_overlap": 0,
+    "unique_pair_ids": 360
+  }
+}

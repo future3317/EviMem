@@ -4,7 +4,14 @@ import json
 
 import pytest
 
-from evimem.contracts import AdmissionAction, MemoryManagerAction, UpdateOperation
+from evimem.contracts import (
+    AdmissionAction,
+    AuthorityRelation,
+    EvidenceSufficiency,
+    MemoryManagerAction,
+    ScopeRelation,
+    SemanticRelation,
+)
 from evimem.training import (
     ManagerActionCodec,
     ManagerInput,
@@ -29,7 +36,10 @@ class StaticGenerator:
 def test_manager_codec_accepts_only_typed_json() -> None:
     action = MemoryManagerAction(
         admission=AdmissionAction.WRITE_VERIFIED,
-        update_operation=UpdateOperation.ADD,
+        semantic_relation=SemanticRelation.UNRELATED,
+        scope_relation=ScopeRelation.DIFFERENT_SCOPE,
+        authority_relation=AuthorityRelation.NOT_APPLICABLE,
+        evidence_sufficiency=EvidenceSufficiency.SUFFICIENT,
         reason_code="new_verified_claim",
     )
     assert ManagerActionCodec.decode(action.model_dump_json()) == action
@@ -41,13 +51,17 @@ def test_invalid_model_output_fails_closed() -> None:
     manager = StructuredMemoryManager(StaticGenerator("not json"))
     action = manager.decide(ManagerInput(current_record=memory_record()))
     assert action.admission == AdmissionAction.EPHEMERAL_ONLY
-    assert action.update_operation == UpdateOperation.IGNORE
+    assert action.semantic_relation == SemanticRelation.INSUFFICIENT_CONTEXT
+    assert "update_operation" not in action.model_dump()
 
 
 def test_supervised_example_has_no_reward_or_trajectory_fields() -> None:
     target = MemoryManagerAction(
         admission=AdmissionAction.WRITE_VERIFIED,
-        update_operation=UpdateOperation.ADD,
+        semantic_relation=SemanticRelation.UNRELATED,
+        scope_relation=ScopeRelation.DIFFERENT_SCOPE,
+        authority_relation=AuthorityRelation.NOT_APPLICABLE,
+        evidence_sufficiency=EvidenceSufficiency.SUFFICIENT,
         reason_code="new_verified_claim",
     )
     example = ManagerTrainingExample(
@@ -58,7 +72,7 @@ def test_supervised_example_has_no_reward_or_trajectory_fields() -> None:
         target=target,
     )
     rendered = example.prompt_record()
-    assert json.loads(rendered["completion"])["update_operation"] == "ADD"
+    assert "update_operation" not in json.loads(rendered["completion"])
     assert "reward" not in example.model_dump()
     assert "trajectory" not in example.model_dump()
 

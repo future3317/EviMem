@@ -33,7 +33,7 @@ class RetrievalTrainingExample(BaseModel):
 
 class ManagerTrainingExample(BaseModel):
     model_config = ConfigDict(frozen=True)
-    schema_version: ClassVar[str] = "evimem.manager_training.v1"
+    schema_version: ClassVar[str] = "evimem.manager_training.v2"
 
     example_id: str
     dataset_name: str
@@ -49,8 +49,8 @@ class ManagerTrainingExample(BaseModel):
                 record.model_dump(mode="json") for record in self.retrieved_memories
             ],
             "instruction": (
-                "Return exactly one JSON MemoryManagerAction. Evidence and certificate "
-                "requirements are hard constraints."
+                "Return exactly one hierarchical JSON MemoryManagerAction without a compiled "
+                "operation. Evidence and certificate requirements are hard constraints."
             ),
         }
         return {

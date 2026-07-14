@@ -1,0 +1,50 @@
+{
+  "blocked_sources_excluded": [
+    "QASPER",
+    "Evidence Inference 2.0",
+    "MeasEval",
+    "BioRED"
+  ],
+  "full_text_copied": false,
+  "ood_sources_excluded": [
+    "POLYIE"
+  ],
+  "passed_for_candidate_pool": true,
+  "sources": {
+    "Crossref/Retraction Watch": {
+      "abstracts_included": false,
+      "attribution": "Cite Crossref and Retraction Watch; retain DOI/update provenance.",
+      "components": [
+        "DOI",
+        "title",
+        "update-to factual metadata"
+      ],
+      "full_text_included": false,
+      "license_basis": "Crossref states that almost none of its REST metadata is subject to copyright and it may be used for any purpose. Abstracts are excluded.",
+      "retraction_watch_url": "https://www.crossref.org/documentation/retrieve-metadata/retraction-watch/",
+      "source_url": "https://www.crossref.org/documentation/retrieve-metadata/rest-api/",
+      "status": "confirmed_for_selected_factual_metadata"
+    },
+    "SciFact": {
+      "components": [
+        "annotations",
+        "source_text"
+      ],
+      "manifest": "configs/datasets.json",
+      "spdx": [
+        "CC-BY-4.0",
+        "ODC-By-1.0"
+      ],
+      "status": "confirmed"
+    },
+    "SciREX": {
+      "components": [
+        "annotations",
+        "source_text"
+      ],
+      "manifest": "configs/datasets.json",
+      "spdx": "Apache-2.0",
+      "status": "confirmed"
+    }
+  }
+}

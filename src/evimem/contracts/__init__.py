@@ -23,7 +23,11 @@ from .identity import (
 from .locators import CaptionLocator, TableCellLocator, TextSpanLocator
 from .memory import (
     AdmissionAction,
+    AuthorityRelation,
     ClaimSignature,
+    CorrectionBasis,
+    CorrectionEvidenceScope,
+    EvidenceSufficiency,
     MemoryAuthority,
     MemoryDecision,
     MemoryManagerAction,
@@ -32,18 +36,25 @@ from .memory import (
     MemoryType,
     ScientificClaimRecord,
     ScientificMemoryRecord,
+    ScopeRelation,
+    SemanticRelation,
     UpdateOperation,
+    VerifiedCorrectionEvidence,
 )
 from .provenance import ProposerProvenance, VerifierProvenance
 from .published import PublishedObservation
 
 __all__ = [
     "AdmissionAction",
+    "AuthorityRelation",
     "CandidateObservation",
     "CaptionLocator",
     "ClaimSignature",
+    "CorrectionBasis",
+    "CorrectionEvidenceScope",
     "CheckResult",
     "EvidenceRef",
+    "EvidenceSufficiency",
     "evidence_ref_from_block",
     "MemoryAuthority",
     "MemoryDecision",
@@ -56,6 +67,8 @@ __all__ = [
     "ScientificClaim",
     "ScientificClaimRecord",
     "ScientificMemoryRecord",
+    "ScopeRelation",
+    "SemanticRelation",
     "SlotStatus",
     "TableCellLocator",
     "TextSpanLocator",
@@ -63,6 +76,7 @@ __all__ = [
     "VerificationSlot",
     "VerifierProvenance",
     "UpdateOperation",
+    "VerifiedCorrectionEvidence",
     "make_candidate_fingerprint",
     "make_candidate_id",
     "make_certificate_id",

@@ -17,11 +17,12 @@ from .retriever import (
     SentenceTransformerSemanticScorer,
     TfidfSemanticScorer,
 )
-from .update import TypedMemoryUpdateGate, TypedMemoryUpdateService, UpdateResult
+from .update import CompiledUpdate, TypedMemoryUpdateService, UpdateCompiler, UpdateResult
 
 __all__ = [
     "AdmissionDecision",
     "BM25SemanticScorer",
+    "CompiledUpdate",
     "ConsolidationResult",
     "FullHistoryBaseline",
     "GovernedMemoryStore",
@@ -35,7 +36,7 @@ __all__ = [
     "RetrievedMemory",
     "SentenceTransformerSemanticScorer",
     "TfidfSemanticScorer",
-    "TypedMemoryUpdateGate",
     "TypedMemoryUpdateService",
+    "UpdateCompiler",
     "UpdateResult",
 ]

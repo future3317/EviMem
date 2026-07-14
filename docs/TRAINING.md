@@ -1,29 +1,44 @@
 # Planned supervised training protocol
 
-This document is a future protocol. Phase 1A performed no training, QLoRA, retriever fine-tuning, or result generation. EviMem may train components only after the selected view passes the component-license, semantic, evidence-alignment, and leakage gates.
+Phase 1A performed no training. Phase 1B executed only the bounded retriever
+validity pilot described below; it did not run QLoRA, train an update manager,
+produce SciMem-Update gold, or generate formal paper results. EviMem may train a
+component only after its selected view passes the component-license, semantic,
+evidence-alignment, and leakage gates.
 
 ## Stage 1: retriever
 
-Train a Sentence Transformers bi-encoder with contrastive supervision derived from natural annotations:
+The Phase 1B pilot trained a Sentence Transformers MiniLM bi-encoder with
+contrastive supervision derived from natural retrieval annotations:
 
 - positives: supporting evidence, relevant relations, and correct-context history;
 - hard negatives: same subject/different relation, same relation/different condition, same value/different subject, and superseded/conflict memories.
 
 `RetrievalTrainingExample` stores only explicit positive and hard-negative memory IDs. Positive and negative sets must be disjoint. Official test examples are rejected from optimization by `require_official_training_splits`.
 
-Report Recall@1/5/10, MRR, nDCG@10, latency, index size, and retrieval tokens. Compare No Memory, Full History, BM25/TF-IDF, dense memory, and EviMem under the same corpus and top-k budget.
+The executed pilot used SciREX 517 plus SciFact 679, one epoch,
+`MultipleNegativesRankingLoss`, and seeds 13/42/97. It reported Recall@1/5/10,
+MRR, nDCG@10, failure rates, and selected tokens under both fixed-k and a
+256-token budget. Every baseline used the same query and memory pool. No
+checkpoint was committed. See `reports/phase1b/retrieval_results.json`.
 
 ## Stage 2: memory manager
 
-Supervise a 3B--7B instruct model with QLoRA only after a human-reviewed update dataset exists. Each example contains:
+Supervise a 3B--7B instruct model with QLoRA only after a human-reviewed update
+dataset exists. This stage has not started. Each future example contains:
 
 ```text
 current certified record
 + retrieved certified memories
--> MemoryManagerAction
+-> hierarchical MemoryManagerAction
 ```
 
-The completion is exactly one JSON object with admission, update operation, target IDs, and a reason code. Invalid output fails closed to `EPHEMERAL_ONLY + IGNORE`. The deterministic admission/update gates still validate every prediction at inference time.
+The completion is exactly one JSON object with admission, semantic relation,
+scope relation, authority relation, evidence sufficiency, target IDs, and a
+reason code. It contains no `update_operation`. Invalid output fails closed to
+`EPHEMERAL_ONLY + INSUFFICIENT_CONTEXT + UNKNOWN_SCOPE + NOT_APPLICABLE +
+INSUFFICIENT`. `UpdateCompiler` alone derives the memory operation after
+certificate and store-state checks.
 
 `ManagerTrainingExample.prompt_record()` produces prompt/completion fields. `build_lora_config` and `build_manager_training_args` use PEFT and Transformers rather than a local optimizer implementation.
 
@@ -38,7 +53,7 @@ Primary evidence should come from natural annotations and publication order. Con
 - retrieval training candidates: SciREX official train (517 filtered relations) and the SciFact leakage-safe train subset (679 rationale samples);
 - local evaluation only: QASPER leakage-safe dev/test until its official dataset LICENSE is checksummed;
 - blocked: Evidence Inference article text without per-document OA terms, MeasEval, and BioRED;
-- admission/update training: none; the audited public datasets have no valid natural operation gold;
+- admission/update training: none; the audited public datasets have no valid natural operation gold and the 360-pair Phase 1B pool remains unlabeled;
 - validation/test: retain official membership and quarantine cross-split documents/query families;
 - OOD only: POLYIE zero-shot and BioRED;
 - scale only: SciFact-Open;

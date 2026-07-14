@@ -58,20 +58,36 @@ S(q,m)=\alpha S_{sem}+\beta S_{struct}+\gamma S_{auth}+\eta S_{time}
 
 Retrieval is time-bounded when a source timestamp exists, preventing future evidence leakage. Returned objects include the full claim, evidence, certificate, and decision--not only text. An undated source receives no fabricated timestamp or timestamped history.
 
-### 3.3 Typed update
+### 3.3 Hierarchical update assessment and deterministic compilation
 
-The manager returns a strict JSON `MemoryManagerAction`:
+The manager returns a strict hierarchical JSON `MemoryManagerAction`. It cannot
+emit a compiled update operation:
 
 ```json
 {
-  "admission": "WRITE_REJECTED",
-  "update_operation": "CONFLICT",
+  "admission": "WRITE_CONFLICT",
+  "semantic_relation": "CONTRADICTORY",
+  "scope_relation": "SAME_SCOPE",
+  "authority_relation": "UNRESOLVED",
+  "evidence_sufficiency": "SUFFICIENT",
   "target_memory_ids": ["mem_123"],
   "reason_code": "same_context_incompatible_value"
 }
 ```
 
-The deterministic update gate checks operation semantics before appending records or edges. Supersession requires newer evidence and non-decreasing authority. No record is destructively overwritten.
+`UpdateCompiler` combines these labels with certificate eligibility and current
+store state to compile `ADD`, `MERGE`, `LINK`, `CONFLICT`, `SUPERSEDE`, or
+`IGNORE`. It fails closed on missing targets, insufficient context/evidence, and
+inadmissible certificates. Destructive supersession additionally requires all of:
+
+- exact claim-scope identity;
+- sufficient pair evidence and an eligible new certificate;
+- an actually newer record with strictly higher authority;
+- a verified claim-level correction, retraction, or curator-correction source.
+
+A document-level Crossref/Retraction Watch status is source provenance only and
+cannot authorize claim-level supersession. No record is destructively overwritten;
+superseded records retain append-only lineage.
 
 ## 4. SciMem-Curate
 
@@ -96,19 +112,68 @@ Evaluation sources:
 
 Natural annotations take priority. Allowed controlled corruptions replace an entity, condition, unit, or evidence link and are explicitly marked. They are robustness tests, not natural conflicts.
 
-## 5. Training
+## 5. Phase 1B retrieval validity pilot
 
-The planned sequence is: Stage 1 trains a bi-encoder retriever with contrastive positives and hard negatives; Stage 2 performs supervised QLoRA training of the typed manager after SciMem-Update exists; Stage 3 fixes the proposer and publication gate and compares memory methods under equal token and retrieval budgets. None of these stages was executed in Phase 1A.
+The retrieval pilot forms one evidence-memory item per unique aligned evidence
+text and source document. Query inputs contain text/entity context only; positive
+memory IDs remain in the scorer object. All baselines use the same per-dataset
+memory pool, query sequence, top-10 cutoff, and 256-token budget. The pilot uses:
 
-The manager objective is a sum of supervised admission, update, type, target, and reason losses. Invalid generation fails closed. Publication remains a deterministic decision outside model parameters.
+- training: SciREX official train 517 and leakage-safe SciFact train 679;
+- primary evaluation: SciREX dev/test 177 and SciFact dev 139;
+- internal diagnostic: QASPER leakage-safe dev/test 4,555, never training.
 
-## 6. Comparisons
+Baselines are TF-IDF, BM25, frozen MiniLM, frozen SPECTER, MiniLM fine-tuned with
+`MultipleNegativesRankingLoss` for seeds 13/42/97, dense plus a fail-closed
+certificate-aware reranker, and the combined EviMem retrieval score. No OOD or
+test record enters optimization. Fine-tuned weights/checkpoints are not committed.
+
+The authorized retrieval views have no certificate or verified/rejected/conflict
+memory-type gold. Those stratified recalls and certificate-mismatch rates are
+therefore null, not synthetically derived. The certificate-aware reranker leaves
+dense scores unchanged and its effectiveness is not estimable in this pilot.
+Stale and policy-incompatible rates are reported for the constructed pool; the
+pool contains no stale records and only licensed policy-compatible evidence.
+
+Detailed fixed-k, fixed-token-budget, per-dataset, three-seed, and QASPER
+diagnostic results are in `reports/phase1b/retrieval_results.json`. They are
+validity-pilot measurements, not formal paper results.
+
+## 6. SciMem-Update annotation pilot
+
+The Phase 1B candidate pool contains 360 unlabeled pairs: SciREX 160, SciFact
+160, and Crossref/Retraction Watch factual metadata 40. Sampling strata increase
+coverage of possible equivalence, related/different scope, contradiction, hard
+negative, and document-status cases, but are not labels or gold.
+
+Annotators independently assign `SemanticRelation`, `ScopeRelation`,
+`AuthorityRelation`, and `EvidenceSufficiency` using the repository labelbook.
+The standard Label Studio UI omits compiled operations. Crossref records preserve
+API response checksum, source, update type, timestamp, and DOI relation; all
+claim-level effects remain `awaiting_human_evidence_annotation`. Double
+annotation, adjudication, agreement analysis, evidence recheck, and export audit
+must finish before any SciMem-Update gold claim.
+
+## 7. Training status
+
+Stage 1's limited retrieval pilot has been executed as described above. Stage 2
+would perform supervised QLoRA only after human-reviewed hierarchical
+SciMem-Update labels exist; it has not started. Stage 3 remains planned and will
+fix the proposer and publication gate while comparing memory methods under equal
+token and retrieval budgets.
+
+The future manager objective supervises admission plus the four hierarchical
+axes, target selection, and reason codes. It does not supervise a flat six-way
+operation head. Invalid generation fails closed. Operation compilation and
+publication remain deterministic decisions outside model parameters.
+
+## 8. Comparisons
 
 Memory comparisons should include No Memory, Full History, BM25/TF-IDF, dense vector memory, summary memory, Mem0, HippoRAG, A-Mem, ReasoningBank, and EviMem where licenses and maintained implementations permit.
 
 Scientific extraction comparisons should reuse official protocols (for example SciBERT, document-level IE, DyGIE++, PURE, and fixed zero/few-shot language-model baselines). The base proposer, input data, token budget, and publication gate remain fixed when attributing gains to memory.
 
-## 7. Metrics
+## 9. Metrics
 
 Report:
 
@@ -116,11 +181,12 @@ Report:
 - memory: Recall@1/5/10, MRR, nDCG, admission precision, typed-update accuracy, conflict resolution, repeated-error reduction, stale-memory error, and pollution robustness;
 - continual behavior: (F1_{memory}-F1_{no-memory}) over stream position, memory size, retrieval tokens, error propagation, and policy/schema-version invalidation.
 
-## 8. Safety invariants
+## 10. Safety invariants
 
 - A publication request is never publication authority.
 - Verification slots change only through deterministic verifier output.
 - Long-term memory requires evidence, a certificate, and policy identity.
 - Oracle annotations are invisible during inference.
 - OOD, scale, and case-study data cannot enter main-model optimization.
-- Dataset, paper, checkpoint, and experiment artifacts remain outside the repository.
+- Aggregate audit and pilot metrics may be committed, but raw datasets, API
+  responses, weights, checkpoints, and training logs remain outside the repository.

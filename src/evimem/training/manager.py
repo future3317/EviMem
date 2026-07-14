@@ -8,9 +8,12 @@ from typing import Protocol
 
 from evimem.contracts import (
     AdmissionAction,
+    AuthorityRelation,
+    EvidenceSufficiency,
     MemoryManagerAction,
     ScientificMemoryRecord,
-    UpdateOperation,
+    ScopeRelation,
+    SemanticRelation,
 )
 
 
@@ -42,7 +45,10 @@ class ManagerInput:
     def render(self) -> str:
         return json.dumps(
             {
-                "instruction": "Return exactly one JSON MemoryManagerAction.",
+                "instruction": (
+                    "Return exactly one hierarchical JSON MemoryManagerAction. "
+                    "Do not output a compiled memory operation."
+                ),
                 "current_record": self.current_record.model_dump(mode="json"),
                 "retrieved_memories": [
                     record.model_dump(mode="json") for record in self.retrieved_memories
@@ -70,6 +76,9 @@ class StructuredMemoryManager:
             self.last_decode_error = str(exc)
             return MemoryManagerAction(
                 admission=AdmissionAction.EPHEMERAL_ONLY,
-                update_operation=UpdateOperation.IGNORE,
+                semantic_relation=SemanticRelation.INSUFFICIENT_CONTEXT,
+                scope_relation=ScopeRelation.UNKNOWN_SCOPE,
+                authority_relation=AuthorityRelation.NOT_APPLICABLE,
+                evidence_sufficiency=EvidenceSufficiency.INSUFFICIENT,
                 reason_code="invalid_model_output",
             )

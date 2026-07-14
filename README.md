@@ -8,7 +8,7 @@ EviMem studies three learnable decisions over a chronological scientific-documen
 Should Write -> What to Retrieve -> How to Update
 ```
 
-The research object is long-term scientific memory, not a domain-pretrained language model or a free-acting agent. Every reusable memory record contains a structured claim, immutable evidence references, a complete verification certificate, a typed decision, document time/source, and policy identity. A learned manager can propose only a structured admission/update action; deterministic gates retain authority over memory admission, verification slots, supersession, and publication.
+The research object is long-term scientific memory, not a domain-pretrained language model or a free-acting agent. Every reusable memory record contains a structured claim, immutable evidence references, a complete verification certificate, a typed decision, document time/source, and policy identity. A learned manager can propose only hierarchical semantic/scope/authority/evidence labels; deterministic gates retain authority over memory admission, operation compilation, verification slots, supersession, and publication.
 
 ## Implemented boundary
 
@@ -22,7 +22,7 @@ public dataset annotations / current evidence
           |                   |
           v                   v
  supervised admission   certified retrieval
- and typed update       (semantic + structure
+ + relation labels      (semantic + structure
           |               + authority + time
           |               - conflict - stale)
           +---------+---------+
@@ -41,14 +41,14 @@ The package includes:
 - cross-domain `ScientificMemoryRecord` and `ScientificClaimRecord` contracts;
 - verified, rejected, conflict, and superseded memory semantics;
 - hard certificate/evidence/policy admission checks;
-- typed `ADD`, `MERGE`, `LINK`, `CONFLICT`, `SUPERSEDE`, and `IGNORE` updates;
+- hierarchical update labels and a deterministic compiler for `ADD`, `MERGE`, `LINK`, `CONFLICT`, `SUPERSEDE`, and `IGNORE`;
 - time-safe evidence-certified retrieval that returns full records and warrants;
 - SciMem-Curate episode/oracle separation and public-dataset converters;
 - an audited dataset manifest that prevents OOD and 150-DOI case-study data from entering training;
-- supervised retriever and structured memory-manager interfaces;
+- an executed three-seed retrieval validity pilot and structured memory-manager interfaces;
 - deterministic evidence binding, tuple verification, publication gating, and atomic publication storage.
 
-The repository intentionally contains no datasets, papers, checkpoints, or experiment outputs. It also does not claim completed model training or paper results.
+The repository intentionally contains no downloaded datasets, papers, model checkpoints, or raw training logs. It contains aggregate audit/pilot reports, but does not claim formal paper results, a trained update manager, or SciMem-Update gold.
 
 ## Environment and installation
 
@@ -65,9 +65,35 @@ The optional `train` extra installs Transformers, PEFT, TRL-adjacent data toolin
 conda run --no-capture-output -n llm python -m pip install -e ".[dev,semantic,train]"
 ```
 
+## Phase 1B status
+
+Phase 1A is frozen at `64ecedd0341cb5199df33ad5f05a0d4a45a9429c`
+with tag `phase1a-data-validity-audit`. Phase 1B has:
+
+- run a retrieval-only pilot on SciREX 517 train / 177 evaluation and the
+  leakage-safe SciFact 679 train / 139 evaluation split;
+- run QASPER 4,555 only as an internal diagnostic, never as training data;
+- compared TF-IDF, BM25, two frozen dense encoders, three fine-tuned seeds,
+  certificate-aware reranking, and the EviMem score under identical pools,
+  top-k, and token budgets;
+- built 360 **unlabeled** SciMem-Update candidates and a standard Label Studio
+  configuration.
+
+The primary fine-tuned three-seed mean is Recall@10 `0.9747 ± 0.0032` and MRR
+`0.7562 ± 0.0034`. These are retrieval-validity pilot measurements, not formal
+paper main results. Certificate-aware gain is not estimable because the licensed
+retrieval views contain no certificate/memory-type gold; the fail-closed reranker
+does not invent it. See [retrieval results](reports/phase1b/retrieval_results.md)
+and [implementation status](docs/IMPLEMENTATION_STATUS.md).
+
+Human annotation has not started. The candidate file is not gold, the update
+manager was not trained, and no QLoRA run was performed. See the
+[annotation guidelines](docs/SCIMEM_UPDATE_ANNOTATION_GUIDELINES.md) and
+[labelbook](docs/SCIMEM_UPDATE_LABELBOOK.md).
+
 ## Data protocol
 
-Phase 1A authorizes no training. The current audited candidates are only the leakage-safe retrieval subsets of SciREX and SciFact. QASPER is local-evaluation-only pending an official dataset LICENSE checksum; Evidence Inference source articles require per-document OA resolution; MeasEval and BioRED are blocked. POLYIE remains OOD-only, SciFact-Open remains scale-only, and the 150 DOI collection is never optimization data.
+Phase 1A's fail-closed manifest authorizes only the leakage-safe retrieval subsets of SciREX and SciFact for the Phase 1B retriever pilot. It does not authorize admission/update training. QASPER is local-evaluation-only pending an official dataset LICENSE checksum; Evidence Inference source articles require per-document OA resolution; MeasEval and BioRED are blocked. POLYIE remains OOD-only, SciFact-Open remains scale-only, and the 150 DOI collection is never optimization data.
 
 Review and update [configs/datasets.json](configs/datasets.json) before acquiring any data:
 
@@ -81,6 +107,14 @@ The deterministic audit runner reads pinned upstream releases from paths outside
 
 ```powershell
 conda run --no-capture-output -n llm python tools/run_phase1a_audit.py --help
+```
+
+Phase 1B runners likewise read releases and Crossref responses outside the
+repository. They commit no full text or model weights:
+
+```powershell
+conda run --no-capture-output -n llm python tools/run_phase1b_candidate_pool.py --help
+conda run --no-capture-output -n llm python tools/run_phase1b_retrieval_pilot.py --help
 ```
 
 ## Development

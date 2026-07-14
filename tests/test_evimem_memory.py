@@ -7,9 +7,16 @@ from pydantic import ValidationError
 
 from evimem.contracts import (
     AdmissionAction,
+    AuthorityRelation,
+    CorrectionBasis,
+    CorrectionEvidenceScope,
+    EvidenceSufficiency,
     MemoryManagerAction,
     MemoryType,
+    ScopeRelation,
+    SemanticRelation,
     UpdateOperation,
+    VerifiedCorrectionEvidence,
 )
 from evimem.memory import (
     FullHistoryBaseline,
@@ -74,11 +81,14 @@ def test_typed_conflict_update_creates_edge_without_overwrite(tmp_path) -> None:
     conflict = memory_record("conflict", value=190.0, memory_type=MemoryType.CONFLICT)
     action = MemoryManagerAction(
         admission=AdmissionAction.WRITE_CONFLICT,
-        update_operation=UpdateOperation.CONFLICT,
+        semantic_relation=SemanticRelation.CONTRADICTORY,
+        scope_relation=ScopeRelation.SAME_SCOPE,
+        authority_relation=AuthorityRelation.UNRESOLVED,
+        evidence_sufficiency=EvidenceSufficiency.SUFFICIENT,
         target_memory_ids=("old",),
         reason_code="same_context_incompatible_value",
     )
-    result = TypedMemoryUpdateService(store).apply(new_record=conflict, action=action)
+    result = TypedMemoryUpdateService(store).apply(new_record=conflict, assessment=action)
     assert result.applied
     assert store.get("old") == old
     assert store.get("conflict") == conflict
@@ -88,14 +98,33 @@ def test_supersession_preserves_lineage_and_requires_newer_evidence(tmp_path) ->
     store = GovernedMemoryStore(tmp_path / "memory.sqlite")
     old = memory_record("old", observed_at=datetime(2025, 1, 1, tzinfo=UTC))
     store.admit(old, AdmissionAction.WRITE_VERIFIED)
-    new = memory_record("new", value=360.0, observed_at=datetime(2026, 1, 1, tzinfo=UTC))
+    new = memory_record(
+        "new",
+        value=360.0,
+        observed_at=datetime(2026, 1, 1, tzinfo=UTC),
+        authority_level=4,
+    )
     action = MemoryManagerAction(
         admission=AdmissionAction.WRITE_VERIFIED,
-        update_operation=UpdateOperation.SUPERSEDE,
+        semantic_relation=SemanticRelation.CONTRADICTORY,
+        scope_relation=ScopeRelation.SAME_SCOPE,
+        authority_relation=AuthorityRelation.NEWER_MORE_AUTHORITATIVE,
+        evidence_sufficiency=EvidenceSufficiency.SUFFICIENT,
         target_memory_ids=("old",),
         reason_code="newer_stronger_evidence",
     )
-    TypedMemoryUpdateService(store).apply(new_record=new, action=action)
+    correction = VerifiedCorrectionEvidence(
+        basis=CorrectionBasis.CORRECTION,
+        scope=CorrectionEvidenceScope.CLAIM_LEVEL,
+        source_id="curator:correction-1",
+        source_checksum="sha256:" + "c" * 64,
+        verified_by="human_curator",
+    )
+    TypedMemoryUpdateService(store).apply(
+        new_record=new,
+        assessment=action,
+        correction_evidence=correction,
+    )
     superseded = store.get("old")
     assert superseded is not None
     assert superseded.status.value == "superseded"
@@ -159,16 +188,36 @@ def test_consolidation_no_longer_depends_on_controller_trajectory() -> None:
     assert result.record.memory_type == MemoryType.VERIFIED
 
 
-def test_invalid_supersession_is_rejected(tmp_path) -> None:
+def test_invalid_supersession_compiles_to_non_destructive_conflict(tmp_path) -> None:
     store = GovernedMemoryStore(tmp_path / "memory.sqlite")
     old = memory_record("old", observed_at=datetime(2026, 1, 1, tzinfo=UTC))
     store.admit(old, AdmissionAction.WRITE_VERIFIED)
-    older = memory_record("older", observed_at=datetime(2025, 1, 1, tzinfo=UTC))
+    older = memory_record(
+        "older",
+        value=360.0,
+        observed_at=datetime(2025, 1, 1, tzinfo=UTC),
+        authority_level=4,
+    )
     action = MemoryManagerAction(
         admission=AdmissionAction.WRITE_VERIFIED,
-        update_operation=UpdateOperation.SUPERSEDE,
+        semantic_relation=SemanticRelation.CONTRADICTORY,
+        scope_relation=ScopeRelation.SAME_SCOPE,
+        authority_relation=AuthorityRelation.NEWER_MORE_AUTHORITATIVE,
+        evidence_sufficiency=EvidenceSufficiency.SUFFICIENT,
         target_memory_ids=("old",),
         reason_code="invalid_time",
     )
-    with pytest.raises(MemoryAdmissionError, match="supersede_requires_newer_evidence"):
-        TypedMemoryUpdateService(store).apply(new_record=older, action=action)
+    correction = VerifiedCorrectionEvidence(
+        basis=CorrectionBasis.CORRECTION,
+        scope=CorrectionEvidenceScope.CLAIM_LEVEL,
+        source_id="curator:correction-2",
+        source_checksum="sha256:" + "d" * 64,
+        verified_by="human_curator",
+    )
+    result = TypedMemoryUpdateService(store).apply(
+        new_record=older,
+        assessment=action,
+        correction_evidence=correction,
+    )
+    assert result.operation == UpdateOperation.CONFLICT
+    assert store.get("old").status.value == "active"

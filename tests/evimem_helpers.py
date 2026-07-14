@@ -120,6 +120,7 @@ def memory_record(
     value: float = 350.0,
     memory_type: MemoryType = MemoryType.VERIFIED,
     observed_at: datetime | None = None,
+    authority_level: int = 3,
 ) -> ScientificMemoryRecord:
     certified_material_claim = claim().model_copy(
         update={"value_raw": str(value), "value_num": value}
@@ -161,7 +162,7 @@ def memory_record(
         policy_version="1.3.0",
         policy_hash="policy-hash",
         evidence_release_id="release-1",
-        authority=MemoryAuthority(source="deterministic_verifier", level=3),
+        authority=MemoryAuthority(source="deterministic_verifier", level=authority_level),
         origin=MemoryOrigin(
             dataset_name="fixture",
             split="train",
