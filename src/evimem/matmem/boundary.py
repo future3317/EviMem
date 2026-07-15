@@ -263,7 +263,7 @@ class BoundaryRiskPotential:
 
 
 class BruteForceRetentionSolver:
-    """Exact finite-set solver used as the auditable reference implementation."""
+    """Exact solver over every legal subset with cardinality at most ``K``."""
 
     def select(
         self,
@@ -277,14 +277,15 @@ class BruteForceRetentionSolver:
             raise ValueError("active witness capacity cannot be negative")
         candidates = tuple(sorted(witnesses, key=lambda item: item.witness_id))
         query_pool = tuple(queries)
-        if len(candidates) <= capacity:
-            return candidates
-        choices: list[tuple[float, tuple[str, ...], tuple[BoundaryWitness, ...]]] = []
-        for retained in itertools.combinations(candidates, capacity):
-            value = potential.evaluate_witnesses(query_pool, retained).total
-            ids = tuple(item.witness_id for item in retained)
-            choices.append((value, ids, retained))
-        return min(choices, key=lambda item: (item[0], item[1]))[2]
+        choices: list[
+            tuple[float, int, tuple[str, ...], tuple[BoundaryWitness, ...]]
+        ] = []
+        for size in range(min(capacity, len(candidates)) + 1):
+            for retained in itertools.combinations(candidates, size):
+                value = potential.evaluate_witnesses(query_pool, retained).total
+                ids = tuple(item.witness_id for item in retained)
+                choices.append((value, -size, ids, retained))
+        return min(choices, key=lambda item: (item[0], item[1], item[2]))[3]
 
 
 class BoundaryRiskRetention:

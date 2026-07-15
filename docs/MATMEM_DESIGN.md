@@ -144,10 +144,15 @@ is used online.
 
 ## Complexity
 
-The auditable reference retention solver enumerates the `K+1` streaming
-evictions. Each potential scans `O(nK)` query-witness pairs, for implemented
-per-round runtime `O(n^2 K^2)`. No cached `O(n^2 K)` claim is made. Random small
-instances compare solver output with manual exhaustive search.
+The auditable reference retention solver enumerates every legal subset of the
+streaming candidate set, including sets smaller than `K`. With at most `K+1`
+candidates this requires up to `2^(K+1)-1` potential evaluations, because the
+full `K+1` set is infeasible. Each potential scans `O(nK)` query-witness pairs,
+so two-scenario acquisition has direct per-round runtime `O(n^2 K 2^K)`.
+This exponential reference is intentional until a restricted neighborhood or
+an exactly equivalent cached solver is derived. Random small instances compare
+solver output with manual exhaustive search, and a constructed conflict test
+requires simultaneous removal of two old witnesses.
 
 ## Falsification suite
 

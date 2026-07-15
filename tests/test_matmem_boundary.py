@@ -372,9 +372,59 @@ def test_retention_matches_manual_exhaustive_search_on_random_small_instances() 
             for index in range(3)
         )
         manual = []
-        for retained in itertools.combinations(cards, 2):
-            ids = tuple(sorted(card.card_id for card in retained))
-            manual.append((potential.evaluate(queries, retained).total, ids))
-        expected = min(manual, key=lambda item: (item[0], item[1]))[1]
+        for size in range(3):
+            for retained in itertools.combinations(cards, size):
+                ids = tuple(sorted(card.card_id for card in retained))
+                manual.append((potential.evaluate(queries, retained).total, -size, ids))
+        expected = min(manual, key=lambda item: (item[0], item[1], item[2]))[2]
         selected = BoundaryRiskRetention(2, potential).select(cards, queries)
         assert selected.selected_card_ids == expected
+
+
+def test_exact_retention_can_remove_two_old_witnesses_after_conflicting_admission() -> None:
+    """The best legal set may have fewer than K members when intervals conflict."""
+
+    potential = BoundaryRiskPotential(
+        ProtocolCompatibilityResolver(),
+        BoundaryRiskConfig(
+            residual_lipschitz_ev_per_atom=0.0,
+            calibration_radius_ev_per_atom=0.02,
+        ),
+    )
+    target = _item(
+        "multi-eviction-target",
+        embedding=(1.0, 0.0),
+        base_energy=-1.04,
+        oracle_energy=-1.04,
+    ).query
+    old_one = _item(
+        "old-ambiguous-one",
+        embedding=(1.0, 0.0),
+        base_energy=-1.04,
+        oracle_energy=-1.00,
+    ).oracle_card
+    old_two = _item(
+        "old-ambiguous-two",
+        embedding=(1.0, 0.0),
+        base_energy=-1.04,
+        oracle_energy=-0.99,
+    ).oracle_card
+    new_witness = _item(
+        "new-certifying-witness",
+        embedding=(1.0, 0.0),
+        base_energy=-1.04,
+        oracle_energy=-1.10,
+    ).oracle_card
+
+    assert potential.estimate(target, (new_witness, old_one)).interval_conflict
+    assert potential.estimate(target, (new_witness, old_two)).interval_conflict
+    assert potential.evaluate((target,), (new_witness,)).total == 0.0
+    assert potential.evaluate((target,), (old_one,)).total > 0.0
+    assert potential.evaluate((target,), (old_two,)).total > 0.0
+
+    selected = BoundaryRiskRetention(2, potential).select(
+        (old_one, old_two, new_witness),
+        (target,),
+    )
+    assert selected.selected_card_ids == (new_witness.card_id,)
+    assert selected.evicted_card_ids == (old_one.card_id, old_two.card_id)
