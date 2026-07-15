@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from collections.abc import Iterable
 from typing import Protocol
 
@@ -69,6 +70,12 @@ class ActiveStep(BaseModel):
     downstream_risk_reduction: float = Field(default=0.0, ge=0)
     memory_size_after_observation: int = Field(ge=0)
     archive_size_after_observation: int = Field(ge=1)
+    active_witness_ids_after_observation: tuple[str, ...]
+    active_witness_state_checksum_after_observation: str
+    selected_hull_snapshot_id_before_observation: str
+    selected_hull_phase_checksum_before_observation: str
+    remaining_hull_state_checksum_after_observation: str
+    causal_discoveries_after_observation: int = Field(ge=0)
 
 
 class ActiveDiscoveryMetrics(BaseModel):
@@ -185,6 +192,13 @@ class ActiveDiscoveryEvaluator:
             )
             memory_size = min(len(self.retention.cards()), self.active_witness_budget)
             sizes.append(memory_size)
+            if self.causal_hull_updates:
+                hull_revisions += self._revise_remaining_hulls(
+                    remaining,
+                    chosen.oracle_card,
+                    call_index,
+                )
+            active_cards = self.retention.cards()
             steps.append(
                 ActiveStep(
                     oracle_call_index=call_index,
@@ -201,14 +215,24 @@ class ActiveDiscoveryEvaluator:
                     downstream_risk_reduction=chosen_score.downstream_risk_reduction,
                     memory_size_after_observation=memory_size,
                     archive_size_after_observation=len(archive),
+                    active_witness_ids_after_observation=tuple(
+                        card.card_id for card in active_cards
+                    ),
+                    active_witness_state_checksum_after_observation=(
+                        self._active_witness_state_checksum(active_cards)
+                    ),
+                    selected_hull_snapshot_id_before_observation=(
+                        chosen.query.hull_snapshot.snapshot_id
+                    ),
+                    selected_hull_phase_checksum_before_observation=(
+                        chosen.query.hull_snapshot.phase_set_checksum
+                    ),
+                    remaining_hull_state_checksum_after_observation=(
+                        self._remaining_hull_state_checksum(remaining)
+                    ),
+                    causal_discoveries_after_observation=discoveries,
                 )
             )
-            if self.causal_hull_updates:
-                hull_revisions += self._revise_remaining_hulls(
-                    remaining,
-                    chosen.oracle_card,
-                    call_index,
-                )
         calls = len(steps)
         final_references: dict[tuple[str, ...], float] = {}
         for selected in selected_items:
@@ -265,6 +289,34 @@ class ActiveDiscoveryEvaluator:
             item.oracle_card.hull_distance(item.query.hull_snapshot)
             <= item.query.stability_threshold_ev_per_atom
         )
+
+    @staticmethod
+    def _active_witness_state_checksum(cards: Iterable[MaterialMemoryCard]) -> str:
+        payload = [
+            {
+                "card_id": card.card_id,
+                "protocol": card.protocol.scientific_fingerprint,
+                "hull_snapshot_id": card.hull_snapshot.snapshot_id,
+                "hull_phase_checksum": card.hull_snapshot.phase_set_checksum,
+            }
+            for card in cards
+        ]
+        encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+        return "sha256:" + hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+    @staticmethod
+    def _remaining_hull_state_checksum(remaining: dict[str, CandidatePoolItem]) -> str:
+        payload = [
+            {
+                "query_id": query_id,
+                "snapshot_id": item.query.hull_snapshot.snapshot_id,
+                "phase_checksum": item.query.hull_snapshot.phase_set_checksum,
+                "reference": item.query.hull_snapshot.reference_hull_energy_ev_per_atom,
+            }
+            for query_id, item in sorted(remaining.items())
+        ]
+        encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+        return "sha256:" + hashlib.sha256(encoded.encode("utf-8")).hexdigest()
 
     @staticmethod
     def _revise_remaining_hulls(
