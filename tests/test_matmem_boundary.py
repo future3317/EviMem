@@ -8,12 +8,11 @@ from evimem.matmem import (
     BoundaryRiskConfig,
     BoundaryRiskPotential,
     BoundaryRiskRetention,
-    CandidatePoolItem,
     ProtocolCompatibilityResolver,
     RetentionAwareBoundaryAcquisition,
 )
 
-from .test_matmem_active import _item, _protocol, _SyntheticReviser
+from .test_matmem_active import _Case, _evaluate, _item, _protocol, _SyntheticReviser
 
 
 def test_boundary_potential_links_coverage_to_hull_margin_ambiguity() -> None:
@@ -179,7 +178,7 @@ def test_first_acquisition_is_invariant_to_hidden_oracle_outcomes() -> None:
         ),
     ]
     swapped = [
-        CandidatePoolItem(
+        _Case(
             query=queries[0].query,
             oracle_card=queries[0].oracle_card.model_copy(
                 update={
@@ -190,7 +189,7 @@ def test_first_acquisition_is_invariant_to_hidden_oracle_outcomes() -> None:
                 }
             ),
         ),
-        CandidatePoolItem(
+        _Case(
             query=queries[1].query,
             oracle_card=queries[1].oracle_card.model_copy(
                 update={
@@ -203,12 +202,12 @@ def test_first_acquisition_is_invariant_to_hidden_oracle_outcomes() -> None:
         ),
     ]
 
-    def first_selected(pool: list[CandidatePoolItem]) -> str:
-        result = ActiveDiscoveryEvaluator(
+    def first_selected(pool: list[_Case]) -> str:
+        result = _evaluate(ActiveDiscoveryEvaluator(
             RetentionAwareBoundaryAcquisition(potential, active_witness_budget=1),
             BoundaryRiskRetention(1, potential),
             oracle_budget=1,
-        ).evaluate(pool)
+        ), pool)
         return result.selected_query_ids[0]
 
     assert first_selected(queries) == first_selected(swapped)
@@ -231,13 +230,13 @@ def test_causal_hull_revision_uses_only_an_already_observed_phase() -> None:
             oracle_energy=-1.02,
         ),
     ]
-    result = ActiveDiscoveryEvaluator(
+    result = _evaluate(ActiveDiscoveryEvaluator(
         RetentionAwareBoundaryAcquisition(potential, active_witness_budget=1),
         BoundaryRiskRetention(1, potential),
         oracle_budget=2,
         causal_hull_updates=True,
         causal_hull_reviser=_SyntheticReviser(),
-    ).evaluate(candidates)
+    ), candidates)
     assert result.selected_query_ids[0] == "deep-phase"
     assert result.hull_revision_count == 1
     assert not result.steps[1].actual_stable

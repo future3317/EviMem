@@ -14,6 +14,7 @@ import random
 import statistics
 import time
 from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
 from evimem.matmem import (
@@ -23,7 +24,7 @@ from evimem.matmem import (
     BoundaryRiskPotential,
     BoundaryRiskRetention,
     BoundaryUncertaintyAcquisition,
-    CandidatePoolItem,
+    CardOracleVault,
     CompatibilityKind,
     DeterministicReservoirMemory,
     DiversityBoundedMemory,
@@ -45,6 +46,64 @@ from evimem.matmem import (
 )
 
 START = datetime(2026, 1, 1, tzinfo=UTC)
+
+
+@dataclass(frozen=True)
+class SyntheticCase:
+    query: MaterialQuery
+    oracle_card: MaterialMemoryCard
+
+
+def oracle_vault(candidates: list[SyntheticCase]) -> CardOracleVault:
+    return CardOracleVault(
+        {candidate.query.query_id: candidate.oracle_card for candidate in candidates}
+    )
+
+
+def evaluate_candidates(
+    evaluator: ActiveDiscoveryEvaluator,
+    candidates: list[SyntheticCase],
+):
+    return evaluator.evaluate(
+        (candidate.query for candidate in candidates),
+        oracle_vault(candidates),
+    )
+
+
+class SyntheticCausalHullReviser:
+    """Scalar synthetic stress fixture; never accepted by the real WBM runner."""
+
+    def revise(
+        self,
+        observed: MaterialMemoryCard,
+        remaining_queries: tuple[MaterialQuery, ...],
+        *,
+        call_index: int,
+    ) -> dict[str, HullSnapshot]:
+        return {
+            query.query_id: query.hull_snapshot.model_copy(
+                update={
+                    "snapshot_id": f"{query.hull_snapshot.snapshot_id}:synthetic:{call_index}",
+                    "reference_hull_energy_ev_per_atom": min(
+                        query.hull_snapshot.reference_hull_energy_ev_per_atom,
+                        observed.formation_energy_ev_per_atom,
+                    ),
+                    "known_through": query.as_of,
+                    "built_at": query.as_of,
+                }
+            )
+            for query in remaining_queries
+        }
+
+    def final_stability(
+        self,
+        selected_cards: tuple[MaterialMemoryCard, ...],
+    ) -> dict[str, bool]:
+        reference = min(card.formation_energy_ev_per_atom for card in selected_cards)
+        return {
+            card.material_id: card.formation_energy_ev_per_atom - reference <= 0
+            for card in selected_cards
+        }
 
 
 def protocol(functional: str = "PBE") -> ProtocolCertificate:
@@ -76,7 +135,7 @@ def item(
     base_energy: float,
     oracle_energy: float,
     selected_protocol: ProtocolCertificate | None = None,
-) -> CandidatePoolItem:
+) -> SyntheticCase:
     current_protocol = selected_protocol or protocol()
     identity = MaterialIdentity(
         exact_calculation_id=f"calc-{query_id}",
@@ -116,10 +175,10 @@ def item(
         recorded_hull_distance_ev_per_atom=oracle_energy + 1.0,
         observed_at=START + timedelta(days=2),
     )
-    return CandidatePoolItem(query=query, oracle_card=card)
+    return SyntheticCase(query=query, oracle_card=card)
 
 
-def recurring_pool(seed: int, size: int) -> list[CandidatePoolItem]:
+def recurring_pool(seed: int, size: int) -> list[SyntheticCase]:
     """Residuals recur by structure cluster; memory should be useful."""
 
     rng = random.Random(seed)
@@ -147,7 +206,7 @@ def recurring_pool(seed: int, size: int) -> list[CandidatePoolItem]:
     return candidates
 
 
-def local_boundary_pool(seed: int, size: int) -> list[CandidatePoolItem]:
+def local_boundary_pool(seed: int, size: int) -> list[SyntheticCase]:
     """A smooth local residual field around the hull boundary."""
 
     rng = random.Random(seed)
@@ -169,7 +228,7 @@ def local_boundary_pool(seed: int, size: int) -> list[CandidatePoolItem]:
     return candidates
 
 
-def iid_pool(seed: int, size: int) -> list[CandidatePoolItem]:
+def iid_pool(seed: int, size: int) -> list[SyntheticCase]:
     """Residual sign is independent of recurring embeddings."""
 
     rng = random.Random(seed)
@@ -191,7 +250,7 @@ def iid_pool(seed: int, size: int) -> list[CandidatePoolItem]:
     return candidates
 
 
-def nonrecurring_pool(seed: int, size: int) -> list[CandidatePoolItem]:
+def nonrecurring_pool(seed: int, size: int) -> list[SyntheticCase]:
     """Every candidate is orthogonal, so past residuals cannot transfer."""
 
     rng = random.Random(seed)
@@ -212,7 +271,7 @@ def nonrecurring_pool(seed: int, size: int) -> list[CandidatePoolItem]:
     return candidates
 
 
-def hull_revision_pool(seed: int, size: int) -> list[CandidatePoolItem]:
+def hull_revision_pool(seed: int, size: int) -> list[SyntheticCase]:
     """One newly observed deep phase revises the causal hull for later calls."""
 
     rng = random.Random(seed)
@@ -237,7 +296,7 @@ def hull_revision_pool(seed: int, size: int) -> list[CandidatePoolItem]:
     return candidates
 
 
-def protocol_shift_pool(seed: int, size: int) -> list[CandidatePoolItem]:
+def protocol_shift_pool(seed: int, size: int) -> list[SyntheticCase]:
     """The same structural neighborhood has opposite residuals by protocol."""
 
     rng = random.Random(seed)
@@ -260,7 +319,7 @@ def protocol_shift_pool(seed: int, size: int) -> list[CandidatePoolItem]:
     return candidates
 
 
-def retention_competition_pool(seed: int, size: int) -> list[CandidatePoolItem]:
+def retention_competition_pool(seed: int, size: int) -> list[SyntheticCase]:
     """Singleton bait competes with observations valuable to a recurring pool."""
 
     rng = random.Random(seed)
@@ -302,7 +361,7 @@ class OfflineOracleRetention:
         self,
         capacity: int,
         potential: BoundaryRiskPotential,
-        candidates: list[CandidatePoolItem],
+        candidates: list[SyntheticCase],
     ) -> None:
         self.capacity = capacity
         self.potential = potential
@@ -368,7 +427,7 @@ def policy_factories(
     seed: int,
     capacity: int,
     budget: int,
-    candidates: list[CandidatePoolItem],
+    candidates: list[SyntheticCase],
 ) -> dict[str, Callable[[], tuple[object, object]]]:
     def components() -> tuple[ProtocolCompatibilityResolver, BoundaryRiskPotential]:
         resolver = ProtocolCompatibilityResolver()
@@ -529,12 +588,17 @@ def run(args: argparse.Namespace) -> dict[str, object]:
             for policy_name, factory in factories.items():
                 acquisition_policy, retention_policy = factory()
                 started = time.perf_counter()
-                result = ActiveDiscoveryEvaluator(
+                result = evaluate_candidates(ActiveDiscoveryEvaluator(
                     acquisition_policy,
                     retention_policy,
                     oracle_budget=args.budget,
                     causal_hull_updates=scenario_name == "causal_hull_revision",
-                ).evaluate(candidates)
+                    causal_hull_reviser=(
+                        SyntheticCausalHullReviser()
+                        if scenario_name == "causal_hull_revision"
+                        else None
+                    ),
+                ), candidates)
                 runtime = time.perf_counter() - started
                 policy_rows = rows.setdefault(policy_name, {metric: [] for metric in metrics})
                 for metric in metrics:

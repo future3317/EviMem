@@ -11,82 +11,16 @@ from __future__ import annotations
 import hashlib
 import json
 import math
-from collections.abc import Callable, Iterable, Mapping
+from collections.abc import Iterable, Mapping
 from datetime import datetime
 from pathlib import Path
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from .active import (
-    AcquisitionPolicy,
-    ActiveDiscoveryEvaluator,
-    ActiveDiscoveryMetrics,
-    CandidatePoolItem,
-)
-from .baselines import FIFOBoundedMemory
-from .cards import HullSnapshot, MaterialMemoryCard, MaterialQuery, SourceProvenance
+from .cards import HullSnapshot, MaterialQuery
 from .identity import MaterialIdentity
 from .protocols import ProtocolCertificate
-
-
-class WBMPhaseDiagramHullReviser:
-    """Exact composition-dependent WBM causal hull updater.
-
-    It rebuilds a phase diagram from the immutable MP phase set and *only*
-    oracle-revealed WBM entries. It never applies a cross-composition minimum
-    formation-energy shortcut.
-    """
-
-    def __init__(self, initial_phase_diagram: object, entries_by_card_id: Mapping[str, object]) -> None:
-        self._initial_entries = tuple(initial_phase_diagram.all_entries)
-        self._entries_by_card_id = dict(entries_by_card_id)
-        self._observed_card_ids: list[str] = []
-        self._phase_diagram = initial_phase_diagram
-
-    def _rebuild(self) -> None:
-        from pymatgen.analysis.phase_diagram import PhaseDiagram
-
-        self._phase_diagram = PhaseDiagram(
-            [*self._initial_entries, *(self._entries_by_card_id[item] for item in self._observed_card_ids)]
-        )
-
-    def _snapshot(self, query: MaterialQuery, call_index: int) -> HullSnapshot:
-        entry = self._entries_by_card_id.get(f"wbm-card:{query.query_id}")
-        if entry is None:
-            raise KeyError(f"missing WBM phase entry for {query.query_id}")
-        reference = float(self._phase_diagram.get_hull_energy_per_atom(entry.composition))
-        observed = "|".join(self._observed_card_ids)
-        digest = hashlib.sha256(f"{query.hull_snapshot.phase_set_checksum}|{observed}".encode()).hexdigest()
-        return query.hull_snapshot.model_copy(update={
-            "snapshot_id": f"{query.hull_snapshot.snapshot_id}:causal:{call_index}",
-            "reference_hull_energy_ev_per_atom": reference,
-            "phase_set_checksum": f"sha256:{digest}",
-            "known_through": query.as_of,
-            "built_at": query.as_of,
-        })
-
-    def revise(self, observed: MaterialMemoryCard, remaining_queries: Iterable[MaterialQuery], *, call_index: int) -> Mapping[str, HullSnapshot]:
-        if observed.card_id not in self._entries_by_card_id:
-            raise KeyError("revealed WBM card is absent from causal hull registry")
-        if observed.card_id not in self._observed_card_ids:
-            self._observed_card_ids.append(observed.card_id)
-            self._rebuild()
-        return {query.query_id: self._snapshot(query, call_index) for query in remaining_queries}
-
-    def final_stability(self, selected_cards: Iterable[MaterialMemoryCard]) -> Mapping[str, bool]:
-        selected = tuple(selected_cards)
-        for card in selected:
-            if card.card_id not in self._entries_by_card_id:
-                raise KeyError("selected WBM card is absent from causal hull registry")
-            if card.card_id not in self._observed_card_ids:
-                self._observed_card_ids.append(card.card_id)
-        self._rebuild()
-        result: dict[str, bool] = {}
-        for card in selected:
-            entry = self._entries_by_card_id[card.card_id]
-            result[card.material_id] = bool(self._phase_diagram.get_e_above_hull(entry, allow_negative=True) <= 1e-8)
-        return result
 
 
 def _sha256_file(path: Path) -> str:
@@ -540,7 +474,8 @@ class WBMOracleRecord(BaseModel):
 
     query_id: str
     structure_hash: str
-    formation_energy_ev_per_atom: float
+    corrected_total_energy_ev: float
+    corrected_formation_energy_ev_per_atom: float
     source_record_locator: str
     observed_at: datetime
 
@@ -551,220 +486,12 @@ class WBMOracleRecord(BaseModel):
             raise ValueError("WBM oracle identity must be non-empty")
         return value.strip()
 
-    @field_validator("formation_energy_ev_per_atom")
+    @field_validator(
+        "corrected_total_energy_ev",
+        "corrected_formation_energy_ev_per_atom",
+    )
     @classmethod
     def _oracle_energy(cls, value: float) -> float:
         if not math.isfinite(value):
-            raise ValueError("WBM oracle energy must be finite")
+            raise ValueError("WBM oracle energies must be finite")
         return value
-
-
-class WBMOracleVault:
-    """Reveal exactly one selected WBM outcome without an oracle enumeration API."""
-
-    def __init__(
-        self,
-        records: Iterable[WBMOracleRecord],
-        *,
-        source_version: str,
-    ) -> None:
-        items = tuple(records)
-        if not source_version.strip():
-            raise ValueError("WBM oracle vault requires a source version")
-        if len({record.query_id for record in items}) != len(items):
-            raise ValueError("WBM oracle query IDs must be unique")
-        self._records = {record.query_id: record for record in items}
-        self._revealed: list[str] = []
-        self.source_version = source_version.strip()
-
-    @property
-    def revealed_query_ids(self) -> tuple[str, ...]:
-        return tuple(self._revealed)
-
-    def reveal(self, selected_query: MaterialQuery) -> MaterialMemoryCard:
-        if selected_query.query_id in self._revealed:
-            raise ValueError("WBM oracle result has already been revealed")
-        record = self._records.get(selected_query.query_id)
-        if record is None:
-            raise KeyError("selected query is absent from WBM oracle vault")
-        if record.structure_hash != selected_query.structure_hash:
-            raise ValueError("selected query and WBM oracle structure hashes differ")
-        if record.observed_at < selected_query.as_of:
-            raise ValueError("WBM oracle observation predates the query state")
-        self._revealed.append(selected_query.query_id)
-        energy = record.formation_energy_ev_per_atom
-        return MaterialMemoryCard(
-            card_id=f"wbm-card:{selected_query.query_id}",
-            material_id=selected_query.query_id,
-            structure_hash=selected_query.structure_hash,
-            identity=selected_query.identity,
-            composition=selected_query.composition,
-            embedding=selected_query.embedding,
-            protocol=selected_query.protocol,
-            provenance=SourceProvenance(
-                source_name="WBM",
-                source_version=self.source_version,
-                record_locator=record.source_record_locator,
-                retrieved_at=record.observed_at,
-            ),
-            formation_energy_ev_per_atom=energy,
-            base_predicted_formation_energy_ev_per_atom=(
-                selected_query.base_predicted_formation_energy_ev_per_atom
-            ),
-            oracle_residual_ev_per_atom=(
-                energy - selected_query.base_predicted_formation_energy_ev_per_atom
-            ),
-            hull_snapshot=selected_query.hull_snapshot,
-            recorded_hull_distance_ev_per_atom=selected_query.hull_distance(energy),
-            observed_at=record.observed_at,
-        )
-
-
-class ArchiveReconstructingFIFOMemory:
-    """On-demand reconstruction of the same ordered set as persistent FIFO."""
-
-    def __init__(self, capacity: int) -> None:
-        if capacity < 0:
-            raise ValueError("archive reconstruction capacity cannot be negative")
-        self.capacity = capacity
-        self._archive: list[MaterialMemoryCard] = []
-
-    def cards(self) -> tuple[MaterialMemoryCard, ...]:
-        if self.capacity == 0:
-            return ()
-        return tuple(self._archive[-self.capacity :])
-
-    def admit(
-        self,
-        card: MaterialMemoryCard,
-        query_pool: Iterable[MaterialQuery] = (),
-    ) -> None:
-        del query_pool
-        if any(existing.card_id == card.card_id for existing in self._archive):
-            raise ValueError("immutable archive cannot admit a duplicate card")
-        self._archive.append(card)
-
-
-class ExactEmulationRound(BaseModel):
-    model_config = ConfigDict(frozen=True, extra="forbid")
-
-    oracle_call_index: int
-    query_id: str
-    active_witness_ids: tuple[str, ...]
-    active_witness_state_checksum: str
-    selected_hull_snapshot_id: str
-    selected_hull_phase_checksum: str
-    remaining_hull_state_checksum: str
-    causal_discoveries: int
-    final_confirmed_discoveries: int
-    invalidated_discoveries: int
-
-
-class ExactEmulationTrace(BaseModel):
-    model_config = ConfigDict(frozen=True, extra="forbid")
-
-    rounds: tuple[ExactEmulationRound, ...]
-    trace_checksum: str
-
-    @classmethod
-    def from_metrics(cls, metrics: ActiveDiscoveryMetrics) -> ExactEmulationTrace:
-        final_confirmed = 0
-        invalidated = 0
-        rounds: list[ExactEmulationRound] = []
-        for step in metrics.steps:
-            final_confirmed += int(bool(step.final_hull_stable))
-            invalidated += int(step.actual_stable and not bool(step.final_hull_stable))
-            rounds.append(
-                ExactEmulationRound(
-                    oracle_call_index=step.oracle_call_index,
-                    query_id=step.query_id,
-                    active_witness_ids=step.active_witness_ids_after_observation,
-                    active_witness_state_checksum=(
-                        step.active_witness_state_checksum_after_observation
-                    ),
-                    selected_hull_snapshot_id=(
-                        step.selected_hull_snapshot_id_before_observation
-                    ),
-                    selected_hull_phase_checksum=(
-                        step.selected_hull_phase_checksum_before_observation
-                    ),
-                    remaining_hull_state_checksum=(
-                        step.remaining_hull_state_checksum_after_observation
-                    ),
-                    causal_discoveries=step.causal_discoveries_after_observation,
-                    final_confirmed_discoveries=final_confirmed,
-                    invalidated_discoveries=invalidated,
-                )
-            )
-        payload = [item.model_dump(mode="json") for item in rounds]
-        return cls(rounds=tuple(rounds), trace_checksum=_canonical_checksum(payload))
-
-
-class ExactEmulationAudit(BaseModel):
-    model_config = ConfigDict(frozen=True, extra="forbid")
-
-    passed: bool
-    persistent_checksum: str
-    reconstructed_checksum: str
-    round_count: int
-
-
-def assert_exact_emulation(
-    persistent: ExactEmulationTrace,
-    reconstructed: ExactEmulationTrace,
-) -> ExactEmulationAudit:
-    if persistent.rounds != reconstructed.rounds:
-        for index, (left, right) in enumerate(
-            zip(persistent.rounds, reconstructed.rounds, strict=False),
-            start=1,
-        ):
-            if left != right:
-                left_fields = left.model_dump()
-                right_fields = right.model_dump()
-                differing = sorted(
-                    key for key in left_fields if left_fields[key] != right_fields[key]
-                )
-                raise AssertionError(
-                    f"exact emulation mismatch at round {index}: {', '.join(differing)}"
-                )
-        raise AssertionError("exact emulation mismatch: trace lengths differ")
-    if persistent.trace_checksum != reconstructed.trace_checksum:
-        raise AssertionError("exact emulation mismatch: canonical trace checksums differ")
-    return ExactEmulationAudit(
-        passed=True,
-        persistent_checksum=persistent.trace_checksum,
-        reconstructed_checksum=reconstructed.trace_checksum,
-        round_count=len(persistent.rounds),
-    )
-
-
-def run_fifo_exact_emulation(
-    candidates: Iterable[CandidatePoolItem],
-    acquisition_factory: Callable[[], AcquisitionPolicy],
-    *,
-    capacity: int,
-    oracle_budget: float,
-    causal_hull_updates: bool = True,
-    causal_hull_reviser: object | None = None,
-) -> ExactEmulationAudit:
-    """Execute the strict zero-cost FIFO parity gate on one fixed pool."""
-
-    pool = tuple(candidates)
-    persistent_metrics = ActiveDiscoveryEvaluator(
-        acquisition_factory(),
-        FIFOBoundedMemory(capacity),
-        oracle_budget=oracle_budget,
-        causal_hull_updates=causal_hull_updates,
-        causal_hull_reviser=causal_hull_reviser,
-    ).evaluate(pool)
-    reconstructed_metrics = ActiveDiscoveryEvaluator(
-        acquisition_factory(),
-        ArchiveReconstructingFIFOMemory(capacity),
-        oracle_budget=oracle_budget,
-        causal_hull_updates=causal_hull_updates,
-        causal_hull_reviser=causal_hull_reviser,
-    ).evaluate(pool)
-    return assert_exact_emulation(
-        ExactEmulationTrace.from_metrics(persistent_metrics),
-        ExactEmulationTrace.from_metrics(reconstructed_metrics),
-    )

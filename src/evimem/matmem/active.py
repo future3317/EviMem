@@ -7,7 +7,7 @@ import json
 from collections.abc import Iterable, Mapping
 from typing import Protocol
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field
 
 from .acquisition import AcquisitionScore
 from .cards import HullSnapshot, MaterialMemoryCard, MaterialQuery
@@ -47,23 +47,41 @@ class CausalHullReviser(Protocol):
     def final_stability(self, selected_cards: Iterable[MaterialMemoryCard]) -> Mapping[str, bool]: ...
 
 
-class CandidatePoolItem(BaseModel):
-    """Evaluation-only pairing; acquisition receives only ``query``."""
+class CardOracleVault:
+    """Synthetic-only card vault; policies never receive this object."""
 
-    model_config = ConfigDict(frozen=True, extra="forbid")
+    def __init__(self, cards_by_query_id: Mapping[str, MaterialMemoryCard]) -> None:
+        self._cards = dict(cards_by_query_id)
+        if not self._cards or any(not query_id for query_id in self._cards):
+            raise ValueError("synthetic oracle vault requires nonempty query IDs")
+        self._revealed: list[str] = []
 
-    query: MaterialQuery
-    oracle_card: MaterialMemoryCard
+    @property
+    def revealed_query_ids(self) -> tuple[str, ...]:
+        return tuple(self._revealed)
 
-    @model_validator(mode="after")
-    def _aligned_oracle(self) -> CandidatePoolItem:
-        if self.query.structure_hash != self.oracle_card.structure_hash:
-            raise ValueError("candidate query and oracle card must share a structure hash")
-        if self.query.protocol.scientific_fingerprint != self.oracle_card.protocol.scientific_fingerprint:
-            raise ValueError("candidate oracle must use the query scientific protocol")
-        if self.query.hull_snapshot.chemical_system != self.oracle_card.hull_snapshot.chemical_system:
-            raise ValueError("candidate query and oracle card must share a chemical-system hull")
-        return self
+    def benchmark_card(self, query: MaterialQuery) -> MaterialMemoryCard:
+        card = self._cards.get(query.query_id)
+        if card is None:
+            raise KeyError("query is absent from synthetic oracle vault")
+        self._validate_alignment(query, card)
+        return card
+
+    def reveal(self, query: MaterialQuery) -> MaterialMemoryCard:
+        if query.query_id in self._revealed:
+            raise ValueError("synthetic oracle result has already been revealed")
+        card = self.benchmark_card(query)
+        self._revealed.append(query.query_id)
+        return card
+
+    @staticmethod
+    def _validate_alignment(query: MaterialQuery, card: MaterialMemoryCard) -> None:
+        if query.structure_hash != card.structure_hash:
+            raise ValueError("query and oracle card must share a structure hash")
+        if query.protocol.scientific_fingerprint != card.protocol.scientific_fingerprint:
+            raise ValueError("oracle card must use the query scientific protocol")
+        if query.hull_snapshot.chemical_system != card.hull_snapshot.chemical_system:
+            raise ValueError("query and oracle card must share a chemical-system hull")
 
 
 class ActiveStep(BaseModel):
@@ -147,15 +165,22 @@ class ActiveDiscoveryEvaluator:
             getattr(acquisition, "active_witness_budget", retention.capacity)
         )
 
-    def evaluate(self, candidates: Iterable[CandidatePoolItem]) -> ActiveDiscoveryMetrics:
+    def evaluate(
+        self,
+        candidates: Iterable[MaterialQuery],
+        oracle_vault: CardOracleVault,
+    ) -> ActiveDiscoveryMetrics:
         items = list(candidates)
-        by_query = {item.query.query_id: item for item in items}
+        by_query = {item.query_id: item for item in items}
         if len(by_query) != len(items):
             raise ValueError("candidate pool query IDs must be unique")
         if not items:
             raise ValueError("candidate pool must be non-empty")
         remaining = dict(by_query)
-        available_stable = sum(self._actual_stable(item) for item in items)
+        available_stable = sum(
+            self._actual_stable(query, oracle_vault.benchmark_card(query))
+            for query in items
+        )
         discoveries = unstable_calls = false_stable_calls = 0
         information_seeking_unstable_calls = 0
         cumulative_regret = 0.0
@@ -164,13 +189,13 @@ class ActiveDiscoveryEvaluator:
         sizes: list[int] = []
         steps: list[ActiveStep] = []
         archive: list[MaterialMemoryCard] = []
-        selected_items: list[CandidatePoolItem] = []
+        selected_cards: list[MaterialMemoryCard] = []
         call_index = 0
         while remaining:
             affordable = tuple(
-                item.query
-                for item in remaining.values()
-                if item.query.oracle_cost <= self.oracle_budget - spent + 1e-12
+                query
+                for query in remaining.values()
+                if query.oracle_cost <= self.oracle_budget - spent + 1e-12
             )
             if not affordable:
                 break
@@ -185,29 +210,30 @@ class ActiveDiscoveryEvaluator:
             if chosen_score.query_id not in remaining:
                 raise RuntimeError("acquisition policy selected a query outside the candidate pool")
             chosen = remaining.pop(chosen_score.query_id)
+            revealed_card = oracle_vault.reveal(chosen)
             call_index += 1
-            spent += chosen.query.oracle_cost
-            actual_stable = self._actual_stable(chosen)
+            spent += chosen.oracle_cost
+            actual_stable = self._actual_stable(chosen, revealed_card)
             any_stable_before_selection = actual_stable or any(
-                self._actual_stable(item)
-                for query_id, item in remaining.items()
+                self._actual_stable(query, oracle_vault.benchmark_card(query))
+                for query_id, query in remaining.items()
                 if query_id in affordable_ids
             )
             regret = float(any_stable_before_selection and not actual_stable)
             cumulative_regret += regret
-            regret_cost += chosen.query.oracle_cost * regret
+            regret_cost += chosen.oracle_cost * regret
             discoveries += int(actual_stable)
             unstable_calls += int(not actual_stable)
-            unstable_cost += chosen.query.oracle_cost * int(not actual_stable)
+            unstable_cost += chosen.oracle_cost * int(not actual_stable)
             false_stable_calls += int(chosen_score.predicted_stable and not actual_stable)
             information_seeking = chosen_score.downstream_risk_reduction > 0
             information_seeking_unstable_calls += int(information_seeking and not actual_stable)
-            archive.append(chosen.oracle_card)
-            selected_items.append(chosen)
-            future_queries = tuple(item.query for item in remaining.values())
+            archive.append(revealed_card)
+            selected_cards.append(revealed_card)
+            future_queries = tuple(remaining.values())
             self.retention.admit(
-                chosen.oracle_card,
-                future_queries or (chosen.query,),
+                revealed_card,
+                future_queries or (chosen,),
             )
             memory_size = min(len(self.retention.cards()), self.active_witness_budget)
             sizes.append(memory_size)
@@ -215,7 +241,7 @@ class ActiveDiscoveryEvaluator:
             if self.causal_hull_updates:
                 revised_query_count = self._revise_remaining_hulls(
                     remaining,
-                    chosen.oracle_card,
+                    revealed_card,
                     call_index,
                 )
                 hull_revisions += revised_query_count
@@ -223,13 +249,13 @@ class ActiveDiscoveryEvaluator:
             steps.append(
                 ActiveStep(
                     oracle_call_index=call_index,
-                    query_id=chosen.query.query_id,
+                    query_id=chosen.query_id,
                     acquisition_score=chosen_score.score,
                     stable_score=chosen_score.stable_score,
                     stable_score_kind=chosen_score.stable_score_kind,
                     predicted_stable=chosen_score.predicted_stable,
                     actual_stable=actual_stable,
-                    oracle_cost=chosen.query.oracle_cost,
+                    oracle_cost=chosen.oracle_cost,
                     cumulative_oracle_cost=spent,
                     discovery_regret=regret,
                     information_seeking=information_seeking,
@@ -243,10 +269,10 @@ class ActiveDiscoveryEvaluator:
                         self._active_witness_state_checksum(active_cards)
                     ),
                     selected_hull_snapshot_id_before_observation=(
-                        chosen.query.hull_snapshot.snapshot_id
+                        chosen.hull_snapshot.snapshot_id
                     ),
                     selected_hull_phase_checksum_before_observation=(
-                        chosen.query.hull_snapshot.phase_set_checksum
+                        chosen.hull_snapshot.phase_set_checksum
                     ),
                     remaining_hull_state_checksum_after_observation=(
                         self._remaining_hull_state_checksum(remaining)
@@ -257,19 +283,19 @@ class ActiveDiscoveryEvaluator:
             )
         calls = len(steps)
         final_by_query = (
-            self.causal_hull_reviser.final_stability(item.oracle_card for item in selected_items)
+            self.causal_hull_reviser.final_stability(selected_cards)
             if self.causal_hull_updates
             else {}
         )
         if self.causal_hull_updates and set(final_by_query) != {
-            item.oracle_card.material_id for item in selected_items
+            item.material_id for item in selected_cards
         }:
             raise ValueError("causal hull reviser did not finalize exactly the selected queries")
         finalized_steps: list[ActiveStep] = []
         final_discoveries = invalidated = 0
-        for step, selected in zip(steps, selected_items, strict=True):
+        for step, selected in zip(steps, selected_cards, strict=True):
             final_stable = (
-                final_by_query[selected.oracle_card.material_id]
+                final_by_query[selected.material_id]
                 if self.causal_hull_updates
                 else step.actual_stable
             )
@@ -304,10 +330,10 @@ class ActiveDiscoveryEvaluator:
         )
 
     @staticmethod
-    def _actual_stable(item: CandidatePoolItem) -> bool:
+    def _actual_stable(query: MaterialQuery, card: MaterialMemoryCard) -> bool:
         return (
-            item.oracle_card.hull_distance(item.query.hull_snapshot)
-            <= item.query.stability_threshold_ev_per_atom
+            card.hull_distance(query.hull_snapshot)
+            <= query.stability_threshold_ev_per_atom
         )
 
     @staticmethod
@@ -325,22 +351,22 @@ class ActiveDiscoveryEvaluator:
         return "sha256:" + hashlib.sha256(encoded.encode("utf-8")).hexdigest()
 
     @staticmethod
-    def _remaining_hull_state_checksum(remaining: dict[str, CandidatePoolItem]) -> str:
+    def _remaining_hull_state_checksum(remaining: dict[str, MaterialQuery]) -> str:
         payload = [
             {
                 "query_id": query_id,
-                "snapshot_id": item.query.hull_snapshot.snapshot_id,
-                "phase_checksum": item.query.hull_snapshot.phase_set_checksum,
-                "reference": item.query.hull_snapshot.reference_hull_energy_ev_per_atom,
+                "snapshot_id": query.hull_snapshot.snapshot_id,
+                "phase_checksum": query.hull_snapshot.phase_set_checksum,
+                "reference": query.hull_snapshot.reference_hull_energy_ev_per_atom,
             }
-            for query_id, item in sorted(remaining.items())
+            for query_id, query in sorted(remaining.items())
         ]
         encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"))
         return "sha256:" + hashlib.sha256(encoded.encode("utf-8")).hexdigest()
 
     def _revise_remaining_hulls(
         self,
-        remaining: dict[str, CandidatePoolItem],
+        remaining: dict[str, MaterialQuery],
         observed: MaterialMemoryCard,
         call_index: int,
     ) -> int:
@@ -348,20 +374,20 @@ class ActiveDiscoveryEvaluator:
 
         assert self.causal_hull_reviser is not None
         revisions = self.causal_hull_reviser.revise(
-            observed, (item.query for item in remaining.values()), call_index=call_index
+            observed, remaining.values(), call_index=call_index
         )
         unknown = set(revisions) - set(remaining)
         if unknown:
             raise ValueError(f"causal hull reviser returned unknown queries: {sorted(unknown)}")
         changed = 0
         for query_id, snapshot in revisions.items():
-            item = remaining[query_id]
-            if snapshot.chemical_system != item.query.hull_snapshot.chemical_system:
+            query = remaining[query_id]
+            if snapshot.chemical_system != query.hull_snapshot.chemical_system:
                 raise ValueError("causal hull reviser changed a query chemical system")
-            if snapshot.snapshot_id == item.query.hull_snapshot.snapshot_id:
+            if snapshot.snapshot_id == query.hull_snapshot.snapshot_id:
                 continue
-            remaining[query_id] = item.model_copy(
-                update={"query": item.query.model_copy(update={"hull_snapshot": snapshot, "as_of": snapshot.built_at})}
+            remaining[query_id] = query.model_copy(
+                update={"hull_snapshot": snapshot, "as_of": snapshot.built_at}
             )
             changed += 1
         return changed

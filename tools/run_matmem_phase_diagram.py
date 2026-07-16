@@ -6,7 +6,11 @@ import argparse
 import statistics
 import time
 
-from run_matmem_dual_budget_pilot import policy_factories, retention_competition_pool
+from run_matmem_dual_budget_pilot import (
+    evaluate_candidates,
+    policy_factories,
+    retention_competition_pool,
+)
 
 from evimem.matmem import ActiveDiscoveryEvaluator
 
@@ -48,11 +52,11 @@ def main() -> None:
                 for name in POLICIES:
                     acquisition, retention = factories[name]()
                     started = time.perf_counter()
-                    result = ActiveDiscoveryEvaluator(
+                    result = evaluate_candidates(ActiveDiscoveryEvaluator(
                         acquisition,
                         retention,
                         oracle_budget=budget,
-                    ).evaluate(candidates)
+                    ), candidates)
                     elapsed = time.perf_counter() - started
                     results[name] = result
                     discoveries[name].append(result.cumulative_true_discoveries)

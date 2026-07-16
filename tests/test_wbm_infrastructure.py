@@ -9,11 +9,7 @@ import pytest
 from pydantic import ValidationError
 
 from evimem.matmem import (
-    BaseBoundaryAcquisition,
-    CandidatePoolItem,
     DataLicenseDecision,
-    ExactEmulationRound,
-    ExactEmulationTrace,
     ExternalDataArtifact,
     FrozenPredictionSOAPCache,
     FrozenPredictionSOAPRecord,
@@ -23,14 +19,8 @@ from evimem.matmem import (
     ProtocolCertificate,
     SOAPCacheConfig,
     WBMObservableRecord,
-    WBMOracleRecord,
-    WBMOracleVault,
-    assert_exact_emulation,
     audit_external_data_artifacts,
-    run_fifo_exact_emulation,
 )
-
-from .test_matmem_active import _SyntheticReviser
 
 START = datetime(2026, 1, 1, tzinfo=UTC)
 
@@ -215,40 +205,6 @@ def test_mp_initial_hull_is_composition_specific_and_mp_only() -> None:
         )
 
 
-def test_oracle_vault_reveals_only_selected_query() -> None:
-    observable = _observable("a")
-    cache = _cache(("a",))
-    query = cache.query(observable, _hull())
-    assert "formation_energy_ev_per_atom" not in observable.model_dump()
-    assert "oracle" not in " ".join(observable.model_dump().keys()).lower()
-
-    vault = WBMOracleVault(
-        (
-            WBMOracleRecord(
-                query_id="a",
-                structure_hash="structure-a",
-                formation_energy_ev_per_atom=-1.10,
-                source_record_locator="wbm-1-1",
-                observed_at=START + timedelta(days=3),
-            ),
-            WBMOracleRecord(
-                query_id="b",
-                structure_hash="structure-b",
-                formation_energy_ev_per_atom=-0.90,
-                source_record_locator="wbm-1-2",
-                observed_at=START + timedelta(days=3),
-            ),
-        ),
-        source_version="WBM-test",
-    )
-    card = vault.reveal(query)
-    assert vault.revealed_query_ids == ("a",)
-    assert card.formation_energy_ev_per_atom == -1.10
-    assert card.oracle_residual_ev_per_atom == pytest.approx(-0.08)
-    with pytest.raises(ValueError, match="already been revealed"):
-        vault.reveal(query)
-
-
 def test_frozen_prediction_soap_cache_is_order_invariant_and_identity_checked() -> None:
     first = _cache(("a", "b", "c"))
     second = _cache(("c", "b", "a"))
@@ -266,60 +222,3 @@ def test_frozen_prediction_soap_cache_is_order_invariant_and_identity_checked() 
             predicted_formation_energy_ev_per_atom=0.0,
             soap_vector=(1.0, 1.0),
         )
-
-
-def test_zero_cost_fifo_archive_emulation_has_exact_round_checksums() -> None:
-    query_ids = ("a", "b", "c")
-    cache = _cache(query_ids)
-    hull = _hull()
-    queries = [cache.query(_observable(query_id), hull) for query_id in query_ids]
-    energies = {"a": -0.90, "b": -1.10, "c": -1.20}
-    vault = WBMOracleVault(
-        (
-            WBMOracleRecord(
-                query_id=query_id,
-                structure_hash=f"structure-{query_id}",
-                formation_energy_ev_per_atom=energies[query_id],
-                source_record_locator=f"wbm-{query_id}",
-                observed_at=START + timedelta(days=3),
-            )
-            for query_id in query_ids
-        ),
-        source_version="WBM-test",
-    )
-    candidates = [
-        CandidatePoolItem(query=query, oracle_card=vault.reveal(query)) for query in queries
-    ]
-    audit = run_fifo_exact_emulation(
-        candidates,
-        BaseBoundaryAcquisition,
-        capacity=2,
-        oracle_budget=3,
-        causal_hull_updates=True,
-        causal_hull_reviser=_SyntheticReviser(),
-    )
-    assert audit.passed
-    assert audit.round_count == 3
-    assert audit.persistent_checksum == audit.reconstructed_checksum
-
-
-def test_exact_emulation_rejects_active_witness_mismatch() -> None:
-    base = ExactEmulationRound(
-        oracle_call_index=1,
-        query_id="a",
-        active_witness_ids=("card-a",),
-        active_witness_state_checksum="sha256:" + "1" * 64,
-        selected_hull_snapshot_id="mp-v1",
-        selected_hull_phase_checksum="sha256:" + "2" * 64,
-        remaining_hull_state_checksum="sha256:" + "3" * 64,
-        causal_discoveries=1,
-        final_confirmed_discoveries=1,
-        invalidated_discoveries=0,
-    )
-    left = ExactEmulationTrace(rounds=(base,), trace_checksum="sha256:" + "4" * 64)
-    right = ExactEmulationTrace(
-        rounds=(base.model_copy(update={"active_witness_ids": ("card-b",)}),),
-        trace_checksum="sha256:" + "5" * 64,
-    )
-    with pytest.raises(AssertionError, match="active_witness_ids"):
-        assert_exact_emulation(left, right)

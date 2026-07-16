@@ -1,10 +1,91 @@
 # WBM working-set economics pilot: preregistered design
 
-**Status.** Design only. This document does not authorize a WBM adapter,
-download, policy run, or MADE experiment. The frozen method-level NO-GO result
-remains immutable. Execution may begin only after the data/license audit and
-the exact-emulation gate below pass. The cell-level resource contract is in
+**Status.** Frozen design plus P0 engineering implementation. This document
+does not authorize a comparative WBM policy run or MADE experiment. The frozen
+method-level NO-GO remains immutable. P1 numerical/identity parity and P1.5
+informativeness must pass before the minimal P2 matrix. The cell-level resource
+contract is in
 [`WBM_EXECUTION_FEASIBILITY_TABLE.md`](WBM_EXECUTION_FEASIBILITY_TABLE.md).
+
+## Amendment v2: execution boundary and three-hull evaluation
+
+This amendment supersedes any implementation in which an unqueried candidate
+object carries an oracle card. P0 now requires a policy subprocess that
+receives only a serialized `PolicyState` and returns an opaque
+`query_id`. The evaluator must persist the action and pre-reveal checksum before
+calling the vault. A reveal produces two disjoint objects: a
+`RevealedObservation` eligible for archive/working-set use and a
+`CorrectedPhaseEntry` eligible only for the hull reviser. The policy process has
+no vault, phase-diagram, corrected-entry, evaluator, or unqueried-outcome
+capability.
+
+Three hulls and five metrics are frozen:
+
+| Hull / metric | Frozen definition |
+|---|---|
+| policy-visible causal hull (H_t^{\mathrm{causal}}) | frozen MP phases plus WBM phases revealed before round (t) |
+| selected-history final hull (H_T^{\mathrm{selected}}) | frozen MP phases plus every phase selected in the completed trace; never unselected entries |
+| offline oracle benchmark hull (H^{\mathrm{oracle}}) | frozen MP phases plus every WBM phase in the frozen exact-system evaluation universe; computed only after the trace |
+| causal discovery | stable against the pre-reveal (H_t^{\mathrm{causal}}) |
+| selected-final confirmation | selected item stable against (H_T^{\mathrm{selected}}) |
+| selected-history invalidation | causal discovery but not selected-final confirmation |
+| oracle-final true discovery | selected item stable against (H^{\mathrm{oracle}}) |
+| benchmark false confirmation | selected-final confirmation but not oracle-final true discovery |
+
+For a 16-candidate pool, the oracle benchmark universe is every frozen cleaned
+WBM entry in that exact chemical system, not only the sampled 16. Oracle-final
+quantities are offline evaluation labels and are prohibited from policy state,
+acquisition, retention, calibration, pool selection, and online hull updates.
+
+The label-blind expansion rule is also frozen before the informativeness audit.
+Eligible systems are all binary/ternary exact systems with at least 16 cleaned
+candidates. Deterministic strata use candidate count, frozen-prediction
+hull-margin spread, and SOAP diversity only; corrected WBM energy and stability
+labels are forbidden. Each exact system can enter at most one pool. The current
+eight systems remain immutable engineering pools. Their oracle support may
+classify the pilot as informative or underpowered but may not replace a pool.
+Claim-grade system count will be selected only from pilot-estimated
+between-system variance and a predeclared precision target; candidates, budget
+cells, and random seeds are not independent statistical units.
+
+P2 begins only after P0, P1, and the informativeness gate pass. Its minimal
+matrix is Random; frozen CHGNet ranking; uncertainty plus independent FIFO;
+residual acquisition plus persistent FIFO; free reconstruction of the same
+FIFO; query-specific compatible top-(K); and full revealed history. The free
+same-FIFO pair must match every action. Full history is one (K=\infty) method,
+not duplicated across finite (K). CAL-style GP and CAW-Joint remain P3 methods.
+
+Scientific discovery and access economics are separate experiments. The former
+uses the frozen 16-candidate pools and reports the five hull-aware metrics. The
+latter replays identical reveal traces at scaled archive sizes and reports raw
+reads, SOAP comparisons, bytes, certification, index/cache work, wall time and
+peak memory under free and measured retrieval. Pareto and break-even summaries
+precede any weighted utility aggregation.
+
+### P0 implementation audit (2026-07-16)
+
+The formal runner now uses a fixed policy worker subprocess, an allow-listed
+serialized state, opaque query IDs, a ledger-gated single-use oracle vault,
+separate per-atom observations and total-energy phase entries, and an fsync'd
+action record before every reveal. The causal phase diagram is rebuilt in the
+evaluator from frozen MP entries plus revealed same-system WBM entries. Hull
+references passed to formation-energy policies are converted to the formation-
+energy basis; corrected total energies remain confined to phase entries.
+
+The superseded in-process WBM reviser, preloaded WBM candidate/oracle pairs,
+and old exact-emulation runner were deleted. Failure-capable tests cover policy
+serialization, counterfactual unrevealed energies, cross-system isolation,
+pre-action authorization, duplicate reveal, total/per-atom unit separation,
+hypothetical copies, three-hull separation, deterministic ordering, event-log
+replay, and zero-mismatch persistent/reconstructed FIFO.
+
+The subprocess is a Python object-capability boundary, not an operating-system
+sandbox: it receives no evaluator or vault reference, but runs under the same
+OS account. Formal runs therefore permit only the frozen repository worker and
+declared policy names; arbitrary third-party policy executables are prohibited.
+P0 passing does not imply P1 parity, an informative pool, or a scientific
+effect. The auditable implementation record is
+[`WBM_P0_EXECUTION_AUDIT.md`](WBM_P0_EXECUTION_AUDIT.md).
 
 ## Decision question and cost units
 
@@ -13,13 +94,16 @@ economic value when every revealed DFT result remains in an immutable archive.
 It does not tune CAW-Joint or add heuristic scenarios. For policy \(\pi\),
 
 \[
-J_{\alpha,\beta,\gamma}(\pi)=D_{\mathrm{final}}(\pi)
+J_{\alpha,\beta,\gamma}(\pi)=D_{\mathrm{oracle-final}}(\pi)
 -\alpha C_{\mathrm{oracle}}(\pi)
 -\beta C_{\mathrm{activate}}(\pi)
 -\gamma C_{\mathrm{online}}(\pi).
 \]
 
-\(D_{\mathrm{final}}\) is the final-hull-confirmed discovery count.
+\(D_{\mathrm{oracle-final}}\) is the discovery count that survives the full
+frozen exact-system oracle benchmark hull. Selected-final confirmation is
+reported separately and may not substitute for oracle-final truth in a
+scientific GO decision.
 \(C_{\mathrm{oracle}}\) is WBM energy reveals in DFT-equivalent units.
 \(C_{\mathrm{activate}}\) is archive retrieval plus protocol transport, first
 certification, and hull-version re-certification. \(C_{\mathrm{online}}\) is
@@ -260,29 +344,33 @@ is selected after observing a favorable result.
 
 ## Metrics and preregistered decision
 
-Report query-time causal discoveries, final confirmations, invalidated
-discoveries, conflicts/abstentions, oracle calls, every cost component,
+Report query-time causal discoveries, selected-final confirmations,
+selected-history invalidations, oracle-final true discoveries, benchmark false
+confirmations, conflicts/abstentions, oracle calls, every cost component,
 end-to-end latency, peak memory, action disagreement, and archive fraction
 retrieved/activated. Keep per-pool results and paired policy differences.
 
 **Access-GO (estimand A)** requires exact behavioral parity and a positive
-persistent-minus-reconstruction net-utility difference with paired clustered
-95% lower bound above zero. It must span two adjacent utility-weight points,
-two adjacent \(K\), two budgets, and at least 8 of 12 pools at a frozen p50 or
-p90 cold/warm price, and remain positive under every leave-one-system-or-family-
-out analysis. Discovery difference must be exactly zero.
+persistent-minus-reconstruction net-utility difference with a chemical-system-
+clustered 95% lower bound above zero. It must span two adjacent utility-weight
+points, two adjacent \(K\), and two budgets at a frozen p50 or p90 cold/warm
+price, and remain positive under every preregistered leave-one-system-or-family-
+out analysis. Discovery difference must be exactly zero. This criterion is not
+applied to the eight engineering systems; the claim-grade system count and
+minimum cross-system support are frozen from pilot variance and a declared
+precision target before P2 outcomes are inspected.
 
 **Evidence-policy GO (estimand B)** requires persistent FIFO to be non-inferior
-to query-specific top-\(K\) and full history in final discoveries (paired 95%
+to query-specific top-\(K\) and full history in oracle-final discoveries (paired 95%
 lower bound above -0.5 discoveries per 100 queries) and to have positive net
 utility against the best matched acquisition/access-policy baseline. The same
-multi-weight, adjacent-\(K\), two-budget, 8-of-12-pool, final-hull, and leave-one-
-cluster robustness rules apply. This establishes only a composite strategy
+multi-weight, adjacent-\(K\), two-budget, claim-grade cross-system, oracle-final,
+and leave-one-cluster robustness rules apply. This establishes only a composite strategy
 advantage. A pure working-set claim requires Access-GO; evidence-policy
 superiority alone is insufficient.
 
 **NO-GO** holds if benefit appears only above frozen p90 price, in one
-cell/pool/family, disappears on the final hull, or uncertainty, CAL-style GP, or
+cell/pool/family, disappears on the oracle-final hull, or uncertainty, CAL-style GP, or
 free/costed on-demand access dominates. An unexplained exact-emulation mismatch
 is a hard stop, not a scientific result. Only Access-GO plus a non-dominated
 estimand-B result authorizes design of a MADE experiment.

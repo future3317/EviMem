@@ -3,11 +3,15 @@ from __future__ import annotations
 import csv
 import gzip
 import runpy
+import sys
 from pathlib import Path
 
 import pytest
 
 MODULE = runpy.run_path(str(Path(__file__).parents[1] / "tools" / "audit_wbm_official_artifacts.py"))
+TOOLS = Path(__file__).parents[1] / "tools"
+sys.path.insert(0, str(TOOLS))
+PARITY_MODULE = runpy.run_path(str(TOOLS / "build_wbm_candidate_parity_audit.py"))
 
 
 def test_prediction_join_requires_exact_cleaned_ids_and_unique_keys(tmp_path: Path) -> None:
@@ -42,3 +46,20 @@ def test_difference_report_uses_stable_empty_set_checksum() -> None:
     report = MODULE["_difference_report"]({"x", "y"}, {"y", "x"})
     assert report["exact_match"] is True
     assert report["left_minus_right_checksum"] == MODULE["EMPTY_ID_SET_SHA256"]
+
+
+def test_candidate_parity_requires_explicit_summary_ids(tmp_path: Path) -> None:
+    explicit = tmp_path / "wbm-summary.txt"
+    explicit.write_text(
+        "Fe2\t2\t10.0\t-2.0\t-0.2\t0.0\t0.0\tstep_1_0\n"
+        "Bad\t0\t0.0\t0.0\t0.0\t0.0\t0.0\tNone\n",
+        encoding="utf-8",
+    )
+    rows = PARITY_MODULE["_official_summary"](explicit, {"wbm-1-1"})
+    assert rows["wbm-1-1"]["official_raw_formation_energy_ev_per_atom"] == -0.2
+    assert "official_corrected_formation_energy_ev_per_atom" not in rows["wbm-1-1"]
+
+    positional = tmp_path / "positional-summary.txt"
+    positional.write_text("Fe2 2 10.0 -2.0 -0.2 0.0 0.0\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="explicit-ID"):
+        PARITY_MODULE["_official_summary"](positional, {"wbm-1-1"})

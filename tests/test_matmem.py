@@ -7,6 +7,7 @@ from pydantic import ValidationError
 
 from evimem.matmem import (
     CanonicalGroupSplit,
+    CardOracleVault,
     CompatibilityKind,
     DecisionAwareOnlineCoreset,
     DeploymentStrategy,
@@ -24,7 +25,6 @@ from evimem.matmem import (
     ResidualCorrector,
     ScreeningDecision,
     SourceProvenance,
-    StreamEvent,
     risk_coverage_curve,
 )
 
@@ -339,7 +339,10 @@ def test_chronological_evaluator_never_uses_current_oracle_before_screening() ->
         policy,
         ResidualCorrector(resolver),
         controller,
-    ).evaluate([StreamEvent(query=query_one, oracle_card=card_one), StreamEvent(query=query_two, oracle_card=card_two)])
+    ).evaluate(
+        [query_one, query_two],
+        CardOracleVault({"one": card_one, "two": card_two}),
+    )
     assert metrics.event_count == 2
     assert metrics.abstention_rate == pytest.approx(0.5)
     assert metrics.false_stable_count == 0
@@ -348,7 +351,7 @@ def test_chronological_evaluator_never_uses_current_oracle_before_screening() ->
 
 def test_deployment_strategies_and_risk_coverage_are_reported_separately() -> None:
     query = _query("deploy", base_energy=-1.03)
-    event = StreamEvent(query=query, oracle_card=_card("deploy", formation_energy=-0.94))
+    card = _card("deploy", formation_energy=-0.94)
     resolver = ProtocolCompatibilityResolver()
     controller = ProtocolRiskController(minimum_calibration_size=3)
     controller.fit(
@@ -363,13 +366,13 @@ def test_deployment_strategies_and_risk_coverage_are_reported_separately() -> No
         ResidualCorrector(resolver),
         controller,
         deployment_strategy=DeploymentStrategy.STRICT_ABSTAIN,
-    ).evaluate_with_outcomes([event])
+    ).evaluate_with_outcomes([query], CardOracleVault({"deploy": card}))
     base, base_outcomes = OnlineDiscoveryEvaluator(
         DecisionAwareOnlineCoreset(1, resolver),
         ResidualCorrector(resolver),
         controller,
         deployment_strategy=DeploymentStrategy.BASE_ONLY,
-    ).evaluate_with_outcomes([event])
+    ).evaluate_with_outcomes([query], CardOracleVault({"deploy": card}))
     assert strict.coverage == 0.0
     assert base.coverage == 1.0
     assert base.false_stable_rate == 1.0
@@ -380,9 +383,8 @@ def test_deployment_strategies_and_risk_coverage_are_reported_separately() -> No
     assert base_curve[-1].false_stable_rate == 1.0
 
 
-def test_stream_rejects_oracle_outcome_from_a_different_scientific_protocol() -> None:
-    with pytest.raises(ValidationError, match="query scientific protocol"):
-        StreamEvent(
-            query=_query("same", protocol=_protocol("PBE")),
-            oracle_card=_card("same", protocol=_protocol("PBE+U")),
-        )
+def test_stream_vault_rejects_oracle_outcome_from_a_different_protocol() -> None:
+    query = _query("same", protocol=_protocol("PBE"))
+    vault = CardOracleVault({"same": _card("same", protocol=_protocol("PBE+U"))})
+    with pytest.raises(ValueError, match="query scientific protocol"):
+        vault.reveal(query)

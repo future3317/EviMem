@@ -5,9 +5,10 @@ from __future__ import annotations
 from collections.abc import Iterable
 from enum import StrEnum
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field
 
-from .cards import MaterialMemoryCard, MaterialQuery
+from .active import CardOracleVault
+from .cards import MaterialQuery
 from .coreset import DecisionAwareOnlineCoreset
 from .residual import ResidualCorrector
 from .risk import ProtocolRiskController, ScreeningDecision
@@ -19,25 +20,6 @@ class DeploymentStrategy(StrEnum):
     BASE_ONLY = "base_only"
     FALLBACK_BASE = "fallback_base"
     STRICT_ABSTAIN = "strict_abstain"
-
-
-class StreamEvent(BaseModel):
-    """The oracle card is visible only after the query has been screened."""
-
-    model_config = ConfigDict(frozen=True, extra="forbid")
-
-    query: MaterialQuery
-    oracle_card: MaterialMemoryCard
-
-    @model_validator(mode="after")
-    def _same_structure(self) -> StreamEvent:
-        if self.query.structure_hash != self.oracle_card.structure_hash:
-            raise ValueError("stream event query and oracle card must share a structure hash")
-        if self.query.protocol.scientific_fingerprint != self.oracle_card.protocol.scientific_fingerprint:
-            raise ValueError("stream event oracle must use the query scientific protocol")
-        if self.query.hull_snapshot.chemical_system != self.oracle_card.hull_snapshot.chemical_system:
-            raise ValueError("stream event query and oracle card must share a chemical-system hull")
-        return self
 
 
 class DiscoveryMetrics(BaseModel):
@@ -100,19 +82,19 @@ class OnlineDiscoveryEvaluator:
         self.recent_query_window = recent_query_window
         self.deployment_strategy = deployment_strategy
 
-    def _deployment_decision(self, event: StreamEvent) -> tuple[ScreeningDecision, float | None]:
-        base_hull = event.query.base_hull_distance_ev_per_atom
+    def _deployment_decision(self, query: MaterialQuery) -> tuple[ScreeningDecision, float | None]:
+        base_hull = query.base_hull_distance_ev_per_atom
         if self.deployment_strategy == DeploymentStrategy.BASE_ONLY:
             return (
                 ScreeningDecision.STABLE
-                if base_hull <= event.query.stability_threshold_ev_per_atom
+                if base_hull <= query.stability_threshold_ev_per_atom
                 else ScreeningDecision.NOT_STABLE,
-                event.query.stability_threshold_ev_per_atom - base_hull,
+                query.stability_threshold_ev_per_atom - base_hull,
             )
-        correction = self.corrector.correct(event.query, self.coreset.cards())
-        risk_decision = self.risk_controller.screen(event.query, correction)
+        correction = self.corrector.correct(query, self.coreset.cards())
+        risk_decision = self.risk_controller.screen(query, correction)
         confidence = (
-            event.query.stability_threshold_ev_per_atom - risk_decision.upper_hull_distance_ev_per_atom
+            query.stability_threshold_ev_per_atom - risk_decision.upper_hull_distance_ev_per_atom
             if risk_decision.upper_hull_distance_ev_per_atom is not None
             else None
         )
@@ -122,33 +104,39 @@ class OnlineDiscoveryEvaluator:
         ):
             return (
                 ScreeningDecision.STABLE
-                if base_hull <= event.query.stability_threshold_ev_per_atom
+                if base_hull <= query.stability_threshold_ev_per_atom
                 else ScreeningDecision.NOT_STABLE,
-                event.query.stability_threshold_ev_per_atom - base_hull,
+                query.stability_threshold_ev_per_atom - base_hull,
             )
         return risk_decision.decision, confidence
 
-    def evaluate(self, events: Iterable[StreamEvent]) -> DiscoveryMetrics:
-        metrics, _ = self.evaluate_with_outcomes(events)
+    def evaluate(
+        self,
+        queries: Iterable[MaterialQuery],
+        oracle_vault: CardOracleVault,
+    ) -> DiscoveryMetrics:
+        metrics, _ = self.evaluate_with_outcomes(queries, oracle_vault)
         return metrics
 
     def evaluate_with_outcomes(
         self,
-        events: Iterable[StreamEvent],
+        queries: Iterable[MaterialQuery],
+        oracle_vault: CardOracleVault,
     ) -> tuple[DiscoveryMetrics, tuple[ScreeningOutcome, ...]]:
         history: list[MaterialQuery] = []
         stable_screens = true_stable = actual_stable_count = false_stable = false_unstable = abstained = 0
         sizes: list[int] = []
         outcomes: list[ScreeningOutcome] = []
         previous_query_time = None
-        for event in events:
-            if previous_query_time is not None and event.query.as_of < previous_query_time:
+        for query in queries:
+            if previous_query_time is not None and query.as_of < previous_query_time:
                 raise ValueError("online discovery events must be chronological")
-            previous_query_time = event.query.as_of
-            decision, confidence = self._deployment_decision(event)
+            previous_query_time = query.as_of
+            decision, confidence = self._deployment_decision(query)
+            oracle_card = oracle_vault.reveal(query)
             actual_stable = (
-                event.oracle_card.hull_distance(event.query.hull_snapshot)
-                <= event.query.stability_threshold_ev_per_atom
+                oracle_card.hull_distance(query.hull_snapshot)
+                <= query.stability_threshold_ev_per_atom
             )
             actual_stable_count += int(actual_stable)
             if decision == ScreeningDecision.ABSTAIN:
@@ -163,14 +151,14 @@ class OnlineDiscoveryEvaluator:
                 false_unstable += 1
             outcomes.append(
                 ScreeningOutcome(
-                    query_id=event.query.query_id,
+                    query_id=query.query_id,
                     decision=decision,
                     actual_stable=actual_stable,
                     confidence=confidence,
                 )
             )
-            history.append(event.query)
-            self.coreset.admit(event.oracle_card, history[-self.recent_query_window :])
+            history.append(query)
+            self.coreset.admit(oracle_card, history[-self.recent_query_window :])
             sizes.append(len(self.coreset.cards()))
         count = len(sizes)
         accepted = count - abstained

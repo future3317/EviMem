@@ -6,6 +6,8 @@ import argparse
 import random
 
 from run_matmem_dual_budget_pilot import (
+    SyntheticCausalHullReviser,
+    evaluate_candidates,
     hull_revision_pool,
     iid_pool,
     local_boundary_pool,
@@ -45,12 +47,17 @@ def main() -> None:
         factories = policy_factories(0, args.capacity, args.budget, original)
         for policy_name in ("caw_joint", "decoupled_boundary", "uncertainty_fifo"):
             acquisition, retention = factories[policy_name]()
-            reference = ActiveDiscoveryEvaluator(
+            reference = evaluate_candidates(ActiveDiscoveryEvaluator(
                 acquisition,
                 retention,
                 oracle_budget=args.budget,
                 causal_hull_updates=scenario_name == "causal_hull_revision",
-            ).evaluate(original).selected_query_ids
+                causal_hull_reviser=(
+                    SyntheticCausalHullReviser()
+                    if scenario_name == "causal_hull_revision"
+                    else None
+                ),
+            ), original).selected_query_ids
             mismatches = 0
             for permutation in range(args.permutations):
                 shuffled = list(original)
@@ -61,12 +68,17 @@ def main() -> None:
                     args.budget,
                     shuffled,
                 )[policy_name]()
-                selected = ActiveDiscoveryEvaluator(
+                selected = evaluate_candidates(ActiveDiscoveryEvaluator(
                     acquisition,
                     retention,
                     oracle_budget=args.budget,
                     causal_hull_updates=scenario_name == "causal_hull_revision",
-                ).evaluate(shuffled).selected_query_ids
+                    causal_hull_reviser=(
+                        SyntheticCausalHullReviser()
+                        if scenario_name == "causal_hull_revision"
+                        else None
+                    ),
+                ), shuffled).selected_query_ids
                 mismatches += int(selected != reference)
             print(
                 f"{scenario_name},{policy_name},{args.permutations},{mismatches}",

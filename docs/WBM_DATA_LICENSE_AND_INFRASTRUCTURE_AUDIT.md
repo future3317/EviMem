@@ -122,6 +122,29 @@ it is retained only as a source artifact until its license manifest is manually
 approved and the official discovery prediction file has passed its own MD5 and
 ID-join gates.
 
+## P0/P1 amendment (2026-07-16)
+
+P0 execution correctness now passes through the sole secure WBM runner; see
+`WBM_P0_EXECUTION_AUDIT.md`. This does not change the human-license blocker or
+authorize a policy comparison.
+
+The frozen 128 engineering candidates now have a versioned external audit at
+`E:\DATA\EviMem-RL\manifests\wbm-parity-128-merged-audit-v2.json`. The audit
+separates the raw explicit-ID WBM summary, historical-pipeline replay,
+modern-adapter replay, and official CHGNet predictions. Historical
+`pymatgen==2023.5.10` and modern `pymatgen==2026.5.4` replay values agree for
+all 128 corrected formation energies and initial hull distances in this subset.
+
+Formal P1 nevertheless remains **blocked**. The available explicit-ID
+`wbm-summary.txt` contains raw/legacy energy columns, not an independently
+published candidate-level MP2020-corrected compiled summary. Those raw columns
+must not be relabeled as official corrected energy or official initial-hull
+truth. Prototype clustering, MP-overlap, claim-grade canonical identity and
+human license review also remain pending. Until an official compiled artifact
+is acquired or the result is explicitly scoped as a fixed historical-pipeline
+WBM replay, no official-energy reproduction claim is allowed and P1.5 is not
+executed as a formal gate.
+
 ## Next permitted work
 
 Only obtain or point to external artifacts, complete the executable manifest,

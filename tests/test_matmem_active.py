@@ -1,16 +1,16 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from pydantic import ValidationError
 
 from evimem.matmem import (
     ActiveDiscoveryEvaluator,
     BaseBoundaryAcquisition,
     BoundaryRiskPotential,
     BoundaryRiskRetention,
-    CandidatePoolItem,
+    CardOracleVault,
     DecisionAwareOnlineCoreset,
     FIFOBoundedMemory,
     HullSnapshot,
@@ -27,6 +27,20 @@ from evimem.matmem import (
 )
 
 START = datetime(2026, 1, 1, tzinfo=UTC)
+
+
+@dataclass(frozen=True)
+class _Case:
+    query: MaterialQuery
+    oracle_card: MaterialMemoryCard
+
+
+def _vault(cases: list[_Case] | tuple[_Case, ...]) -> CardOracleVault:
+    return CardOracleVault({case.query.query_id: case.oracle_card for case in cases})
+
+
+def _evaluate(evaluator: ActiveDiscoveryEvaluator, cases: list[_Case] | tuple[_Case, ...]):
+    return evaluator.evaluate((case.query for case in cases), _vault(cases))
 
 
 class _SyntheticReviser:
@@ -79,7 +93,7 @@ def _item(
     base_energy: float,
     oracle_energy: float,
     protocol: ProtocolCertificate | None = None,
-) -> CandidatePoolItem:
+) -> _Case:
     selected_protocol = protocol or _protocol()
     identity = MaterialIdentity(
         exact_calculation_id=f"calculation-{query_id}",
@@ -119,21 +133,24 @@ def _item(
         recorded_hull_distance_ev_per_atom=oracle_energy + 1.0,
         observed_at=START + timedelta(days=2),
     )
-    return CandidatePoolItem(query=query, oracle_card=card)
+    return _Case(query=query, oracle_card=card)
 
 
-def test_candidate_pool_rejects_oracle_from_another_protocol() -> None:
+def test_synthetic_vault_rejects_oracle_from_another_protocol() -> None:
     item = _item(
         "protocol",
         embedding=(1.0, 0.0),
         base_energy=-1.02,
         oracle_energy=-0.95,
     )
-    with pytest.raises(ValidationError, match="query scientific protocol"):
-        CandidatePoolItem(
-            query=item.query,
-            oracle_card=item.oracle_card.model_copy(update={"protocol": _protocol("SCAN")}),
-        )
+    with pytest.raises(ValueError, match="query scientific protocol"):
+        CardOracleVault(
+            {
+                item.query.query_id: item.oracle_card.model_copy(
+                    update={"protocol": _protocol("SCAN")}
+                )
+            }
+        ).benchmark_card(item.query)
 
 
 def test_boundary_acquisition_uses_only_compatible_past_witnesses() -> None:
@@ -172,11 +189,11 @@ def test_active_evaluator_reveals_only_selected_oracle_and_respects_budgets() ->
         _item("b", embedding=(0.0, 1.0), base_energy=-1.03, oracle_energy=-1.02),
         _item("c", embedding=(0.7, 0.7), base_energy=-1.01, oracle_energy=-1.01),
     ]
-    metrics = ActiveDiscoveryEvaluator(
+    metrics = _evaluate(ActiveDiscoveryEvaluator(
         BaseBoundaryAcquisition(),
         FIFOBoundedMemory(capacity=1),
         oracle_budget=2,
-    ).evaluate(candidates)
+    ), candidates)
     assert metrics.oracle_calls == 2
     assert len(metrics.selected_query_ids) == 2
     assert metrics.average_memory_size == 1.0
@@ -206,23 +223,26 @@ def test_joint_acquisition_retention_avoids_recurring_false_stable_cluster() -> 
         ],
     ]
     resolver = ProtocolCompatibilityResolver()
-    base = ActiveDiscoveryEvaluator(
+    base = _evaluate(ActiveDiscoveryEvaluator(
         BaseBoundaryAcquisition(),
         FIFOBoundedMemory(capacity=1),
         oracle_budget=5,
-    ).evaluate(candidates)
-    joint = ActiveDiscoveryEvaluator(
+    ), candidates)
+    joint = _evaluate(ActiveDiscoveryEvaluator(
         ProtocolAwareBoundaryAcquisition(resolver, prior_strength=0.1),
         DecisionAwareOnlineCoreset(capacity=1, resolver=resolver, false_stable_cost=5.0),
         oracle_budget=5,
-    ).evaluate(candidates)
+    ), candidates)
     assert joint.cumulative_true_discoveries > base.cumulative_true_discoveries
     assert joint.unstable_oracle_calls < base.unstable_oracle_calls
     assert joint.cumulative_discovery_regret < base.cumulative_discovery_regret
 
 
-def _with_cost(item: CandidatePoolItem, cost: float) -> CandidatePoolItem:
-    return item.model_copy(update={"query": item.query.model_copy(update={"oracle_cost": cost})})
+def _with_cost(item: _Case, cost: float) -> _Case:
+    return _Case(
+        query=item.query.model_copy(update={"oracle_cost": cost}),
+        oracle_card=item.oracle_card,
+    )
 
 
 def test_variable_cost_budget_never_overspends_and_stops_when_unaffordable() -> None:
@@ -236,11 +256,11 @@ def test_variable_cost_budget_never_overspends_and_stops_when_unaffordable() -> 
             1.0,
         ),
     ]
-    result = ActiveDiscoveryEvaluator(
+    result = _evaluate(ActiveDiscoveryEvaluator(
         BaseBoundaryAcquisition(),
         FIFOBoundedMemory(capacity=0),
         oracle_budget=2.5,
-    ).evaluate(candidates)
+    ), candidates)
     assert result.selected_query_ids == ("costly",)
     assert result.oracle_cost_spent == 2.0
     assert result.oracle_cost_spent <= result.oracle_budget
@@ -254,11 +274,11 @@ def test_archive_grows_while_active_witness_set_respects_capacity() -> None:
         _item(f"archive-{index}", embedding=(1.0, float(index)), base_energy=-1.04, oracle_energy=-1.03)
         for index in range(3)
     ]
-    result = ActiveDiscoveryEvaluator(
+    result = _evaluate(ActiveDiscoveryEvaluator(
         BaseBoundaryAcquisition(),
         FIFOBoundedMemory(capacity=1),
         oracle_budget=3,
-    ).evaluate(candidates)
+    ), candidates)
     assert [step.archive_size_after_observation for step in result.steps] == [1, 2, 3]
     assert all(step.memory_size_after_observation <= 1 for step in result.steps)
     assert result.archive_size == 3
@@ -271,13 +291,13 @@ def test_pool_permutation_does_not_change_policy_actions() -> None:
         _item("perm-b", embedding=(0.0, 1.0), base_energy=-1.03, oracle_energy=-1.05),
     ]
 
-    def run(pool: list[CandidatePoolItem]) -> tuple[str, ...]:
+    def run(pool: list[_Case]) -> tuple[str, ...]:
         potential = BoundaryRiskPotential(ProtocolCompatibilityResolver())
-        return ActiveDiscoveryEvaluator(
+        return _evaluate(ActiveDiscoveryEvaluator(
             RetentionAwareBoundaryAcquisition(potential, active_witness_budget=1),
             BoundaryRiskRetention(1, potential),
             oracle_budget=3,
-        ).evaluate(pool).selected_query_ids
+        ), pool).selected_query_ids
 
     assert run(candidates) == run(list(reversed(candidates)))
 
@@ -290,13 +310,13 @@ def test_unrevealed_oracles_do_not_interfere_at_later_rounds() -> None:
         _item("blind-4", embedding=(-0.7, 0.7), base_energy=-1.02, oracle_energy=-1.10),
     ]
 
-    def run(pool: list[CandidatePoolItem]) -> tuple[str, ...]:
+    def run(pool: list[_Case]) -> tuple[str, ...]:
         potential = BoundaryRiskPotential(ProtocolCompatibilityResolver())
-        return ActiveDiscoveryEvaluator(
+        return _evaluate(ActiveDiscoveryEvaluator(
             RetentionAwareBoundaryAcquisition(potential, active_witness_budget=1),
             BoundaryRiskRetention(1, potential),
             oracle_budget=2,
-        ).evaluate(pool).selected_query_ids
+        ), pool).selected_query_ids
 
     selected = run(candidates)
     altered = []
@@ -313,7 +333,7 @@ def test_unrevealed_oracles_do_not_interfere_at_later_rounds() -> None:
                 "recorded_hull_distance_ev_per_atom": new_energy + 1.0,
             }
         )
-        altered.append(item.model_copy(update={"oracle_card": altered_card}))
+        altered.append(_Case(query=item.query, oracle_card=altered_card))
     assert run(altered) == selected
 
 
@@ -332,13 +352,13 @@ def test_causal_and_final_hull_discoveries_are_reported_separately() -> None:
             oracle_energy=-1.20,
         ),
     ]
-    result = ActiveDiscoveryEvaluator(
+    result = _evaluate(ActiveDiscoveryEvaluator(
         BaseBoundaryAcquisition(),
         FIFOBoundedMemory(capacity=0),
         oracle_budget=2,
         causal_hull_updates=True,
         causal_hull_reviser=_SyntheticReviser(),
-    ).evaluate(candidates)
+    ), candidates)
     assert result.query_time_causal_discoveries == 2
     assert result.final_hull_confirmed_discoveries == 1
     assert result.invalidated_provisional_discoveries == 1
@@ -361,13 +381,13 @@ def test_matched_access_ledger_exposes_hull_churn_break_even() -> None:
             oracle_energy=-1.20,
         ),
     ]
-    metrics = ActiveDiscoveryEvaluator(
+    metrics = _evaluate(ActiveDiscoveryEvaluator(
         BaseBoundaryAcquisition(),
         FIFOBoundedMemory(capacity=2),
         oracle_budget=2,
         causal_hull_updates=True,
         causal_hull_reviser=_SyntheticReviser(),
-    ).evaluate(candidates)
+    ), candidates)
     ledger = MatchedAccessOperationLedger.from_metrics(metrics)
     assert metrics.steps[0].causal_hull_transition_after_observation
     assert ledger.oracle_admission_certifications == 2
@@ -396,12 +416,12 @@ def test_matched_access_ledger_has_no_persistent_recertification_without_hull_ch
         _item("one", embedding=(1.0, 0.0), base_energy=-1.04, oracle_energy=-1.02),
         _item("two", embedding=(0.0, 1.0), base_energy=-1.03, oracle_energy=-1.01),
     ]
-    metrics = ActiveDiscoveryEvaluator(
+    metrics = _evaluate(ActiveDiscoveryEvaluator(
         BaseBoundaryAcquisition(),
         FIFOBoundedMemory(capacity=2),
         oracle_budget=2,
         causal_hull_updates=False,
-    ).evaluate(candidates)
+    ), candidates)
     ledger = MatchedAccessOperationLedger.from_metrics(metrics)
     assert ledger.persistent_hull_recertifications == 0
     assert ledger.on_demand_archive_retrievals == 1
@@ -415,10 +435,10 @@ def test_hypothetical_witnesses_never_enter_the_real_archive() -> None:
         oracle_energy=-1.02,
     )
     potential = BoundaryRiskPotential(ProtocolCompatibilityResolver())
-    result = ActiveDiscoveryEvaluator(
+    result = _evaluate(ActiveDiscoveryEvaluator(
         RetentionAwareBoundaryAcquisition(potential, active_witness_budget=1),
         BoundaryRiskRetention(1, potential),
         oracle_budget=1,
-    ).evaluate([candidate])
+    ), [candidate])
     assert result.archive_card_ids == (candidate.oracle_card.card_id,)
     assert all(not card_id.startswith("hypothetical:") for card_id in result.archive_card_ids)
