@@ -1,4 +1,4 @@
-"""Decision-aware streaming coreset selection for screening, not residual magnitude."""
+"""Decision-aware calibration coresets with exact streaming one-swap updates."""
 
 from __future__ import annotations
 
@@ -6,9 +6,8 @@ from collections.abc import Iterable
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from .calibration_utility import CalibrationUtilityBuilder, CalibrationUtilityMatrix
 from .cards import MaterialMemoryCard, MaterialQuery
-from .protocols import ProtocolCompatibilityResolver
-from .residual import cosine_similarity
 
 
 class CoresetSelection(BaseModel):
@@ -16,171 +15,183 @@ class CoresetSelection(BaseModel):
 
     selected_card_ids: tuple[str, ...]
     objective_value: float = Field(ge=0)
-    baseline_screening_risk: float = Field(ge=0)
-    selected_screening_risk: float = Field(ge=0)
+    baseline_decision_risk: float = Field(ge=0)
+    selected_decision_risk: float = Field(ge=0)
     marginal_gains: dict[str, float]
     rejected_card_ids: tuple[str, ...] = ()
+    admitted_new_card: bool = False
+    evicted_card_ids: tuple[str, ...] = ()
+    objective_improvement: float = Field(default=0.0, ge=0)
 
 
-class DecisionAwareOnlineCoreset:
-    """Greedy maximizer of a monotone screening-utility coverage objective.
-
-    For a recent candidate pool ``Q``, the policy selects ``M`` (``|M| <= K``)
-    to maximize ``sum_x max_i k_z(x,i) k_c(x,i) Delta_l_screen(x;i)``.
-    The greedy cardinality algorithm has the standard ``1 - 1/e`` guarantee
-    for this non-negative monotone submodular objective; no such claim applies
-    if callers alter the utility to include negative values.
-    """
+class FacilityLocationCoresetPlanner:
+    """Plan bounded calibration sets under ``F_t(M)=sum_u max_m G_t(u,m)``."""
 
     def __init__(
         self,
         capacity: int,
-        resolver: ProtocolCompatibilityResolver,
+        utility_builder: CalibrationUtilityBuilder,
         *,
-        false_stable_cost: float = 5.0,
-        false_unstable_cost: float = 1.0,
+        min_admission_gain: float = 0.0,
     ) -> None:
-        if capacity < 1:
-            raise ValueError("coreset capacity must be positive")
-        if false_stable_cost <= 0 or false_unstable_cost <= 0:
-            raise ValueError("screening costs must be positive")
+        if capacity < 0:
+            raise ValueError("calibration coreset capacity cannot be negative")
+        if min_admission_gain < 0:
+            raise ValueError("minimum admission gain cannot be negative")
         self.capacity = capacity
-        self.resolver = resolver
-        self.false_stable_cost = false_stable_cost
-        self.false_unstable_cost = false_unstable_cost
-        self._cards: dict[str, MaterialMemoryCard] = {}
+        self.utility_builder = utility_builder
+        self.min_admission_gain = min_admission_gain
 
-    def cards(self) -> tuple[MaterialMemoryCard, ...]:
-        return tuple(self._cards[key] for key in sorted(self._cards))
-
-    def _screening_loss(self, predicted_hull_distance: float, proxy_hull_distance: float, threshold: float) -> float:
-        predicted_stable = predicted_hull_distance <= threshold
-        proxy_stable = proxy_hull_distance <= threshold
-        if predicted_stable and not proxy_stable:
-            return self.false_stable_cost
-        if not predicted_stable and proxy_stable:
-            return self.false_unstable_cost
-        return 0.0
-
-    def _query_utilities(
+    def build_utility_matrix(
         self,
-        query: MaterialQuery,
-        cards: dict[str, MaterialMemoryCard],
-    ) -> tuple[float, dict[str, float]] | None:
-        """Estimate a common local screening-risk distribution for one query.
+        queries: Iterable[MaterialQuery],
+        witnesses: Iterable[MaterialMemoryCard],
+    ) -> tuple[CalibrationUtilityMatrix, float]:
+        return self.utility_builder.build(queries, witnesses)
 
-        Each compatible card induces a local residual outcome. Their normalized
-        structure/protocol/quality weights form an empirical probability of an
-        unstable screen. A card's utility is the decrease in this *same*
-        expected asymmetric risk, not its residual magnitude or a hand-coded
-        boundary score.
-        """
+    @staticmethod
+    def _marginal_gains(
+        matrix: CalibrationUtilityMatrix,
+        selected_ids: tuple[str, ...],
+    ) -> dict[str, float]:
+        running: list[str] = []
+        result: dict[str, float] = {}
+        for card_id in selected_ids:
+            result[card_id] = matrix.marginal_gain(running, card_id)
+            running.append(card_id)
+        return result
 
-        witnesses: list[tuple[str, float, float]] = []
-        for card_id, card in cards.items():
-            compatibility = self.resolver.resolve(card.protocol, query.protocol)
-            transferred = compatibility.transfer_residual(card.oracle_residual_ev_per_atom)
-            if transferred is None:
-                continue
-            structure = max(0.0, cosine_similarity(query.embedding, card.embedding))
-            protocol = 1.0 / (1.0 + compatibility.uncertainty_radius_ev_per_atom)
-            weight = structure * protocol * card.quality_weight
-            if weight == 0:
-                continue
-            proxy = query.hull_distance(query.base_predicted_formation_energy_ev_per_atom + transferred)
-            witnesses.append((card_id, weight, proxy))
-        total_weight = sum(weight for _, weight, _ in witnesses)
-        if total_weight == 0:
-            return None
-        threshold = query.stability_threshold_ev_per_atom
-        unstable_probability = sum(
-            weight * float(proxy > threshold) for _, weight, proxy in witnesses
-        ) / total_weight
-        base_stable = query.base_hull_distance_ev_per_atom <= threshold
-        baseline_risk = (
-            self.false_stable_cost * unstable_probability
-            if base_stable
-            else self.false_unstable_cost * (1.0 - unstable_probability)
+    @staticmethod
+    def _selection(
+        matrix: CalibrationUtilityMatrix,
+        baseline_risk: float,
+        selected_ids: tuple[str, ...],
+        *,
+        admitted_new_card: bool = False,
+        evicted_card_ids: tuple[str, ...] = (),
+        objective_improvement: float = 0.0,
+    ) -> CoresetSelection:
+        value = matrix.value(selected_ids)
+        return CoresetSelection(
+            selected_card_ids=selected_ids,
+            objective_value=value,
+            baseline_decision_risk=baseline_risk,
+            selected_decision_risk=max(0.0, baseline_risk - value),
+            marginal_gains=FacilityLocationCoresetPlanner._marginal_gains(
+                matrix, selected_ids
+            ),
+            rejected_card_ids=tuple(
+                sorted(set(matrix.witness_ids) - set(selected_ids))
+            ),
+            admitted_new_card=admitted_new_card,
+            evicted_card_ids=evicted_card_ids,
+            objective_improvement=objective_improvement,
         )
-        max_weight = max(weight for _, weight, _ in witnesses)
-        utilities: dict[str, float] = {}
-        for card_id, weight, proxy in witnesses:
-            card_stable = proxy <= threshold
-            card_risk = (
-                self.false_stable_cost * unstable_probability
-                if card_stable
-                else self.false_unstable_cost * (1.0 - unstable_probability)
-            )
-            utilities[card_id] = (weight / max_weight) * max(0.0, baseline_risk - card_risk)
-        return baseline_risk, utilities
 
-    def select(
+    def preview_admit(
         self,
-        candidates: Iterable[MaterialMemoryCard],
+        current_cards: Iterable[MaterialMemoryCard],
+        new_card: MaterialMemoryCard,
         query_pool: Iterable[MaterialQuery],
     ) -> CoresetSelection:
-        candidate_list = list(candidates)
-        candidate_items = {card.card_id: card for card in candidate_list}
-        if len(candidate_items) != len(candidate_list):
-            raise ValueError("duplicate card IDs are not allowed")
-        queries = tuple(query_pool)
-        if not queries:
-            raise ValueError("decision-aware selection requires a non-empty recent candidate pool")
-        values: dict[str, list[float]] = {}
-        rejected: list[str] = []
-        baseline_risks: list[float] = []
-        candidate_risk_coverage = {card_id: 0 for card_id in candidate_items}
-        per_query_utilities: list[dict[str, float]] = []
-        for query in queries:
-            result = self._query_utilities(query, candidate_items)
-            if result is None:
-                baseline_risks.append(0.0)
-                per_query_utilities.append({})
-                continue
-            baseline_risk, utilities = result
-            baseline_risks.append(baseline_risk)
-            per_query_utilities.append(utilities)
-            for card_id in utilities:
-                candidate_risk_coverage[card_id] += 1
-        for card_id, card in candidate_items.items():
-            if candidate_risk_coverage[card_id] == 0:
-                rejected.append(card_id)
-                continue
-            values[card_id] = [utilities.get(card_id, 0.0) for utilities in per_query_utilities]
-        covered = [0.0] * len(queries)
+        """Exactly optimize the current active set plus one new observation.
+
+        At full capacity the only legal streaming choices are rejection or one
+        swap.  This is exact for that ``M_{t-1} union {m_t}`` neighborhood, not
+        a claim of global optimality over the immutable archive.
+        """
+
+        current = tuple(current_cards)
+        if len(current) > self.capacity:
+            raise ValueError("current calibration set exceeds planner capacity")
+        if new_card.card_id in {card.card_id for card in current}:
+            raise ValueError("new calibration card is already active")
+        candidates = (*current, new_card)
+        matrix, baseline = self.build_utility_matrix(query_pool, candidates)
+        current_ids = tuple(card.card_id for card in current)
+        current_value = matrix.value(current_ids)
+        if self.capacity == 0:
+            return self._selection(matrix, baseline, current_ids)
+        if len(current) < self.capacity:
+            proposals = [(*current_ids, new_card.card_id)]
+        else:
+            proposals = [
+                tuple(
+                    new_card.card_id if index == evicted else card.card_id
+                    for index, card in enumerate(current)
+                )
+                for evicted in range(len(current))
+            ]
+        best_ids = current_ids
+        best_value = current_value
+        for proposal in proposals:
+            value = matrix.value(proposal)
+            if value > best_value:
+                best_ids = proposal
+                best_value = value
+            elif value == best_value and best_ids != current_ids:
+                best_ids = min(best_ids, proposal)
+        improvement = best_value - current_value
+        if improvement <= self.min_admission_gain:
+            return self._selection(matrix, baseline, current_ids)
+        evicted = tuple(sorted(set(current_ids) - set(best_ids)))
+        return self._selection(
+            matrix,
+            baseline,
+            best_ids,
+            admitted_new_card=True,
+            evicted_card_ids=evicted,
+            objective_improvement=improvement,
+        )
+
+    def select_from_archive_greedy(
+        self,
+        archive: Iterable[MaterialMemoryCard],
+        query_pool: Iterable[MaterialQuery],
+    ) -> CoresetSelection:
+        """Greedy full-archive selection with the standard ``1-1/e`` bound."""
+
+        cards = tuple(archive)
+        matrix, baseline = self.build_utility_matrix(query_pool, cards)
         selected: list[str] = []
-        gains: dict[str, float] = {}
         while len(selected) < self.capacity:
             choices = [
-                (
-                    sum(max(current, proposed) - current for current, proposed in zip(covered, row, strict=True)),
-                    card_id,
-                )
-                for card_id, row in values.items()
+                (matrix.marginal_gain(selected, card_id), card_id)
+                for card_id in matrix.witness_ids
                 if card_id not in selected
             ]
             if not choices:
                 break
-            gain, card_id = max(choices, key=lambda item: (item[0], item[1]))
-            if gain <= 0:
+            gain, card_id = min(choices, key=lambda item: (-item[0], item[1]))
+            if gain <= self.min_admission_gain:
                 break
             selected.append(card_id)
-            gains[card_id] = gain
-            covered = [max(current, proposed) for current, proposed in zip(covered, values[card_id], strict=True)]
-        return CoresetSelection(
-            selected_card_ids=tuple(selected),
-            objective_value=sum(covered),
-            baseline_screening_risk=sum(baseline_risks),
-            selected_screening_risk=sum(baseline_risks) - sum(covered),
-            marginal_gains=gains,
-            rejected_card_ids=tuple(sorted(rejected)),
+        return self._selection(matrix, baseline, tuple(selected))
+
+
+class StreamingCalibrationCoreset:
+    """Bounded active calibration state backed by exact one-step previews."""
+
+    def __init__(self, planner: FacilityLocationCoresetPlanner) -> None:
+        self.planner = planner
+        self.capacity = planner.capacity
+        self._cards: dict[str, MaterialMemoryCard] = {}
+
+    def cards(self) -> tuple[MaterialMemoryCard, ...]:
+        return tuple(self._cards.values())
+
+    def admit(
+        self,
+        card: MaterialMemoryCard,
+        query_pool: Iterable[MaterialQuery],
+    ) -> CoresetSelection:
+        selection = self.planner.preview_admit(
+            self.cards(), card, tuple(query_pool)
         )
-
-    def admit(self, card: MaterialMemoryCard, query_pool: Iterable[MaterialQuery]) -> CoresetSelection:
-        """Reoptimize the bounded state after a newly observed oracle result."""
-
-        selection = self.select([*self._cards.values(), card], query_pool)
-        selected = set(selection.selected_card_ids)
-        all_cards = {**self._cards, card.card_id: card}
-        self._cards = {card_id: all_cards[card_id] for card_id in selected}
+        if selection.admitted_new_card:
+            candidates = {**self._cards, card.card_id: card}
+            self._cards = {
+                card_id: candidates[card_id]
+                for card_id in selection.selected_card_ids
+            }
         return selection

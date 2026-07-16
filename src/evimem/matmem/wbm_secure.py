@@ -23,6 +23,9 @@ from typing import Any, Literal, Protocol
 from pydantic import BaseModel, ConfigDict, Field
 
 from .cards import HullSnapshot, MaterialMemoryCard, MaterialQuery, SourceProvenance
+from .coreset import StreamingCalibrationCoreset
+from .protocols import ProtocolCertificate
+from .residual_posterior import FixedKernelGPConfig
 from .wbm import WBMOracleRecord
 
 
@@ -62,10 +65,13 @@ class PolicyQuery(BaseModel):
     query_id: str
     structure_hash: str
     composition: str
+    chemical_system: tuple[str, ...]
     embedding: tuple[float, ...]
-    protocol_fingerprint: str
+    protocol: ProtocolCertificate
     frozen_prediction_ev_per_atom: float
     base_hull_distance_ev_per_atom: float
+    hull_reference_energy_ev_per_atom: float
+    stability_threshold_ev_per_atom: float
     hull_snapshot_id: str
     hull_phase_checksum: str
     oracle_cost: float = Field(gt=0)
@@ -77,9 +83,12 @@ class PolicyWitness(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     witness_id: str
+    structure_hash: str
+    composition: str
     residual_ev_per_atom: float
     embedding: tuple[float, ...]
-    protocol_fingerprint: str
+    protocol: ProtocolCertificate
+    quality_weight: float = Field(gt=0, le=1)
 
 
 class PolicyState(BaseModel):
@@ -92,6 +101,8 @@ class PolicyState(BaseModel):
     queries: tuple[PolicyQuery, ...]
     witnesses: tuple[PolicyWitness, ...]
     history_query_ids: tuple[str, ...]
+    active_witness_capacity: int = Field(ge=0)
+    policy_identity_checksum: str
     state_checksum: str
 
     @classmethod
@@ -103,6 +114,8 @@ class PolicyState(BaseModel):
         queries: Iterable[MaterialQuery],
         witnesses: Iterable[MaterialMemoryCard],
         history_query_ids: Iterable[str],
+        active_witness_capacity: int,
+        policy_identity_checksum: str,
     ) -> PolicyState:
         query_items = tuple(
             sorted(
@@ -111,13 +124,20 @@ class PolicyState(BaseModel):
                         query_id=query.query_id,
                         structure_hash=query.structure_hash,
                         composition=query.composition,
+                        chemical_system=query.hull_snapshot.chemical_system,
                         embedding=query.embedding,
-                        protocol_fingerprint=query.protocol.scientific_fingerprint,
+                        protocol=query.protocol,
                         frozen_prediction_ev_per_atom=(
                             query.base_predicted_formation_energy_ev_per_atom
                         ),
                         base_hull_distance_ev_per_atom=(
                             query.base_hull_distance_ev_per_atom
+                        ),
+                        hull_reference_energy_ev_per_atom=(
+                            query.hull_snapshot.reference_hull_energy_ev_per_atom
+                        ),
+                        stability_threshold_ev_per_atom=(
+                            query.stability_threshold_ev_per_atom
                         ),
                         hull_snapshot_id=query.hull_snapshot.snapshot_id,
                         hull_phase_checksum=query.hull_snapshot.phase_set_checksum,
@@ -133,9 +153,12 @@ class PolicyState(BaseModel):
                 (
                     PolicyWitness(
                         witness_id=card.card_id,
+                        structure_hash=card.structure_hash,
+                        composition=card.composition,
                         residual_ev_per_atom=card.oracle_residual_ev_per_atom,
                         embedding=card.embedding,
-                        protocol_fingerprint=card.protocol.scientific_fingerprint,
+                        protocol=card.protocol,
+                        quality_weight=card.quality_weight,
                     )
                     for card in witnesses
                 ),
@@ -149,6 +172,8 @@ class PolicyState(BaseModel):
             "queries": [item.model_dump(mode="json") for item in query_items],
             "witnesses": [item.model_dump(mode="json") for item in witness_items],
             "history_query_ids": history,
+            "active_witness_capacity": active_witness_capacity,
+            "policy_identity_checksum": policy_identity_checksum,
         }
         return cls(
             round_index=round_index,
@@ -156,6 +181,8 @@ class PolicyState(BaseModel):
             queries=query_items,
             witnesses=witness_items,
             history_query_ids=history,
+            active_witness_capacity=active_witness_capacity,
+            policy_identity_checksum=policy_identity_checksum,
             state_checksum=_checksum(content),
         )
 
@@ -482,14 +509,71 @@ class WBMOracleVault:
 class PolicySubprocess:
     """One-shot subprocess receiving only JSON and returning one opaque ID."""
 
-    def __init__(self, policy: Literal["frozen", "random"], *, seed: int = 0) -> None:
+    def __init__(
+        self,
+        policy: Literal[
+            "frozen",
+            "random",
+            "gp_uncertainty",
+            "survival_coreset",
+        ],
+        *,
+        seed: int = 0,
+        gp_config: FixedKernelGPConfig | None = None,
+        proposal_size: int = 32,
+        num_fantasies: int = 8,
+        survival_weight: float = 1.0,
+    ) -> None:
+        if proposal_size < 1 or num_fantasies < 1 or survival_weight < 0:
+            raise ValueError("WBM policy reranking parameters are invalid")
         self.policy = policy
         self.seed = seed
+        self.gp_config = gp_config or FixedKernelGPConfig()
+        self.proposal_size = proposal_size
+        self.num_fantasies = num_fantasies
+        self.survival_weight = survival_weight
+
+    @property
+    def identity_checksum(self) -> str:
+        return _checksum(
+            {
+                "policy": self.policy,
+                "seed": self.seed,
+                "gp_config": self.gp_config.__dict__,
+                "proposal_size": self.proposal_size,
+                "num_fantasies": self.num_fantasies,
+                "survival_weight": self.survival_weight,
+            }
+        )
 
     def select(self, state: PolicyState) -> str:
         worker = Path(__file__).with_name("wbm_policy_worker.py")
+        command = [
+            sys.executable,
+            str(worker),
+            "--policy",
+            self.policy,
+            "--seed",
+            str(self.seed),
+            "--kernel",
+            self.gp_config.kernel,
+            "--length-scale",
+            str(self.gp_config.length_scale),
+            "--signal-std",
+            str(self.gp_config.signal_std_ev_per_atom),
+            "--noise-std",
+            str(self.gp_config.noise_std_ev_per_atom),
+            "--jitter",
+            str(self.gp_config.jitter),
+            "--proposal-size",
+            str(self.proposal_size),
+            "--num-fantasies",
+            str(self.num_fantasies),
+            "--survival-weight",
+            str(self.survival_weight),
+        ]
         result = subprocess.run(
-            [sys.executable, str(worker), "--policy", self.policy, "--seed", str(self.seed)],
+            command,
             input=state.serialized_for_policy(),
             text=True,
             capture_output=True,
@@ -509,7 +593,11 @@ class EvidenceAccessStrategy(Protocol):
 
     def active(self, archive: tuple[MaterialMemoryCard, ...]) -> tuple[MaterialMemoryCard, ...]: ...
 
-    def admit(self, card: MaterialMemoryCard) -> None: ...
+    def admit(
+        self,
+        card: MaterialMemoryCard,
+        query_pool: Iterable[MaterialQuery],
+    ) -> object: ...
 
 
 class PersistentFIFOEvidence:
@@ -523,7 +611,12 @@ class PersistentFIFOEvidence:
         del archive
         return tuple(self._active)
 
-    def admit(self, card: MaterialMemoryCard) -> None:
+    def admit(
+        self,
+        card: MaterialMemoryCard,
+        query_pool: Iterable[MaterialQuery] = (),
+    ) -> None:
+        del query_pool
         if any(item.card_id == card.card_id for item in self._active):
             raise ValueError("persistent FIFO cannot admit a duplicate witness")
         self._active.append(card)
@@ -544,8 +637,33 @@ class ReconstructedFIFOEvidence:
             return ()
         return archive[-self.capacity :]
 
-    def admit(self, card: MaterialMemoryCard) -> None:
-        del card
+    def admit(
+        self,
+        card: MaterialMemoryCard,
+        query_pool: Iterable[MaterialQuery] = (),
+    ) -> None:
+        del card, query_pool
+
+
+class StreamingCoresetEvidence:
+    """Expose the new calibration coreset through the sole WBM access API."""
+
+    def __init__(self, coreset: StreamingCalibrationCoreset) -> None:
+        self.coreset = coreset
+        self.capacity = coreset.capacity
+
+    def active(
+        self, archive: tuple[MaterialMemoryCard, ...]
+    ) -> tuple[MaterialMemoryCard, ...]:
+        del archive
+        return self.coreset.cards()
+
+    def admit(
+        self,
+        card: MaterialMemoryCard,
+        query_pool: Iterable[MaterialQuery],
+    ) -> object:
+        return self.coreset.admit(card, query_pool)
 
 
 class CompositionHullState:
@@ -772,6 +890,8 @@ class SecureWBMRunner:
                 queries=affordable,
                 witnesses=self.evidence_access.active(tuple(archive)),
                 history_query_ids=(item.material_id for item in archive),
+                active_witness_capacity=self.evidence_access.capacity,
+                policy_identity_checksum=self.policy.identity_checksum,
             )
             selected_id = self.policy.select(state)
             authorization = self.event_log.append_action(
@@ -794,7 +914,6 @@ class SecureWBMRunner:
             )
             causal_by_query[selected_id] = causal
             archive.append(revealed.card)
-            self.evidence_access.admit(revealed.card)
             self.hull_state.add_revealed(revealed.corrected_phase)
             for query_id, future in tuple(remaining.items()):
                 snapshot = self.hull_state.snapshot(
@@ -805,6 +924,7 @@ class SecureWBMRunner:
                 remaining[query_id] = future.model_copy(
                     update={"hull_snapshot": snapshot, "as_of": snapshot.built_at}
                 )
+            self.evidence_access.admit(revealed.card, tuple(remaining.values()))
             active = self.evidence_access.active(tuple(archive))
             archive_checksum = _checksum([item.card_id for item in archive])
             reveal_record = self.event_log.append_reveal(

@@ -6,7 +6,6 @@ import argparse
 import random
 
 from run_matmem_dual_budget_pilot import (
-    SyntheticCausalHullReviser,
     evaluate_candidates,
     hull_revision_pool,
     iid_pool,
@@ -18,7 +17,7 @@ from run_matmem_dual_budget_pilot import (
     retention_competition_pool,
 )
 
-from evimem.matmem import ActiveDiscoveryEvaluator
+from evimem.matmem import ActiveDiscoveryEvaluator, SyntheticMinHullEngine
 
 SCENARIOS = {
     "local_boundary_correlation": local_boundary_pool,
@@ -51,9 +50,8 @@ def main() -> None:
                 acquisition,
                 retention,
                 oracle_budget=args.budget,
-                causal_hull_updates=scenario_name == "causal_hull_revision",
-                causal_hull_reviser=(
-                    SyntheticCausalHullReviser()
+                hull_engine=(
+                    SyntheticMinHullEngine()
                     if scenario_name == "causal_hull_revision"
                     else None
                 ),
@@ -72,9 +70,8 @@ def main() -> None:
                     acquisition,
                     retention,
                     oracle_budget=args.budget,
-                    causal_hull_updates=scenario_name == "causal_hull_revision",
-                    causal_hull_reviser=(
-                        SyntheticCausalHullReviser()
+                    hull_engine=(
+                        SyntheticMinHullEngine()
                         if scenario_name == "causal_hull_revision"
                         else None
                     ),

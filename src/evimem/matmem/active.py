@@ -10,7 +10,8 @@ from typing import Protocol
 from pydantic import BaseModel, ConfigDict, Field
 
 from .acquisition import AcquisitionScore
-from .cards import HullSnapshot, MaterialMemoryCard, MaterialQuery
+from .cards import MaterialMemoryCard, MaterialQuery
+from .hull_engine import CausalHullEngine
 
 
 class AcquisitionPolicy(Protocol):
@@ -31,20 +32,6 @@ class RetentionPolicy(Protocol):
         card: MaterialMemoryCard,
         query_pool: Iterable[MaterialQuery],
     ) -> object: ...
-
-
-class CausalHullReviser(Protocol):
-    """Material-specific causal hull update; scalar-energy shortcuts are forbidden."""
-
-    def revise(
-        self,
-        observed: MaterialMemoryCard,
-        remaining_queries: Iterable[MaterialQuery],
-        *,
-        call_index: int,
-    ) -> Mapping[str, HullSnapshot]: ...
-
-    def final_stability(self, selected_cards: Iterable[MaterialMemoryCard]) -> Mapping[str, bool]: ...
 
 
 class CardOracleVault:
@@ -149,18 +136,14 @@ class ActiveDiscoveryEvaluator:
         retention: RetentionPolicy,
         *,
         oracle_budget: float,
-        causal_hull_updates: bool = False,
-        causal_hull_reviser: CausalHullReviser | None = None,
+        hull_engine: CausalHullEngine | None = None,
     ) -> None:
         if oracle_budget <= 0:
             raise ValueError("oracle budget must be positive")
         self.acquisition = acquisition
         self.retention = retention
         self.oracle_budget = oracle_budget
-        self.causal_hull_updates = causal_hull_updates
-        self.causal_hull_reviser = causal_hull_reviser
-        if causal_hull_updates and causal_hull_reviser is None:
-            raise ValueError("causal hull updates require a composition-dependent hull reviser")
+        self.hull_engine = hull_engine
         self.active_witness_budget = int(
             getattr(acquisition, "active_witness_budget", retention.capacity)
         )
@@ -230,6 +213,14 @@ class ActiveDiscoveryEvaluator:
             information_seeking_unstable_calls += int(information_seeking and not actual_stable)
             archive.append(revealed_card)
             selected_cards.append(revealed_card)
+            revised_query_count = 0
+            if self.hull_engine is not None:
+                revised_query_count = self.hull_engine.update_after_observation(
+                    remaining,
+                    revealed_card,
+                    call_index=call_index,
+                )
+                hull_revisions += revised_query_count
             future_queries = tuple(remaining.values())
             self.retention.admit(
                 revealed_card,
@@ -237,14 +228,6 @@ class ActiveDiscoveryEvaluator:
             )
             memory_size = min(len(self.retention.cards()), self.active_witness_budget)
             sizes.append(memory_size)
-            revised_query_count = 0
-            if self.causal_hull_updates:
-                revised_query_count = self._revise_remaining_hulls(
-                    remaining,
-                    revealed_card,
-                    call_index,
-                )
-                hull_revisions += revised_query_count
             active_cards = self.retention.cards()
             steps.append(
                 ActiveStep(
@@ -283,20 +266,20 @@ class ActiveDiscoveryEvaluator:
             )
         calls = len(steps)
         final_by_query = (
-            self.causal_hull_reviser.final_stability(selected_cards)
-            if self.causal_hull_updates
+            self.hull_engine.final_stability(selected_cards)
+            if self.hull_engine is not None
             else {}
         )
-        if self.causal_hull_updates and set(final_by_query) != {
+        if self.hull_engine is not None and set(final_by_query) != {
             item.material_id for item in selected_cards
         }:
-            raise ValueError("causal hull reviser did not finalize exactly the selected queries")
+            raise ValueError("causal hull engine did not finalize exactly the selected queries")
         finalized_steps: list[ActiveStep] = []
         final_discoveries = invalidated = 0
         for step, selected in zip(steps, selected_cards, strict=True):
             final_stable = (
                 final_by_query[selected.material_id]
-                if self.causal_hull_updates
+                if self.hull_engine is not None
                 else step.actual_stable
             )
             final_discoveries += int(final_stable)
@@ -363,31 +346,3 @@ class ActiveDiscoveryEvaluator:
         ]
         encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"))
         return "sha256:" + hashlib.sha256(encoded.encode("utf-8")).hexdigest()
-
-    def _revise_remaining_hulls(
-        self,
-        remaining: dict[str, MaterialQuery],
-        observed: MaterialMemoryCard,
-        call_index: int,
-    ) -> int:
-        """Apply the sole registered composition-dependent causal hull implementation."""
-
-        assert self.causal_hull_reviser is not None
-        revisions = self.causal_hull_reviser.revise(
-            observed, remaining.values(), call_index=call_index
-        )
-        unknown = set(revisions) - set(remaining)
-        if unknown:
-            raise ValueError(f"causal hull reviser returned unknown queries: {sorted(unknown)}")
-        changed = 0
-        for query_id, snapshot in revisions.items():
-            query = remaining[query_id]
-            if snapshot.chemical_system != query.hull_snapshot.chemical_system:
-                raise ValueError("causal hull reviser changed a query chemical system")
-            if snapshot.snapshot_id == query.hull_snapshot.snapshot_id:
-                continue
-            remaining[query_id] = query.model_copy(
-                update={"hull_snapshot": snapshot, "as_of": snapshot.built_at}
-            )
-            changed += 1
-        return changed

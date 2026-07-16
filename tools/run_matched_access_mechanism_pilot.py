@@ -10,7 +10,6 @@ import argparse
 import statistics
 
 from run_matmem_dual_budget_pilot import (
-    SyntheticCausalHullReviser,
     evaluate_candidates,
     hull_revision_pool,
     recurring_pool,
@@ -22,6 +21,7 @@ from evimem.matmem import (
     FIFOBoundedMemory,
     MatchedAccessCostModel,
     MatchedAccessOperationLedger,
+    SyntheticMinHullEngine,
 )
 
 
@@ -64,10 +64,7 @@ def main() -> None:
                 BaseBoundaryAcquisition(),
                 FIFOBoundedMemory(capacity=args.capacity),
                 oracle_budget=args.budget,
-                causal_hull_updates=causal_hull_updates,
-                causal_hull_reviser=(
-                    SyntheticCausalHullReviser() if causal_hull_updates else None
-                ),
+                hull_engine=SyntheticMinHullEngine() if causal_hull_updates else None,
             ), candidates)
             ledgers.append(MatchedAccessOperationLedger.from_metrics(metrics))
         savings = {

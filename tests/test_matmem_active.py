@@ -10,10 +10,14 @@ from evimem.matmem import (
     BaseBoundaryAcquisition,
     BoundaryRiskPotential,
     BoundaryRiskRetention,
+    CalibrationUtilityBuilder,
     CardOracleVault,
-    DecisionAwareOnlineCoreset,
+    FacilityLocationCoresetPlanner,
     FIFOBoundedMemory,
+    FixedKernelGPConfig,
+    FixedKernelResidualGP,
     HullSnapshot,
+    LegacyTwoScenarioAcquisition,
     MatchedAccessCostModel,
     MatchedAccessOperationLedger,
     MaterialIdentity,
@@ -22,8 +26,9 @@ from evimem.matmem import (
     ProtocolAwareBoundaryAcquisition,
     ProtocolCertificate,
     ProtocolCompatibilityResolver,
-    RetentionAwareBoundaryAcquisition,
     SourceProvenance,
+    StreamingCalibrationCoreset,
+    SyntheticMinHullEngine,
 )
 
 START = datetime(2026, 1, 1, tzinfo=UTC)
@@ -43,25 +48,39 @@ def _evaluate(evaluator: ActiveDiscoveryEvaluator, cases: list[_Case] | tuple[_C
     return evaluator.evaluate((case.query for case in cases), _vault(cases))
 
 
-class _SyntheticReviser:
-    """Test double only; production causal updates require a phase diagram."""
+def _coreset(
+    capacity: int,
+    resolver: ProtocolCompatibilityResolver,
+) -> StreamingCalibrationCoreset:
+    posterior = FixedKernelResidualGP(
+        resolver,
+        config=FixedKernelGPConfig(length_scale=0.2),
+    )
+    builder = CalibrationUtilityBuilder(posterior, false_stable_cost=5.0)
+    return StreamingCalibrationCoreset(
+        FacilityLocationCoresetPlanner(capacity, builder)
+    )
 
-    def revise(self, observed: MaterialMemoryCard, remaining_queries, *, call_index: int):
-        result = {}
-        for query in remaining_queries:
-            reference = min(query.hull_snapshot.reference_hull_energy_ev_per_atom, observed.formation_energy_ev_per_atom)
-            result[query.query_id] = query.hull_snapshot.model_copy(update={
-                "snapshot_id": f"{query.hull_snapshot.snapshot_id}:test:{call_index}",
-                "reference_hull_energy_ev_per_atom": reference,
-                "built_at": query.as_of,
-                "known_through": query.as_of,
-            })
-        return result
 
-    def final_stability(self, selected_cards):
-        cards = tuple(selected_cards)
-        reference = min(card.formation_energy_ev_per_atom for card in cards)
-        return {card.material_id: card.formation_energy_ev_per_atom - reference <= 0 for card in cards}
+class _HullAwareRetentionSpy:
+    capacity = 1
+
+    def __init__(self) -> None:
+        self._cards: tuple[MaterialMemoryCard, ...] = ()
+        self.seen_references: list[tuple[float, ...]] = []
+
+    def cards(self) -> tuple[MaterialMemoryCard, ...]:
+        return self._cards
+
+    def admit(self, card: MaterialMemoryCard, query_pool) -> None:
+        queries = tuple(query_pool)
+        self.seen_references.append(
+            tuple(
+                query.hull_snapshot.reference_hull_energy_ev_per_atom
+                for query in queries
+            )
+        )
+        self._cards = (card,)
 
 
 def _protocol(functional: str = "PBE") -> ProtocolCertificate:
@@ -201,6 +220,24 @@ def test_active_evaluator_reveals_only_selected_oracle_and_respects_budgets() ->
     assert metrics.selected_query_ids[0] == "a"
 
 
+def test_hull_transition_precedes_retention_utility_construction() -> None:
+    candidates = [
+        _item("deep", embedding=(1.0, 0.0), base_energy=-1.20, oracle_energy=-1.20),
+        _item("future", embedding=(0.0, 1.0), base_energy=-1.01, oracle_energy=-1.00),
+    ]
+    retention = _HullAwareRetentionSpy()
+    _evaluate(
+        ActiveDiscoveryEvaluator(
+            BaseBoundaryAcquisition(),
+            retention,
+            oracle_budget=1,
+            hull_engine=SyntheticMinHullEngine(),
+        ),
+        candidates,
+    )
+    assert retention.seen_references == [(-1.2,)]
+
+
 def test_joint_acquisition_retention_avoids_recurring_false_stable_cluster() -> None:
     candidates = [
         *[
@@ -230,7 +267,7 @@ def test_joint_acquisition_retention_avoids_recurring_false_stable_cluster() -> 
     ), candidates)
     joint = _evaluate(ActiveDiscoveryEvaluator(
         ProtocolAwareBoundaryAcquisition(resolver, prior_strength=0.1),
-        DecisionAwareOnlineCoreset(capacity=1, resolver=resolver, false_stable_cost=5.0),
+        _coreset(1, resolver),
         oracle_budget=5,
     ), candidates)
     assert joint.cumulative_true_discoveries > base.cumulative_true_discoveries
@@ -294,7 +331,7 @@ def test_pool_permutation_does_not_change_policy_actions() -> None:
     def run(pool: list[_Case]) -> tuple[str, ...]:
         potential = BoundaryRiskPotential(ProtocolCompatibilityResolver())
         return _evaluate(ActiveDiscoveryEvaluator(
-            RetentionAwareBoundaryAcquisition(potential, active_witness_budget=1),
+            LegacyTwoScenarioAcquisition(potential, active_witness_budget=1),
             BoundaryRiskRetention(1, potential),
             oracle_budget=3,
         ), pool).selected_query_ids
@@ -313,7 +350,7 @@ def test_unrevealed_oracles_do_not_interfere_at_later_rounds() -> None:
     def run(pool: list[_Case]) -> tuple[str, ...]:
         potential = BoundaryRiskPotential(ProtocolCompatibilityResolver())
         return _evaluate(ActiveDiscoveryEvaluator(
-            RetentionAwareBoundaryAcquisition(potential, active_witness_budget=1),
+            LegacyTwoScenarioAcquisition(potential, active_witness_budget=1),
             BoundaryRiskRetention(1, potential),
             oracle_budget=2,
         ), pool).selected_query_ids
@@ -356,8 +393,7 @@ def test_causal_and_final_hull_discoveries_are_reported_separately() -> None:
         BaseBoundaryAcquisition(),
         FIFOBoundedMemory(capacity=0),
         oracle_budget=2,
-        causal_hull_updates=True,
-        causal_hull_reviser=_SyntheticReviser(),
+        hull_engine=SyntheticMinHullEngine(),
     ), candidates)
     assert result.query_time_causal_discoveries == 2
     assert result.final_hull_confirmed_discoveries == 1
@@ -385,8 +421,7 @@ def test_matched_access_ledger_exposes_hull_churn_break_even() -> None:
         BaseBoundaryAcquisition(),
         FIFOBoundedMemory(capacity=2),
         oracle_budget=2,
-        causal_hull_updates=True,
-        causal_hull_reviser=_SyntheticReviser(),
+        hull_engine=SyntheticMinHullEngine(),
     ), candidates)
     ledger = MatchedAccessOperationLedger.from_metrics(metrics)
     assert metrics.steps[0].causal_hull_transition_after_observation
@@ -420,7 +455,6 @@ def test_matched_access_ledger_has_no_persistent_recertification_without_hull_ch
         BaseBoundaryAcquisition(),
         FIFOBoundedMemory(capacity=2),
         oracle_budget=2,
-        causal_hull_updates=False,
     ), candidates)
     ledger = MatchedAccessOperationLedger.from_metrics(metrics)
     assert ledger.persistent_hull_recertifications == 0
@@ -436,7 +470,7 @@ def test_hypothetical_witnesses_never_enter_the_real_archive() -> None:
     )
     potential = BoundaryRiskPotential(ProtocolCompatibilityResolver())
     result = _evaluate(ActiveDiscoveryEvaluator(
-        RetentionAwareBoundaryAcquisition(potential, active_witness_budget=1),
+        LegacyTwoScenarioAcquisition(potential, active_witness_budget=1),
         BoundaryRiskRetention(1, potential),
         oracle_budget=1,
     ), [candidate])

@@ -8,16 +8,23 @@ import pytest
 
 from evimem.matmem import (
     AppendOnlyWBMEventLog,
+    CalibrationUtilityBuilder,
     CompositionHullState,
     CorrectedPhaseEntry,
+    FacilityLocationCoresetPlanner,
+    FixedKernelGPConfig,
+    FixedKernelResidualGP,
     HullSnapshot,
     MaterialIdentity,
     MaterialQuery,
     PersistentFIFOEvidence,
     PolicyState,
     PolicySubprocess,
+    ProtocolCompatibilityResolver,
     ReconstructedFIFOEvidence,
     SecureWBMRunner,
+    StreamingCalibrationCoreset,
+    StreamingCoresetEvidence,
     WBMOracleRecord,
     WBMOracleVault,
     assert_exact_emulation,
@@ -146,6 +153,7 @@ def _run(
     *,
     log_name: str,
     evidence: object,
+    policy: PolicySubprocess | None = None,
     budget: float = 2,
     second_formation_energy: float = -0.10,
 ):
@@ -161,7 +169,7 @@ def _run(
             chemical_system=SYSTEM,
             source_version="MP-2022.10.28",
         ),
-        policy=PolicySubprocess("frozen"),
+        policy=policy or PolicySubprocess("frozen"),
         evidence_access=evidence,
         oracle_universe=universe,
         event_log=log,
@@ -171,14 +179,35 @@ def _run(
     return result, entries, universe
 
 
+class _HullAwareEvidenceSpy:
+    capacity = 1
+
+    def __init__(self) -> None:
+        self._active = ()
+        self.seen_snapshot_ids: list[tuple[str, ...]] = []
+
+    def active(self, archive):
+        del archive
+        return self._active
+
+    def admit(self, card, query_pool):
+        self.seen_snapshot_ids.append(
+            tuple(query.hull_snapshot.snapshot_id for query in query_pool)
+        )
+        self._active = (card,)
+
+
 def test_policy_serialization_is_allow_listed_and_order_invariant() -> None:
     queries, _, _, _ = _fixture()
+    policy = PolicySubprocess("frozen")
     state = PolicyState.create(
         round_index=1,
         remaining_budget=2,
         queries=reversed(queries),
         witnesses=(),
         history_query_ids=(),
+        active_witness_capacity=0,
+        policy_identity_checksum=policy.identity_checksum,
     )
     payload = state.serialized_for_policy()
     lowered = payload.lower()
@@ -191,15 +220,17 @@ def test_policy_serialization_is_allow_listed_and_order_invariant() -> None:
         "q2",
         "q3",
     ]
-    forward = PolicySubprocess("frozen").select(state)
+    forward = policy.select(state)
     reversed_state = PolicyState.create(
         round_index=1,
         remaining_budget=2,
         queries=queries,
         witnesses=(),
         history_query_ids=(),
+        active_witness_capacity=0,
+        policy_identity_checksum=policy.identity_checksum,
     )
-    assert forward == PolicySubprocess("frozen").select(reversed_state)
+    assert forward == policy.select(reversed_state)
 
 
 def test_unqueried_oracle_counterfactual_cannot_change_actions(tmp_path: Path) -> None:
@@ -215,6 +246,68 @@ def test_unqueried_oracle_counterfactual_cannot_change_actions(tmp_path: Path) -
         second_formation_energy=0.40,
     )
     assert baseline.selected_query_ids == changed.selected_query_ids
+
+
+def test_secure_runner_updates_composition_hull_before_evidence_admission(
+    tmp_path: Path,
+) -> None:
+    evidence = _HullAwareEvidenceSpy()
+    _run(
+        tmp_path,
+        log_name="hull-before-admission.jsonl",
+        evidence=evidence,
+        budget=1,
+    )
+    assert len(evidence.seen_snapshot_ids) == 1
+    assert all(
+        snapshot_id.startswith("causal:MP-2022.10.28:2:")
+        for snapshot_id in evidence.seen_snapshot_ids[0]
+    )
+
+
+def test_secure_runner_supports_streaming_calibration_coreset(tmp_path: Path) -> None:
+    resolver = ProtocolCompatibilityResolver()
+    coreset = StreamingCalibrationCoreset(
+        FacilityLocationCoresetPlanner(
+            1,
+            CalibrationUtilityBuilder(
+                FixedKernelResidualGP(
+                    resolver,
+                    config=FixedKernelGPConfig(length_scale=0.2),
+                )
+            ),
+        )
+    )
+    result, _, _ = _run(
+        tmp_path,
+        log_name="streaming-coreset.jsonl",
+        evidence=StreamingCoresetEvidence(coreset),
+    )
+    assert result.selected_query_ids
+    assert len(coreset.cards()) <= 1
+
+
+def test_zero_weight_survival_worker_matches_gp_uncertainty_actions(
+    tmp_path: Path,
+) -> None:
+    config = FixedKernelGPConfig(length_scale=0.2)
+    uncertainty, _, _ = _run(
+        tmp_path,
+        log_name="gp-uncertainty.jsonl",
+        evidence=PersistentFIFOEvidence(1),
+        policy=PolicySubprocess("gp_uncertainty", gp_config=config),
+    )
+    zero_survival, _, _ = _run(
+        tmp_path,
+        log_name="zero-survival.jsonl",
+        evidence=PersistentFIFOEvidence(1),
+        policy=PolicySubprocess(
+            "survival_coreset",
+            gp_config=config,
+            survival_weight=0,
+        ),
+    )
+    assert zero_survival.selected_query_ids == uncertainty.selected_query_ids
 
 
 def test_vault_requires_persisted_action_and_rejects_duplicate(tmp_path: Path) -> None:

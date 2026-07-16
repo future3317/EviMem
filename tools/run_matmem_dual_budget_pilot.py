@@ -31,6 +31,7 @@ from evimem.matmem import (
     FIFOBoundedMemory,
     FullHistoryMemory,
     HullSnapshot,
+    LegacyTwoScenarioAcquisition,
     MaterialIdentity,
     MaterialMemoryCard,
     MaterialQuery,
@@ -40,9 +41,9 @@ from evimem.matmem import (
     ProtocolCompatibility,
     ProtocolCompatibilityResolver,
     ResidualPriorityMemory,
-    RetentionAwareBoundaryAcquisition,
     SeededRandomAcquisition,
     SourceProvenance,
+    SyntheticMinHullEngine,
 )
 
 START = datetime(2026, 1, 1, tzinfo=UTC)
@@ -68,42 +69,6 @@ def evaluate_candidates(
         (candidate.query for candidate in candidates),
         oracle_vault(candidates),
     )
-
-
-class SyntheticCausalHullReviser:
-    """Scalar synthetic stress fixture; never accepted by the real WBM runner."""
-
-    def revise(
-        self,
-        observed: MaterialMemoryCard,
-        remaining_queries: tuple[MaterialQuery, ...],
-        *,
-        call_index: int,
-    ) -> dict[str, HullSnapshot]:
-        return {
-            query.query_id: query.hull_snapshot.model_copy(
-                update={
-                    "snapshot_id": f"{query.hull_snapshot.snapshot_id}:synthetic:{call_index}",
-                    "reference_hull_energy_ev_per_atom": min(
-                        query.hull_snapshot.reference_hull_energy_ev_per_atom,
-                        observed.formation_energy_ev_per_atom,
-                    ),
-                    "known_through": query.as_of,
-                    "built_at": query.as_of,
-                }
-            )
-            for query in remaining_queries
-        }
-
-    def final_stability(
-        self,
-        selected_cards: tuple[MaterialMemoryCard, ...],
-    ) -> dict[str, bool]:
-        reference = min(card.formation_energy_ev_per_atom for card in selected_cards)
-        return {
-            card.material_id: card.formation_energy_ev_per_atom - reference <= 0
-            for card in selected_cards
-        }
 
 
 def protocol(functional: str = "PBE") -> ProtocolCertificate:
@@ -468,7 +433,7 @@ def policy_factories(
 
     def retention_aware_fifo() -> tuple[object, object]:
         _, potential = components()
-        return RetentionAwareBoundaryAcquisition(
+        return LegacyTwoScenarioAcquisition(
             potential,
             active_witness_budget=capacity,
             discovery_weight=5.0,
@@ -483,7 +448,7 @@ def policy_factories(
 
     def joint() -> tuple[object, object]:
         _, potential = components()
-        return RetentionAwareBoundaryAcquisition(
+        return LegacyTwoScenarioAcquisition(
             potential,
             active_witness_budget=capacity,
             discovery_weight=5.0,
@@ -592,9 +557,8 @@ def run(args: argparse.Namespace) -> dict[str, object]:
                     acquisition_policy,
                     retention_policy,
                     oracle_budget=args.budget,
-                    causal_hull_updates=scenario_name == "causal_hull_revision",
-                    causal_hull_reviser=(
-                        SyntheticCausalHullReviser()
+                    hull_engine=(
+                        SyntheticMinHullEngine()
                         if scenario_name == "causal_hull_revision"
                         else None
                     ),

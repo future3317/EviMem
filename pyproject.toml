@@ -34,6 +34,13 @@ dev = [
   "pytest-cov>=4.1",
   "ruff>=0.4",
 ]
+materials = [
+  "numpy>=2",
+  "scipy>=1.13",
+  "scikit-learn>=1.5",
+  "pymatgen>=2025",
+  "dscribe>=2.1",
+]
 
 [project.scripts]
 evimem-data = "evimem.training.cli:main"

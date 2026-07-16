@@ -9,7 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from .active import CardOracleVault
 from .cards import MaterialQuery
-from .coreset import DecisionAwareOnlineCoreset
+from .coreset import StreamingCalibrationCoreset
 from .residual import ResidualCorrector
 from .risk import ProtocolRiskController, ScreeningDecision
 
@@ -67,7 +67,7 @@ class OnlineDiscoveryEvaluator:
 
     def __init__(
         self,
-        coreset: DecisionAwareOnlineCoreset,
+        coreset: StreamingCalibrationCoreset,
         corrector: ResidualCorrector,
         risk_controller: ProtocolRiskController,
         *,

@@ -8,11 +8,12 @@ from evimem.matmem import (
     BoundaryRiskConfig,
     BoundaryRiskPotential,
     BoundaryRiskRetention,
+    LegacyTwoScenarioAcquisition,
     ProtocolCompatibilityResolver,
-    RetentionAwareBoundaryAcquisition,
+    SyntheticMinHullEngine,
 )
 
-from .test_matmem_active import _Case, _evaluate, _item, _protocol, _SyntheticReviser
+from .test_matmem_active import _Case, _evaluate, _item, _protocol
 
 
 def test_boundary_potential_links_coverage_to_hull_margin_ambiguity() -> None:
@@ -146,12 +147,12 @@ def test_retention_aware_information_value_depends_on_active_witness_budget() ->
             oracle_energy=-1.20,
         ).query,
     )
-    capacity_one = RetentionAwareBoundaryAcquisition(
+    capacity_one = LegacyTwoScenarioAcquisition(
         potential,
         active_witness_budget=1,
         outcome_margin_ev_per_atom=0.03,
     ).score(candidate, future, (current,))
-    capacity_two = RetentionAwareBoundaryAcquisition(
+    capacity_two = LegacyTwoScenarioAcquisition(
         potential,
         active_witness_budget=2,
         outcome_margin_ev_per_atom=0.03,
@@ -204,7 +205,7 @@ def test_first_acquisition_is_invariant_to_hidden_oracle_outcomes() -> None:
 
     def first_selected(pool: list[_Case]) -> str:
         result = _evaluate(ActiveDiscoveryEvaluator(
-            RetentionAwareBoundaryAcquisition(potential, active_witness_budget=1),
+            LegacyTwoScenarioAcquisition(potential, active_witness_budget=1),
             BoundaryRiskRetention(1, potential),
             oracle_budget=1,
         ), pool)
@@ -231,11 +232,10 @@ def test_causal_hull_revision_uses_only_an_already_observed_phase() -> None:
         ),
     ]
     result = _evaluate(ActiveDiscoveryEvaluator(
-        RetentionAwareBoundaryAcquisition(potential, active_witness_budget=1),
+        LegacyTwoScenarioAcquisition(potential, active_witness_budget=1),
         BoundaryRiskRetention(1, potential),
         oracle_budget=2,
-        causal_hull_updates=True,
-        causal_hull_reviser=_SyntheticReviser(),
+        hull_engine=SyntheticMinHullEngine(),
     ), candidates)
     assert result.selected_query_ids[0] == "deep-phase"
     assert result.hull_revision_count == 1
@@ -268,7 +268,7 @@ def test_information_value_excludes_queried_item_removal() -> None:
             oracle_energy=-1.04,
         ).query,
     )
-    acquisition = RetentionAwareBoundaryAcquisition(potential, active_witness_budget=1)
+    acquisition = LegacyTwoScenarioAcquisition(potential, active_witness_budget=1)
     assert acquisition.information_value(candidate, remaining, ()) == 0.0
 
 

@@ -8,10 +8,12 @@ from .acquisition import (
     AcquisitionScore,
     BaseBoundaryAcquisition,
     BoundaryUncertaintyAcquisition,
+    LegacyTwoScenarioAcquisition,
     OnDemandKNNArchiveAcquisition,
+    PosteriorUncertaintyAcquisition,
     ProtocolAwareBoundaryAcquisition,
-    RetentionAwareBoundaryAcquisition,
     SeededRandomAcquisition,
+    SurvivalConditionedAcquisition,
 )
 from .active import (
     ActiveDiscoveryEvaluator,
@@ -36,8 +38,13 @@ from .boundary import (
     BoundaryWitness,
     BruteForceRetentionSolver,
 )
+from .calibration_utility import CalibrationUtilityBuilder, CalibrationUtilityMatrix
 from .cards import HullSnapshot, MaterialMemoryCard, MaterialQuery, SourceProvenance
-from .coreset import CoresetSelection, DecisionAwareOnlineCoreset
+from .coreset import (
+    CoresetSelection,
+    FacilityLocationCoresetPlanner,
+    StreamingCalibrationCoreset,
+)
 from .economics import MatchedAccessCost, MatchedAccessCostModel, MatchedAccessOperationLedger
 from .evaluation import (
     DeploymentStrategy,
@@ -47,6 +54,7 @@ from .evaluation import (
     ScreeningOutcome,
     risk_coverage_curve,
 )
+from .hull_engine import CausalHullEngine, SyntheticMinHullEngine
 from .identity import CanonicalGroupSplit, MaterialIdentity
 from .protocols import (
     CompatibilityKind,
@@ -57,6 +65,12 @@ from .protocols import (
     ProtocolTransportMap,
 )
 from .residual import ResidualCorrection, ResidualCorrector
+from .residual_posterior import (
+    FixedKernelGPConfig,
+    FixedKernelResidualGP,
+    ResidualPosterior,
+    ResidualPrediction,
+)
 from .risk import ConformalCalibration, ProtocolRiskController, RiskDecision, ScreeningDecision
 from .wbm import (
     DataAuditFinding,
@@ -95,6 +109,7 @@ from .wbm_secure import (
     ReconstructedFIFOEvidence,
     RevealedObservation,
     SecureWBMRunner,
+    StreamingCoresetEvidence,
     WBMActionRecord,
     WBMEvent,
     WBMOracleVault,
@@ -122,14 +137,16 @@ __all__ = [
     "BoundaryRiskPotential",
     "BoundaryRiskRetention",
     "BoundaryWitness",
+    "CalibrationUtilityBuilder",
+    "CalibrationUtilityMatrix",
     "CardOracleVault",
+    "CausalHullEngine",
     "CompatibilityKind",
     "CompositionHullState",
     "CorrectedPhaseEntry",
     "CanonicalGroupSplit",
     "ConformalCalibration",
     "CoresetSelection",
-    "DecisionAwareOnlineCoreset",
     "DataAuditFinding",
     "DataLicenseAuditReport",
     "DataLicenseDecision",
@@ -138,10 +155,14 @@ __all__ = [
     "DiscoveryMetrics",
     "DiversityBoundedMemory",
     "FIFOBoundedMemory",
+    "FacilityLocationCoresetPlanner",
+    "FixedKernelGPConfig",
+    "FixedKernelResidualGP",
     "FullHistoryMemory",
     "FrozenPredictionSOAPCache",
     "FrozenPredictionSOAPRecord",
     "HullSnapshot",
+    "LegacyTwoScenarioAcquisition",
     "MatchedResidualPair",
     "MaterialMemoryCard",
     "MaterialIdentity",
@@ -153,6 +174,7 @@ __all__ = [
     "MPPhaseRecord",
     "OnlineDiscoveryEvaluator",
     "OnDemandKNNArchiveAcquisition",
+    "PosteriorUncertaintyAcquisition",
     "ProtocolCertificate",
     "ProtocolAwareBoundaryAcquisition",
     "ProtocolCompatibility",
@@ -168,8 +190,9 @@ __all__ = [
     "RevealedObservation",
     "ResidualCorrection",
     "ResidualCorrector",
+    "ResidualPosterior",
+    "ResidualPrediction",
     "ResidualPriorityMemory",
-    "RetentionAwareBoundaryAcquisition",
     "RiskCoveragePoint",
     "RiskDecision",
     "ScreeningDecision",
@@ -177,6 +200,10 @@ __all__ = [
     "SeededRandomAcquisition",
     "SourceProvenance",
     "SecureWBMRunner",
+    "StreamingCalibrationCoreset",
+    "StreamingCoresetEvidence",
+    "SurvivalConditionedAcquisition",
+    "SyntheticMinHullEngine",
     "SOAPCacheConfig",
     "WBMObservableRecord",
     "WBMActionRecord",

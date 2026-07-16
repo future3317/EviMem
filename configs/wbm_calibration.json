@@ -1,0 +1,31 @@
+{
+  "schema_version": "wbm-calibration-engineering-v1",
+  "execution_authorized": false,
+  "blocked_by": [
+    "P1_candidate_numerical_identity_parity",
+    "P1_5_frozen_pool_support_audit",
+    "human_license_redistribution_decision"
+  ],
+  "posterior": {
+    "kernel": "matern52",
+    "length_scale": 0.35,
+    "signal_std_ev_per_atom": 0.08,
+    "noise_std_ev_per_atom": 0.01,
+    "jitter": 1e-10,
+    "parameter_status": "engineering_smoke_only_must_refreeze_on_isolated_calibration_systems"
+  },
+  "coreset": {
+    "false_stable_cost": 5.0,
+    "false_unstable_cost": 1.0,
+    "boundary_scale_ev_per_atom": 0.05,
+    "min_admission_gain": 1e-12
+  },
+  "survival_acquisition": {
+    "proposal_policy": "gp_uncertainty",
+    "proposal_size": 32,
+    "num_fantasies": 8,
+    "survival_weight": 1.0,
+    "status": "secondary_unvalidated_hypothesis"
+  },
+  "formal_run_rule": "A runner must reject this file while execution_authorized is false."
+}

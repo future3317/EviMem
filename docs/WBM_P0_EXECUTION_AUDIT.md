@@ -15,14 +15,19 @@ active witnesses. It returns one opaque query ID. The evaluator then:
 2. presents the resulting authorization to the single-use vault;
 3. creates a `RevealedObservation` in eV/atom for archive/residual use;
 4. creates a `CorrectedPhaseEntry` whose energy is validated as total eV;
-5. rebuilds the same-system causal phase diagram;
-6. persists post-reveal archive, active-set and hull checksums.
+5. rebuilds the same-system causal phase diagram and all remaining query views;
+6. only then updates the active evidence set using the revised future pool;
+7. persists post-reveal archive, active-set and hull checksums.
 
 The policy never receives the vault, phase diagram, corrected total-energy
 entry, evaluator object or an unqueried outcome. The worker subprocess shares
 the evaluator's OS account and filesystem, so this is not a hostile-code
 sandbox. Formal execution is restricted to the frozen worker and allow-listed
-policy names.
+policy names. The worker now also implements GP uncertainty and
+survival-conditioned coreset policies from the same serialized policy view.
+Their engineering tests do not authorize a comparative WBM run;
+`configs/wbm_calibration.json` remains explicitly blocked pending P1, P1.5 and
+calibration-system parameter freezing.
 
 ## Three non-interchangeable hulls
 
@@ -62,9 +67,11 @@ synthetic NO-GO and tests method mechanics. It is not an alternative WBM path.
 - selected-final versus oracle-final disagreement;
 - deterministic ledger replay;
 - exact persistent FIFO versus free same-FIFO reconstruction.
+- causal-hull update before evidence admission.
 
-The focused P0/materials suite passed 48 tests on 2026-07-16. The final
-repository validation passed 188 tests and a full Ruff check on the same date.
+The focused P0/materials suite passed 53 tests after the calibration-coreset
+amendment. The final repository validation passed 198 tests and a full Ruff
+check on 2026-07-16.
 These counts must not be used as evidence of P1 numerical parity.
 
 ## Remaining blockers

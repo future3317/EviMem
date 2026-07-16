@@ -6,12 +6,15 @@ import pytest
 from pydantic import ValidationError
 
 from evimem.matmem import (
+    CalibrationUtilityBuilder,
     CanonicalGroupSplit,
     CardOracleVault,
     CompatibilityKind,
-    DecisionAwareOnlineCoreset,
     DeploymentStrategy,
+    FacilityLocationCoresetPlanner,
     FIFOBoundedMemory,
+    FixedKernelGPConfig,
+    FixedKernelResidualGP,
     HullSnapshot,
     MatchedResidualPair,
     MaterialIdentity,
@@ -25,8 +28,28 @@ from evimem.matmem import (
     ResidualCorrector,
     ScreeningDecision,
     SourceProvenance,
+    StreamingCalibrationCoreset,
     risk_coverage_curve,
 )
+
+
+def _coreset(
+    capacity: int,
+    resolver: ProtocolCompatibilityResolver,
+    *,
+    false_stable_cost: float = 5.0,
+) -> StreamingCalibrationCoreset:
+    posterior = FixedKernelResidualGP(
+        resolver,
+        config=FixedKernelGPConfig(length_scale=0.2),
+    )
+    builder = CalibrationUtilityBuilder(
+        posterior,
+        false_stable_cost=false_stable_cost,
+    )
+    return StreamingCalibrationCoreset(
+        FacilityLocationCoresetPlanner(capacity, builder)
+    )
 
 
 def _protocol(functional: str = "PBE") -> ProtocolCertificate:
@@ -249,26 +272,28 @@ def test_transport_fit_rejects_a_held_out_canonical_structure() -> None:
 
 def test_coreset_selects_a_costly_false_stable_near_miss_not_a_redundant_card() -> None:
     resolver = ProtocolCompatibilityResolver()
-    policy = DecisionAwareOnlineCoreset(capacity=1, resolver=resolver, false_stable_cost=10.0)
+    policy = _coreset(1, resolver, false_stable_cost=10.0)
     query = _query(base_energy=-1.03)
     near_miss = _card("near-miss", embedding=(1.0, 0.0), formation_energy=-0.94)
     harmless = _card("harmless", embedding=(0.9, 0.1), formation_energy=-1.02)
-    selection = policy.select([near_miss, harmless], [query])
+    selection = policy.planner.select_from_archive_greedy(
+        [near_miss, harmless], [query]
+    )
     assert selection.selected_card_ids == ("near-miss",)
     assert selection.objective_value > 0
-    assert selection.selected_screening_risk < selection.baseline_screening_risk
+    assert selection.selected_decision_risk < selection.baseline_decision_risk
 
 
 def test_redundant_failure_kill_test_preserves_distinct_risk_coverage() -> None:
     resolver = ProtocolCompatibilityResolver()
-    policy = DecisionAwareOnlineCoreset(capacity=2, resolver=resolver, false_stable_cost=10.0)
+    policy = _coreset(2, resolver, false_stable_cost=10.0)
     queries = [_query("cluster-a", embedding=(1.0, 0.0)), _query("cluster-b", embedding=(0.0, 1.0))]
     cards = [
         _card("redundant-a1", embedding=(1.0, 0.0), formation_energy=-0.94),
         _card("redundant-a2", embedding=(1.0, 0.0), formation_energy=-0.94),
         _card("distinct-b", embedding=(0.0, 1.0), formation_energy=-0.94),
     ]
-    selection = policy.select(cards, queries)
+    selection = policy.planner.select_from_archive_greedy(cards, queries)
     assert "distinct-b" in selection.selected_card_ids
     assert len({"redundant-a1", "redundant-a2"} & set(selection.selected_card_ids)) == 1
 
@@ -278,7 +303,7 @@ def test_concept_recurrence_kill_test_retains_old_risk_card_beyond_fifo() -> Non
     old = _card("old", embedding=(1.0, 0.0), formation_energy=-0.94)
     recent = _card("recent", embedding=(0.0, 1.0), formation_energy=-1.02)
     recurring = _query("recurring", embedding=(1.0, 0.0))
-    coreset = DecisionAwareOnlineCoreset(capacity=1, resolver=resolver)
+    coreset = _coreset(1, resolver)
     coreset.admit(old, [recurring])
     coreset.admit(recent, [recurring])
     fifo = FIFOBoundedMemory(capacity=1)
@@ -290,14 +315,14 @@ def test_concept_recurrence_kill_test_retains_old_risk_card_beyond_fifo() -> Non
 
 def test_adversarial_candidate_order_does_not_change_coreset_selection() -> None:
     resolver = ProtocolCompatibilityResolver()
-    policy = DecisionAwareOnlineCoreset(capacity=1, resolver=resolver)
+    policy = _coreset(1, resolver)
     query = _query("order")
     cards = [
         _card("a", formation_energy=-0.94),
         _card("b", formation_energy=-0.94),
     ]
-    first = policy.select(cards, [query])
-    second = policy.select(list(reversed(cards)), [query])
+    first = policy.planner.select_from_archive_greedy(cards, [query])
+    second = policy.planner.select_from_archive_greedy(list(reversed(cards)), [query])
     assert first.selected_card_ids == second.selected_card_ids
     assert first.objective_value == second.objective_value
 
@@ -326,7 +351,7 @@ def test_chronological_evaluator_never_uses_current_oracle_before_screening() ->
     query_two = _query("two", base_energy=-1.03)
     card_two = _card("two", formation_energy=-0.94)
     resolver = ProtocolCompatibilityResolver()
-    policy = DecisionAwareOnlineCoreset(capacity=1, resolver=resolver)
+    policy = _coreset(1, resolver)
     controller = ProtocolRiskController(minimum_calibration_size=3)
     controller.fit(
         query_one,
@@ -362,13 +387,13 @@ def test_deployment_strategies_and_risk_coverage_are_reported_separately() -> No
         exchangeability_assumed=True,
     )
     strict, outcomes = OnlineDiscoveryEvaluator(
-        DecisionAwareOnlineCoreset(1, resolver),
+        _coreset(1, resolver),
         ResidualCorrector(resolver),
         controller,
         deployment_strategy=DeploymentStrategy.STRICT_ABSTAIN,
     ).evaluate_with_outcomes([query], CardOracleVault({"deploy": card}))
     base, base_outcomes = OnlineDiscoveryEvaluator(
-        DecisionAwareOnlineCoreset(1, resolver),
+        _coreset(1, resolver),
         ResidualCorrector(resolver),
         controller,
         deployment_strategy=DeploymentStrategy.BASE_ONLY,
