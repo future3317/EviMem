@@ -3,16 +3,20 @@ from __future__ import annotations
 import itertools
 
 import numpy as np
+import pytest
 
 from evimem.matmem import (
+    CalibrationUtilityBuilder,
     CalibrationUtilityMatrix,
     FacilityLocationCoresetPlanner,
     FixedKernelGPConfig,
     FixedKernelResidualGP,
     FrozenHullDistanceAcquisition,
+    JointPosteriorRiskOneSwapPlanner,
     ProtocolCompatibilityResolver,
     ResidualPrediction,
     SurvivalConditionedAcquisition,
+    compare_facility_and_joint_objectives,
 )
 
 from .test_matmem import _card, _protocol, _query
@@ -171,6 +175,125 @@ def test_fixed_kernel_posterior_is_protocol_safe_and_deterministic() -> None:
     left = posterior.sample_residuals(_query("sample"), num_samples=5, seed=7)
     right = posterior.sample_residuals(_query("sample"), num_samples=5, seed=7)
     assert np.array_equal(left, right)
+
+
+def test_baseline_risk_uses_the_same_boundary_weights_as_gains() -> None:
+    builder = CalibrationUtilityBuilder(
+        FixedKernelResidualGP(
+            ProtocolCompatibilityResolver(),
+            config=FixedKernelGPConfig(length_scale=0.2),
+        ),
+        boundary_scale_ev_per_atom=0.05,
+    )
+    queries = (
+        _query("near", base_energy=-0.99),
+        _query("far", base_energy=-0.70),
+    )
+    _, baseline = builder.build(queries, ())
+    assert baseline == pytest.approx(builder.weighted_decision_risk(queries, ()))
+    unweighted = sum(
+        builder.posterior_template.clone_unfit()
+        .fit(())
+        .decision_risks(
+            queries,
+            false_stable_cost=builder.false_stable_cost,
+            false_unstable_cost=builder.false_unstable_cost,
+        )
+        .values()
+    )
+    assert baseline != pytest.approx(unweighted)
+
+
+@pytest.mark.parametrize("seed", range(5))
+def test_joint_posterior_risk_one_swap_matches_manual_neighborhood(seed: int) -> None:
+    generator = np.random.default_rng(seed)
+    builder = CalibrationUtilityBuilder(
+        FixedKernelResidualGP(
+            ProtocolCompatibilityResolver(),
+            config=FixedKernelGPConfig(length_scale=0.35),
+        )
+    )
+    planner = JointPosteriorRiskOneSwapPlanner(2, builder)
+    queries = tuple(
+        _query(
+            f"joint-q-{index}",
+            embedding=tuple(generator.normal(size=3)),
+            base_energy=float(-1 + generator.normal(scale=0.05)),
+        )
+        for index in range(4)
+    )
+    current = tuple(
+        _card(
+            f"joint-c-{index}",
+            embedding=tuple(generator.normal(size=3)),
+            formation_energy=float(-1 + generator.normal(scale=0.08)),
+            base_energy=-1.0,
+        )
+        for index in range(2)
+    )
+    new_card = _card(
+        "joint-new",
+        embedding=tuple(generator.normal(size=3)),
+        formation_energy=float(-1 + generator.normal(scale=0.08)),
+        base_energy=-1.0,
+    )
+    selection = planner.preview_admit(current, new_card, queries)
+    candidates = (
+        current,
+        (new_card, current[1]),
+        (current[0], new_card),
+    )
+    manual = {
+        tuple(card.card_id for card in cards): builder.weighted_decision_risk(
+            queries, cards
+        )
+        for cards in candidates
+    }
+    expected = min(manual, key=lambda ids: (manual[ids], ids))
+    current_ids = tuple(card.card_id for card in current)
+    if manual[expected] >= manual[current_ids]:
+        expected = current_ids
+    assert selection.selected_card_ids == expected
+    assert selection.weighted_joint_risk == pytest.approx(manual[expected])
+    assert len(selection.candidate_weighted_joint_risks) == 3
+
+
+def test_objective_fidelity_scores_identical_one_swap_candidates() -> None:
+    builder = CalibrationUtilityBuilder(
+        FixedKernelResidualGP(
+            ProtocolCompatibilityResolver(),
+            config=FixedKernelGPConfig(length_scale=0.3),
+        )
+    )
+    facility = FacilityLocationCoresetPlanner(2, builder)
+    joint = JointPosteriorRiskOneSwapPlanner(2, builder)
+    queries = (
+        _query("fidelity-a", embedding=(1.0, 0.0), base_energy=-0.98),
+        _query("fidelity-b", embedding=(0.0, 1.0), base_energy=-1.02),
+    )
+    current = (
+        _card("fidelity-old-a", embedding=(1.0, 0.0), formation_energy=-1.04),
+        _card("fidelity-old-b", embedding=(0.0, 1.0), formation_energy=-0.94),
+    )
+    new_card = _card(
+        "fidelity-new",
+        embedding=(0.7, 0.7),
+        formation_energy=-1.01,
+    )
+    diagnostic = compare_facility_and_joint_objectives(
+        current, new_card, queries, facility, joint
+    )
+    facility_preview = facility.preview_admit(current, new_card, queries)
+    joint_preview = joint.preview_admit(current, new_card, queries)
+    assert len(diagnostic.candidates) == 3
+    assert {row.candidate_key for row in diagnostic.candidates} == {
+        "fidelity-old-a|fidelity-old-b",
+        "fidelity-new|fidelity-old-a",
+        "fidelity-new|fidelity-old-b",
+    }
+    assert diagnostic.facility_selected_card_ids == facility_preview.selected_card_ids
+    assert diagnostic.joint_risk_selected_card_ids == joint_preview.selected_card_ids
+    assert diagnostic.facility_joint_risk_regret >= 0
 
 
 def test_zero_survival_weight_returns_base_ranking_verbatim() -> None:

@@ -20,7 +20,13 @@ from .cards import HullSnapshot, MaterialMemoryCard, MaterialQuery, SourceProven
 from .coreset import (
     CoresetSelection,
     FacilityLocationCoresetPlanner,
+    JointPosteriorRiskOneSwapPlanner,
+    JointPosteriorRiskSelection,
+    ObjectiveFidelityCandidate,
+    ObjectiveFidelityDiagnostic,
     StreamingCalibrationCoreset,
+    StreamingJointPosteriorRiskCoreset,
+    compare_facility_and_joint_objectives,
 )
 from .hull_engine import CausalHullEngine
 from .identity import CanonicalGroupSplit, MaterialIdentity
@@ -113,6 +119,8 @@ __all__ = [
     "FrozenPredictionSOAPCache",
     "FrozenPredictionSOAPRecord",
     "HullSnapshot",
+    "JointPosteriorRiskOneSwapPlanner",
+    "JointPosteriorRiskSelection",
     "MatchedResidualPair",
     "MaterialMemoryCard",
     "MaterialIdentity",
@@ -120,6 +128,8 @@ __all__ = [
     "MPCausalHullBuilder",
     "MPPhaseRecord",
     "PosteriorUncertaintyAcquisition",
+    "ObjectiveFidelityCandidate",
+    "ObjectiveFidelityDiagnostic",
     "ProtocolCertificate",
     "ProtocolCompatibility",
     "ProtocolCompatibilityResolver",
@@ -143,6 +153,7 @@ __all__ = [
     "SecureWBMRunner",
     "StreamingCalibrationCoreset",
     "StreamingCoresetEvidence",
+    "StreamingJointPosteriorRiskCoreset",
     "SurvivalConditionedAcquisition",
     "SOAPCacheConfig",
     "WBMObservableRecord",
@@ -164,6 +175,7 @@ __all__ = [
     "ExternalDataArtifact",
     "assert_exact_emulation",
     "audit_external_data_artifacts",
+    "compare_facility_and_joint_objectives",
     "replay_wbm_event_log",
     "raw_wbm_records_from_payload",
     "validate_raw_wbm_release",

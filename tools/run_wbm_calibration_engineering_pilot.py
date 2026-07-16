@@ -8,7 +8,9 @@ the sole secure WBM runner, and writes every ledger and result outside Git.
 from __future__ import annotations
 
 import argparse
+import itertools
 import json
+import math
 import sys
 import time
 from datetime import UTC, datetime, timedelta
@@ -44,6 +46,7 @@ from evimem.matmem import (  # noqa: E402
     FixedKernelGPConfig,
     FixedKernelResidualGP,
     HullSnapshot,
+    JointPosteriorRiskOneSwapPlanner,
     MaterialIdentity,
     MaterialMemoryCard,
     MaterialQuery,
@@ -57,6 +60,7 @@ from evimem.matmem import (  # noqa: E402
     StreamingCoresetEvidence,
     WBMOracleRecord,
     WBMOracleVault,
+    compare_facility_and_joint_objectives,
 )
 from evimem.matmem.protocols import ProtocolCertificate  # noqa: E402
 
@@ -76,6 +80,67 @@ class _DiversityEvidence:
 
     def admit(self, card: Any, query_pool: tuple[MaterialQuery, ...]) -> None:
         self.memory.admit(card, query_pool)
+
+
+class _ObjectiveFidelityEvidence:
+    """Run one selector while auditing both objectives on every same neighborhood."""
+
+    def __init__(
+        self,
+        capacity: int,
+        config: FixedKernelGPConfig,
+        *,
+        selector: str,
+    ) -> None:
+        if selector not in {"facility", "joint_risk"}:
+            raise ValueError("unknown objective-fidelity selector")
+        self.capacity = capacity
+        self.selector = selector
+        resolver = ProtocolCompatibilityResolver()
+        builder = CalibrationUtilityBuilder(
+            FixedKernelResidualGP(resolver, config=config)
+        )
+        self.facility = FacilityLocationCoresetPlanner(
+            capacity, builder, min_admission_gain=1e-12
+        )
+        self.joint = JointPosteriorRiskOneSwapPlanner(
+            capacity, builder, min_risk_improvement=1e-12
+        )
+        self._cards: dict[str, MaterialMemoryCard] = {}
+        self.diagnostics: list[dict[str, Any]] = []
+
+    def active(self, archive: tuple[Any, ...]) -> tuple[MaterialMemoryCard, ...]:
+        del archive
+        return tuple(self._cards.values())
+
+    def admit(
+        self,
+        card: MaterialMemoryCard,
+        query_pool: tuple[MaterialQuery, ...],
+    ) -> object:
+        current = self.active(())
+        diagnostic = compare_facility_and_joint_objectives(
+            current,
+            card,
+            query_pool,
+            self.facility,
+            self.joint,
+        )
+        self.diagnostics.append(
+            {
+                "admission_index": len(self.diagnostics) + 1,
+                **diagnostic.model_dump(mode="json"),
+            }
+        )
+        selected_ids = (
+            diagnostic.facility_selected_card_ids
+            if self.selector == "facility"
+            else diagnostic.joint_risk_selected_card_ids
+        )
+        if card.card_id in selected_ids:
+            candidates = {**self._cards, card.card_id: card}
+            self._cards = {card_id: candidates[card_id] for card_id in selected_ids}
+        return diagnostic
 
 
 def exact_gram_embedding(vectors: np.ndarray) -> np.ndarray:
@@ -158,6 +223,8 @@ def _build_queries(
 
 
 def _coreset(capacity: int, config: FixedKernelGPConfig) -> StreamingCoresetEvidence:
+    """Construct the coreset used by the paused survival diagnostic only."""
+
     resolver = ProtocolCompatibilityResolver()
     planner = FacilityLocationCoresetPlanner(
         capacity,
@@ -186,7 +253,13 @@ def _strategy(
     if name == "diversity":
         return base_policy, _DiversityEvidence(capacity)
     if name == "decision_coreset":
-        return base_policy, _coreset(capacity, config)
+        return base_policy, _ObjectiveFidelityEvidence(
+            capacity, config, selector="facility"
+        )
+    if name == "joint_posterior_risk_one_swap":
+        return base_policy, _ObjectiveFidelityEvidence(
+            capacity, config, selector="joint_risk"
+        )
     if name == "survival_coreset":
         if acquisition != "gp_uncertainty":
             raise ValueError("survival coreset requires GP uncertainty acquisition")
@@ -201,6 +274,150 @@ def _strategy(
             _coreset(capacity, config),
         )
     raise ValueError(f"unknown strategy: {name}")
+
+
+def _material_card(
+    query: MaterialQuery,
+    formation_energy_ev_per_atom: float,
+) -> MaterialMemoryCard:
+    return MaterialMemoryCard(
+        card_id=f"wbm-card:{query.query_id}",
+        material_id=query.query_id,
+        structure_hash=query.structure_hash,
+        identity=query.identity,
+        composition=query.composition,
+        embedding=query.embedding,
+        protocol=query.protocol,
+        provenance=SourceProvenance(
+            source_name="WBM",
+            source_version=SOURCE_VERSION,
+            record_locator=f"{SOURCE_VERSION}:{query.query_id}",
+            retrieved_at=OBSERVED_TIME,
+        ),
+        formation_energy_ev_per_atom=formation_energy_ev_per_atom,
+        base_predicted_formation_energy_ev_per_atom=(
+            query.base_predicted_formation_energy_ev_per_atom
+        ),
+        oracle_residual_ev_per_atom=(
+            formation_energy_ev_per_atom
+            - query.base_predicted_formation_energy_ev_per_atom
+        ),
+        hull_snapshot=query.hull_snapshot,
+        observed_at=OBSERVED_TIME,
+    )
+
+
+def _oracle_weighted_decision_loss(
+    builder: CalibrationUtilityBuilder,
+    queries: tuple[MaterialQuery, ...],
+    cards: tuple[MaterialMemoryCard, ...],
+    oracle_formation_by_id: dict[str, float],
+) -> float:
+    posterior = builder.posterior_template.clone_unfit().fit(cards)
+    probabilities = posterior.predict(queries).stable_probability
+    weights = builder.boundary_weights(queries)
+    stable_cutoff = builder.false_stable_cost / (
+        builder.false_stable_cost + builder.false_unstable_cost
+    )
+    total = 0.0
+    for query, probability in zip(queries, probabilities, strict=True):
+        predicted_stable = probability >= stable_cutoff
+        actual_stable = (
+            query.hull_distance(oracle_formation_by_id[query.query_id])
+            <= query.stability_threshold_ev_per_atom
+        )
+        if predicted_stable and not actual_stable:
+            total += weights[query.query_id] * builder.false_stable_cost
+        elif not predicted_stable and actual_stable:
+            total += weights[query.query_id] * builder.false_unstable_cost
+    return float(total)
+
+
+def _offline_subset_audit(
+    *,
+    history_cards: tuple[MaterialMemoryCard, ...],
+    active_cards: tuple[MaterialMemoryCard, ...],
+    remaining_queries: tuple[MaterialQuery, ...],
+    oracle_formation_by_id: dict[str, float],
+    capacity: int,
+    config: FixedKernelGPConfig,
+) -> dict[str, Any] | None:
+    if not remaining_queries or capacity < 1 or len(history_cards) < capacity:
+        return None
+    builder = CalibrationUtilityBuilder(
+        FixedKernelResidualGP(ProtocolCompatibilityResolver(), config=config)
+    )
+    rows = []
+    for subset in itertools.combinations(history_cards, capacity):
+        rows.append(
+            {
+                "selected_card_ids": sorted(card.card_id for card in subset),
+                "observable_weighted_joint_risk": builder.weighted_decision_risk(
+                    remaining_queries, subset
+                ),
+                "offline_oracle_weighted_decision_loss": (
+                    _oracle_weighted_decision_loss(
+                        builder,
+                        remaining_queries,
+                        subset,
+                        oracle_formation_by_id,
+                    )
+                ),
+            }
+        )
+    observable_best = min(
+        rows,
+        key=lambda row: (
+            row["observable_weighted_joint_risk"],
+            row["selected_card_ids"],
+        ),
+    )
+    oracle_best = min(
+        rows,
+        key=lambda row: (
+            row["offline_oracle_weighted_decision_loss"],
+            row["selected_card_ids"],
+        ),
+    )
+    active_observable = builder.weighted_decision_risk(
+        remaining_queries, active_cards
+    )
+    active_oracle = _oracle_weighted_decision_loss(
+        builder,
+        remaining_queries,
+        active_cards,
+        oracle_formation_by_id,
+    )
+    equal_capacity = len(active_cards) == capacity
+    return {
+        "history_size": len(history_cards),
+        "capacity": capacity,
+        "enumerated_exact_capacity_subset_count": len(rows),
+        "active_card_ids": sorted(card.card_id for card in active_cards),
+        "active_size_matches_capacity": equal_capacity,
+        "active_observable_weighted_joint_risk": active_observable,
+        "active_offline_oracle_weighted_decision_loss": active_oracle,
+        "observable_optimum": observable_best,
+        "offline_oracle_optimum": oracle_best,
+        "active_observable_regret": (
+            max(
+                0.0,
+                active_observable
+                - float(observable_best["observable_weighted_joint_risk"]),
+            )
+            if equal_capacity
+            else None
+        ),
+        "active_offline_oracle_loss_regret": (
+            max(
+                0.0,
+                active_oracle
+                - float(oracle_best["offline_oracle_weighted_decision_loss"]),
+            )
+            if equal_capacity
+            else None
+        ),
+    }
 
 
 def _run_one(
@@ -251,48 +468,55 @@ def _run_one(
             oracle_universe=universe,
             event_log=event_log,
         ).run(oracle_budget=float(budget))
-    final_active_ids = set(result.events[-1].active_witness_ids if result.events else ())
     query_by_id = {query.query_id: query for query in queries}
-    cards = []
-    for card_id in sorted(final_active_ids):
-        query_id = card_id.removeprefix("wbm-card:")
-        query = query_by_id[query_id]
-        formation = float(ppd.get_form_energy_per_atom(universe_by_id[query_id].entry))
-        cards.append(
-            MaterialMemoryCard(
-                card_id=card_id,
-                material_id=query_id,
-                structure_hash=query.structure_hash,
-                identity=query.identity,
-                composition=query.composition,
-                embedding=query.embedding,
-                protocol=query.protocol,
-                provenance=SourceProvenance(
-                    source_name="WBM",
-                    source_version=SOURCE_VERSION,
-                    record_locator=f"{SOURCE_VERSION}:{query_id}",
-                    retrieved_at=OBSERVED_TIME,
-                ),
-                formation_energy_ev_per_atom=formation,
-                base_predicted_formation_energy_ev_per_atom=(
-                    query.base_predicted_formation_energy_ev_per_atom
-                ),
-                oracle_residual_ev_per_atom=(
-                    formation - query.base_predicted_formation_energy_ev_per_atom
-                ),
-                hull_snapshot=query.hull_snapshot,
-                observed_at=OBSERVED_TIME,
-            )
-        )
+    oracle_formation_by_id = {
+        query_id: float(ppd.get_form_energy_per_atom(item.entry))
+        for query_id, item in universe_by_id.items()
+        if query_id in query_by_id
+    }
+    history_cards = tuple(
+        _material_card(query_by_id[query_id], oracle_formation_by_id[query_id])
+        for query_id in result.selected_query_ids
+    )
+    final_active_ids = set(
+        result.events[-1].active_witness_ids if result.events else ()
+    )
+    cards = tuple(
+        card for card in history_cards if card.card_id in final_active_ids
+    )
+    final_hull = CompositionHullState(
+        initial_diagram,
+        chemical_system=queries[0].hull_snapshot.chemical_system,
+        source_version="MP-2022.10.28",
+    )
+    for query_id in result.selected_query_ids:
+        final_hull.add_revealed(universe_by_id[query_id])
     remaining_queries = tuple(
-        query for query in queries if query.query_id not in result.selected_query_ids
+        query.model_copy(
+            update={
+                "hull_snapshot": final_hull.snapshot(
+                    query,
+                    round_index=len(result.selected_query_ids) + 1,
+                    built_at=OBSERVED_TIME,
+                ),
+                "as_of": OBSERVED_TIME,
+            }
+        )
+        for query in queries
+        if query.query_id not in result.selected_query_ids
     )
     calibration = {
         "remaining_candidate_count": len(remaining_queries),
         "final_active_witness_count": len(cards),
         "residual_rmse_ev_per_atom": None,
         "residual_gaussian_nll": None,
-        "initial_hull_stability_brier": None,
+        "causal_hull_stability_brier": None,
+        "causal_hull_stability_log_loss": None,
+        "asymmetric_weighted_decision_loss": None,
+        "observable_weighted_joint_risk": None,
+        "gaussian_crps": None,
+        "interval_90_coverage": None,
+        "interval_90_mean_width_ev_per_atom": None,
     }
     if remaining_queries:
         posterior = FixedKernelResidualGP(
@@ -323,20 +547,78 @@ def _run_one(
             dtype=float,
         )
         probabilities = np.asarray(prediction.stable_probability)
+        clipped = np.clip(probabilities, 1e-12, 1 - 1e-12)
+        z = (truth - mean) / std
+        normal_pdf = np.exp(-0.5 * z**2) / np.sqrt(2 * np.pi)
+        normal_cdf = 0.5 * (
+            1
+            + np.asarray(
+                [math.erf(float(value) / np.sqrt(2)) for value in z]
+            )
+        )
+        builder = CalibrationUtilityBuilder(
+            FixedKernelResidualGP(ProtocolCompatibilityResolver(), config=config)
+        )
         calibration.update(
             {
-                "residual_rmse_ev_per_atom": float(np.sqrt(np.mean((truth - mean) ** 2))),
+                "residual_rmse_ev_per_atom": float(
+                    np.sqrt(np.mean((truth - mean) ** 2))
+                ),
                 "residual_gaussian_nll": float(
                     np.mean(
                         0.5 * np.log(2 * np.pi * std**2)
                         + 0.5 * ((truth - mean) / std) ** 2
                     )
                 ),
-                "initial_hull_stability_brier": float(
+                "causal_hull_stability_brier": float(
                     np.mean((probabilities - labels) ** 2)
+                ),
+                "causal_hull_stability_log_loss": float(
+                    -np.mean(
+                        labels * np.log(clipped)
+                        + (1 - labels) * np.log(1 - clipped)
+                    )
+                ),
+                "asymmetric_weighted_decision_loss": _oracle_weighted_decision_loss(
+                    builder,
+                    remaining_queries,
+                    cards,
+                    oracle_formation_by_id,
+                ),
+                "observable_weighted_joint_risk": builder.weighted_decision_risk(
+                    remaining_queries,
+                    cards,
+                ),
+                "gaussian_crps": float(
+                    np.mean(
+                        std
+                        * (
+                            z * (2 * normal_cdf - 1)
+                            + 2 * normal_pdf
+                            - 1 / np.sqrt(np.pi)
+                        )
+                    )
+                ),
+                "interval_90_coverage": float(
+                    np.mean(np.abs(truth - mean) <= 1.6448536269514722 * std)
+                ),
+                "interval_90_mean_width_ev_per_atom": float(
+                    np.mean(2 * 1.6448536269514722 * std)
                 ),
             }
         )
+    subset_audit = (
+        _offline_subset_audit(
+            history_cards=history_cards,
+            active_cards=cards,
+            remaining_queries=remaining_queries,
+            oracle_formation_by_id=oracle_formation_by_id,
+            capacity=capacity,
+            config=config,
+        )
+        if name == "decision_coreset"
+        else None
+    )
     return {
         "pool": pool_name,
         "strategy": name,
@@ -345,6 +627,8 @@ def _run_one(
         "capacity": capacity,
         "wall_seconds": time.perf_counter() - started,
         "calibration": calibration,
+        "objective_fidelity_rounds": getattr(evidence, "diagnostics", None),
+        "offline_subset_audit": subset_audit,
         **result.model_dump(mode="json"),
     }
 
@@ -364,6 +648,11 @@ def main() -> None:
     parser.add_argument("--capacity", type=int, default=4)
     parser.add_argument(
         "--acquisition", choices=("gp_uncertainty", "frozen"), default="gp_uncertainty"
+    )
+    parser.add_argument(
+        "--include-paused-survival",
+        action="store_true",
+        help="run the frozen negative survival diagnostic without tuning it",
     )
     args = parser.parse_args()
     repo_root = Path(__file__).resolve().parents[1]
@@ -408,18 +697,17 @@ def main() -> None:
         noise_std_ev_per_atom=0.01,
         jitter=1e-10,
     )
-    strategy_names = (
-        (
-            "fifo",
-            "free_same_fifo",
-            "full_history",
-            "diversity",
-            "decision_coreset",
-            "survival_coreset",
-        )
-        if args.acquisition == "gp_uncertainty"
-        else ("fifo", "full_history", "diversity", "decision_coreset")
-    )
+    strategy_names = [
+        "fifo",
+        "full_history",
+        "diversity",
+        "decision_coreset",
+        "joint_posterior_risk_one_swap",
+    ]
+    if args.acquisition == "gp_uncertainty":
+        strategy_names.insert(1, "free_same_fifo")
+    if args.include_paused_survival:
+        strategy_names.append("survival_coreset")
     runs = []
     for pool_name, pool in sorted(pool_payload["selection"]["pools"].items()):
         system = tuple(sorted(pool["chemical_system"]))
@@ -473,6 +761,62 @@ def main() -> None:
                 )
             )
     by_pool_strategy = {(run["pool"], run["strategy"]): run for run in runs}
+    for pool_name in pool_payload["selection"]["pools"]:
+        reference_run = by_pool_strategy[(pool_name, "decision_coreset")]
+        reference_audit = reference_run["offline_subset_audit"]
+        if reference_audit is None:
+            continue
+        for strategy_name in strategy_names:
+            run = by_pool_strategy[(pool_name, strategy_name)]
+            if run["selected_query_ids"] != reference_run["selected_query_ids"]:
+                continue
+            active_ids = (
+                run["events"][-1]["active_witness_ids"] if run["events"] else []
+            )
+            equal_capacity = len(active_ids) == args.capacity
+            observable = run["calibration"]["observable_weighted_joint_risk"]
+            oracle_loss = run["calibration"]["asymmetric_weighted_decision_loss"]
+            run["offline_subset_audit"] = {
+                "history_size": reference_audit["history_size"],
+                "capacity": args.capacity,
+                "enumerated_exact_capacity_subset_count": reference_audit[
+                    "enumerated_exact_capacity_subset_count"
+                ],
+                "active_card_ids": sorted(active_ids),
+                "active_size_matches_capacity": equal_capacity,
+                "active_observable_weighted_joint_risk": observable,
+                "active_offline_oracle_weighted_decision_loss": oracle_loss,
+                "observable_optimum": reference_audit["observable_optimum"],
+                "offline_oracle_optimum": reference_audit["offline_oracle_optimum"],
+                "active_observable_regret": (
+                    max(
+                        0.0,
+                        observable
+                        - float(
+                            reference_audit["observable_optimum"][
+                                "observable_weighted_joint_risk"
+                            ]
+                        ),
+                    )
+                    if equal_capacity
+                    else None
+                ),
+                "active_offline_oracle_loss_regret": (
+                    max(
+                        0.0,
+                        oracle_loss
+                        - float(
+                            reference_audit["offline_oracle_optimum"][
+                                "offline_oracle_weighted_decision_loss"
+                            ]
+                        ),
+                    )
+                    if equal_capacity
+                    else None
+                ),
+                "reused_from_matched_action_reference": strategy_name
+                != "decision_coreset",
+            }
     parity_mismatches = []
     if "free_same_fifo" in strategy_names:
         for pool_name in pool_payload["selection"]["pools"]:
@@ -487,6 +831,17 @@ def main() -> None:
             for strategy_name in strategy_names:
                 if by_pool_strategy[(pool_name, strategy_name)]["selected_query_ids"] != reference:
                     matched_trace_mismatches.append(f"{pool_name}:{strategy_name}")
+    metric_names = (
+        "residual_rmse_ev_per_atom",
+        "residual_gaussian_nll",
+        "causal_hull_stability_brier",
+        "causal_hull_stability_log_loss",
+        "asymmetric_weighted_decision_loss",
+        "observable_weighted_joint_risk",
+        "gaussian_crps",
+        "interval_90_coverage",
+        "interval_90_mean_width_ev_per_atom",
+    )
     aggregates = {}
     for strategy_name in strategy_names:
         selected = [run for run in runs if run["strategy"] == strategy_name]
@@ -500,20 +855,117 @@ def main() -> None:
                 run["benchmark_false_confirmations"] for run in selected
             ),
             "wall_seconds": sum(run["wall_seconds"] for run in selected),
-            "mean_remaining_residual_rmse_ev_per_atom": float(
-                np.mean(
-                    [run["calibration"]["residual_rmse_ev_per_atom"] for run in selected]
+            **{
+                f"mean_remaining_{metric}": float(
+                    np.mean([run["calibration"][metric] for run in selected])
                 )
+                for metric in metric_names
+            },
+        }
+        eligible_audits = [
+            run["offline_subset_audit"]
+            for run in selected
+            if run["offline_subset_audit"] is not None
+            and run["offline_subset_audit"]["active_size_matches_capacity"]
+        ]
+        aggregates[strategy_name]["mean_offline_observable_subset_regret"] = (
+            float(
+                np.mean(
+                    [audit["active_observable_regret"] for audit in eligible_audits]
+                )
+            )
+            if eligible_audits
+            else None
+        )
+        aggregates[strategy_name]["mean_offline_oracle_loss_subset_regret"] = (
+            float(
+                np.mean(
+                    [
+                        audit["active_offline_oracle_loss_regret"]
+                        for audit in eligible_audits
+                    ]
+                )
+            )
+            if eligible_audits
+            else None
+        )
+    objective_fidelity = {}
+    for strategy_name in (
+        "decision_coreset",
+        "joint_posterior_risk_one_swap",
+    ):
+        records = [
+            record
+            for run in runs
+            if run["strategy"] == strategy_name
+            for record in (run["objective_fidelity_rounds"] or [])
+        ]
+        correlations = [
+            record["spearman_facility_vs_negative_joint_risk"]
+            for record in records
+            if record["spearman_facility_vs_negative_joint_risk"] is not None
+        ]
+        saturated = [
+            record
+            for record in records
+            if len(record["candidates"]) == args.capacity + 1
+        ]
+        saturated_correlations = [
+            record["spearman_facility_vs_negative_joint_risk"]
+            for record in saturated
+            if record["spearman_facility_vs_negative_joint_risk"] is not None
+        ]
+        objective_fidelity[strategy_name] = {
+            "round_count": len(records),
+            "comparable_spearman_round_count": len(correlations),
+            "mean_spearman_facility_vs_negative_joint_risk": (
+                float(np.mean(correlations)) if correlations else None
             ),
-            "mean_remaining_residual_gaussian_nll": float(
-                np.mean(
-                    [run["calibration"]["residual_gaussian_nll"] for run in selected]
-                )
+            "selection_agreement_rate": (
+                float(np.mean([record["selections_agree"] for record in records]))
+                if records
+                else None
             ),
-            "mean_remaining_initial_hull_stability_brier": float(
-                np.mean(
-                    [run["calibration"]["initial_hull_stability_brier"] for run in selected]
+            "mean_facility_joint_risk_regret": (
+                float(
+                    np.mean(
+                        [record["facility_joint_risk_regret"] for record in records]
+                    )
                 )
+                if records
+                else None
+            ),
+            "positive_regret_round_count": sum(
+                record["facility_joint_risk_regret"] > 1e-12 for record in records
+            ),
+            "saturated_round_count": len(saturated),
+            "saturated_selection_agreement_rate": (
+                float(
+                    np.mean([record["selections_agree"] for record in saturated])
+                )
+                if saturated
+                else None
+            ),
+            "saturated_mean_spearman": (
+                float(np.mean(saturated_correlations))
+                if saturated_correlations
+                else None
+            ),
+            "saturated_positive_regret_round_count": sum(
+                record["facility_joint_risk_regret"] > 1e-12
+                for record in saturated
+            ),
+            "saturated_mean_facility_joint_risk_regret": (
+                float(
+                    np.mean(
+                        [
+                            record["facility_joint_risk_regret"]
+                            for record in saturated
+                        ]
+                    )
+                )
+                if saturated
+                else None
             ),
         }
     report = {
@@ -533,6 +985,8 @@ def main() -> None:
         ),
         "matched_frozen_acquisition_mismatches": matched_trace_mismatches,
         "aggregates": aggregates,
+        "objective_fidelity": objective_fidelity,
+        "paused_survival_included": args.include_paused_survival,
         "runs": runs,
         "interpretation_guardrails": [
             "engineering hyperparameters were not claim-grade calibrated",

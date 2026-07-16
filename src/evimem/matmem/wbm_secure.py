@@ -23,7 +23,7 @@ from typing import Any, Literal, Protocol
 from pydantic import BaseModel, ConfigDict, Field
 
 from .cards import HullSnapshot, MaterialMemoryCard, MaterialQuery, SourceProvenance
-from .coreset import StreamingCalibrationCoreset
+from .coreset import StreamingCalibrationCoreset, StreamingJointPosteriorRiskCoreset
 from .protocols import ProtocolCertificate
 from .residual_posterior import FixedKernelGPConfig
 from .wbm import WBMOracleRecord
@@ -648,7 +648,10 @@ class ReconstructedFIFOEvidence:
 class StreamingCoresetEvidence:
     """Expose the new calibration coreset through the sole WBM access API."""
 
-    def __init__(self, coreset: StreamingCalibrationCoreset) -> None:
+    def __init__(
+        self,
+        coreset: StreamingCalibrationCoreset | StreamingJointPosteriorRiskCoreset,
+    ) -> None:
         self.coreset = coreset
         self.capacity = coreset.capacity
 

@@ -103,6 +103,27 @@ class CalibrationUtilityBuilder:
         )
         return float(np.exp(-margin / self.boundary_scale_ev_per_atom))
 
+    def boundary_weights(
+        self, queries: Sequence[MaterialQuery]
+    ) -> dict[str, float]:
+        """Return the fixed query weights used by every objective in a round."""
+
+        return {query.query_id: self._boundary_weight(query) for query in queries}
+
+    def weighted_decision_risk(
+        self,
+        queries: Iterable[MaterialQuery],
+        witnesses: Iterable[MaterialMemoryCard],
+    ) -> float:
+        """Evaluate the true joint-GP decision risk of one witness subset."""
+
+        query_items = tuple(queries)
+        weights = self.boundary_weights(query_items)
+        risks = self._risks(query_items, tuple(witnesses))
+        return float(
+            sum(weights[query.query_id] * risks[query.query_id] for query in query_items)
+        )
+
     def build(
         self,
         queries: Iterable[MaterialQuery],
@@ -115,6 +136,7 @@ class CalibrationUtilityBuilder:
         if len({card.card_id for card in witness_items}) != len(witness_items):
             raise ValueError("calibration utility witnesses must have unique IDs")
         baseline = self._risks(query_items, ())
+        weights = self.boundary_weights(query_items)
         gains = np.zeros((len(query_items), len(witness_items)), dtype=float)
         for column, witness in enumerate(witness_items):
             conditioned = self.posterior_template.single_witness_decision_risks(
@@ -124,7 +146,7 @@ class CalibrationUtilityBuilder:
                 false_unstable_cost=self.false_unstable_cost,
             )
             for row, query in enumerate(query_items):
-                gains[row, column] = self._boundary_weight(query) * max(
+                gains[row, column] = weights[query.query_id] * max(
                     0.0,
                     baseline[query.query_id] - conditioned[query.query_id],
                 )
@@ -134,5 +156,10 @@ class CalibrationUtilityBuilder:
                 witness_ids=tuple(card.card_id for card in witness_items),
                 gains=gains,
             ),
-            sum(baseline.values()),
+            float(
+                sum(
+                    weights[query.query_id] * baseline[query.query_id]
+                    for query in query_items
+                )
+            ),
         )

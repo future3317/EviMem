@@ -96,10 +96,49 @@ B8/K2 matched trace: E:\DATA\EviMem-RL\outputs\engineering\wbm-calibration-match
 SHA-256 7c6ed468f8bb7e31e6dcd8389cbc7fc0df373daad78bd20be869984a63becbf8
 ```
 
+## Objective-fidelity follow-up
+
+The corrected follow-up keeps the same `B=8,K=2` frozen action trace and adds
+`JointPosteriorRiskOneSwap`. It also evaluates stability against the updated
+causal hull after the eight reveals; these Brier values therefore supersede the
+initial-hull Brier column above rather than silently overwriting it.
+
+| Retention | RMSE | NLL | causal Brier | causal log loss | CRPS | observable joint risk |
+|---|---:|---:|---:|---:|---:|---:|
+| FIFO | 0.0712 | -0.2875 | 0.0767 | 0.2681 | 0.0444 | 0.6079 |
+| full history | 0.0697 | 0.5179 | 0.0482 | 0.1819 | 0.0444 | 0.4638 |
+| diversity | 0.0768 | 0.3847 | **0.0396** | **0.1530** | 0.0482 | 0.5746 |
+| DACC | **0.0656** | -0.4841 | 0.0469 | 0.1826 | **0.0393** | 0.3695 |
+| joint-risk one-swap | 0.0688 | **-0.5404** | 0.0447 | 0.1783 | 0.0407 | **0.3634** |
+
+Across all 64 admissions on the DACC trajectory, facility value and negative
+joint risk have mean Spearman `0.812`; selection agreement is `82.8%`, and only
+11 rounds have positive facility joint-risk regret. Restricting to the 46
+saturated `K+1` neighborhoods raises mean Spearman to `0.878` and agreement to
+`84.8%`; seven rounds have positive regret. Final DACC and joint-risk active
+sets are identical in five of eight systems. Among the three differences,
+neither method dominates: DACC wins two systems on NLL/CRPS, while joint risk
+wins two on RMSE/Brier/log loss, with five ties for every metric.
+
+The asymmetric weighted decision loss is identical for all methods in this
+small final-time view: seven systems have zero loss and the only nonzero system
+does not distinguish selectors. It is therefore a valid but uninformative
+primary metric here; broader systems and prequential evaluation are required.
+
+```text
+E:\DATA\EviMem-RL\outputs\engineering\wbm-objective-fidelity-matched-b8-k2-v3\summary.json
+SHA-256 ed86b1666716ce9b40e23b5de10d01a5c8fd98d8a1f9bfeb1bfc7e3d2ccfc3ee
+```
+
+This diagnostic supports retaining DACC as the simpler primary hypothesis and
+keeping joint risk as a fidelity baseline. It does not support promoting joint
+risk, claiming superiority, or entering MADE.
+
 ## Decision
 
-- **Continue** the primary calibration-coreset hypothesis to a small frozen
-  grid over tight capacities and calibration-only hyperparameters.
+- **Continue** the primary calibration-coreset hypothesis to a feasible frozen
+  grid over tight capacities and calibration-only hyperparameters, with a
+  GP-variance one-swap baseline.
 - **Pause** survival-conditioned acquisition; do not tune fantasy counts or
   weights against these evaluation pools.
 - Do not claim superiority until canonical/prototype overlap, more independent

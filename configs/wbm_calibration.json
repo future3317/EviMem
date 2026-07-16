@@ -35,7 +35,7 @@
     "proposal_size": 32,
     "num_fantasies": 8,
     "survival_weight": 1.0,
-    "status": "secondary_unvalidated_hypothesis"
+    "status": "paused_negative_diagnostic_disabled_by_default"
   },
   "formal_run_rule": "Claim-grade and MADE runners must reject this file while execution_authorized is false; the audited engineering runner additionally requires the external P1/P1.5 and local-use manifests."
 }
