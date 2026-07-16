@@ -30,6 +30,8 @@ from evimem.matmem import (
     run_fifo_exact_emulation,
 )
 
+from .test_matmem_active import _SyntheticReviser
+
 START = datetime(2026, 1, 1, tzinfo=UTC)
 
 
@@ -294,6 +296,7 @@ def test_zero_cost_fifo_archive_emulation_has_exact_round_checksums() -> None:
         capacity=2,
         oracle_budget=3,
         causal_hull_updates=True,
+        causal_hull_reviser=_SyntheticReviser(),
     )
     assert audit.passed
     assert audit.round_count == 3

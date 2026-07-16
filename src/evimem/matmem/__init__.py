@@ -38,6 +38,7 @@ from .boundary import (
 )
 from .cards import HullSnapshot, MaterialMemoryCard, MaterialQuery, SourceProvenance
 from .coreset import CoresetSelection, DecisionAwareOnlineCoreset
+from .economics import MatchedAccessCost, MatchedAccessCostModel, MatchedAccessOperationLedger
 from .evaluation import (
     DeploymentStrategy,
     DiscoveryMetrics,
@@ -75,9 +76,20 @@ from .wbm import (
     WBMObservableRecord,
     WBMOracleRecord,
     WBMOracleVault,
+    WBMPhaseDiagramHullReviser,
     assert_exact_emulation,
     audit_external_data_artifacts,
     run_fifo_exact_emulation,
+)
+from .wbm_raw import (
+    RAW_WBM_EXPECTED_ENTRY_COUNTS,
+    RAW_WBM_FILENAMES,
+    WBMRawObservableRecord,
+    WBMRawOracleOutcome,
+    WBMRawOracleVault,
+    WBMRawReleaseReport,
+    raw_wbm_records_from_payload,
+    validate_raw_wbm_release,
 )
 
 __all__ = [
@@ -118,6 +130,9 @@ __all__ = [
     "MaterialMemoryCard",
     "MaterialIdentity",
     "MaterialQuery",
+    "MatchedAccessCost",
+    "MatchedAccessCostModel",
+    "MatchedAccessOperationLedger",
     "MPCausalHullBuilder",
     "MPPhaseRecord",
     "OnlineDiscoveryEvaluator",
@@ -143,6 +158,13 @@ __all__ = [
     "WBMObservableRecord",
     "WBMOracleRecord",
     "WBMOracleVault",
+    "WBMPhaseDiagramHullReviser",
+    "WBMRawObservableRecord",
+    "WBMRawOracleOutcome",
+    "WBMRawOracleVault",
+    "WBMRawReleaseReport",
+    "RAW_WBM_EXPECTED_ENTRY_COUNTS",
+    "RAW_WBM_FILENAMES",
     "ExactEmulationAudit",
     "ExactEmulationRound",
     "ExactEmulationTrace",
@@ -150,5 +172,7 @@ __all__ = [
     "assert_exact_emulation",
     "audit_external_data_artifacts",
     "run_fifo_exact_emulation",
+    "raw_wbm_records_from_payload",
     "risk_coverage_curve",
+    "validate_raw_wbm_release",
 ]

@@ -14,6 +14,8 @@ from evimem.matmem import (
     DecisionAwareOnlineCoreset,
     FIFOBoundedMemory,
     HullSnapshot,
+    MatchedAccessCostModel,
+    MatchedAccessOperationLedger,
     MaterialIdentity,
     MaterialMemoryCard,
     MaterialQuery,
@@ -25,6 +27,27 @@ from evimem.matmem import (
 )
 
 START = datetime(2026, 1, 1, tzinfo=UTC)
+
+
+class _SyntheticReviser:
+    """Test double only; production causal updates require a phase diagram."""
+
+    def revise(self, observed: MaterialMemoryCard, remaining_queries, *, call_index: int):
+        result = {}
+        for query in remaining_queries:
+            reference = min(query.hull_snapshot.reference_hull_energy_ev_per_atom, observed.formation_energy_ev_per_atom)
+            result[query.query_id] = query.hull_snapshot.model_copy(update={
+                "snapshot_id": f"{query.hull_snapshot.snapshot_id}:test:{call_index}",
+                "reference_hull_energy_ev_per_atom": reference,
+                "built_at": query.as_of,
+                "known_through": query.as_of,
+            })
+        return result
+
+    def final_stability(self, selected_cards):
+        cards = tuple(selected_cards)
+        reference = min(card.formation_energy_ev_per_atom for card in cards)
+        return {card.material_id: card.formation_energy_ev_per_atom - reference <= 0 for card in cards}
 
 
 def _protocol(functional: str = "PBE") -> ProtocolCertificate:
@@ -314,12 +337,74 @@ def test_causal_and_final_hull_discoveries_are_reported_separately() -> None:
         FIFOBoundedMemory(capacity=0),
         oracle_budget=2,
         causal_hull_updates=True,
+        causal_hull_reviser=_SyntheticReviser(),
     ).evaluate(candidates)
     assert result.query_time_causal_discoveries == 2
     assert result.final_hull_confirmed_discoveries == 1
     assert result.invalidated_provisional_discoveries == 1
     assert result.steps[0].actual_stable
     assert not result.steps[0].final_hull_stable
+
+
+def test_matched_access_ledger_exposes_hull_churn_break_even() -> None:
+    candidates = [
+        _item(
+            "provisional",
+            embedding=(1.0, 0.0),
+            base_energy=-1.05,
+            oracle_energy=-1.02,
+        ),
+        _item(
+            "deep-later",
+            embedding=(0.0, 1.0),
+            base_energy=-1.04,
+            oracle_energy=-1.20,
+        ),
+    ]
+    metrics = ActiveDiscoveryEvaluator(
+        BaseBoundaryAcquisition(),
+        FIFOBoundedMemory(capacity=2),
+        oracle_budget=2,
+        causal_hull_updates=True,
+        causal_hull_reviser=_SyntheticReviser(),
+    ).evaluate(candidates)
+    ledger = MatchedAccessOperationLedger.from_metrics(metrics)
+    assert metrics.steps[0].causal_hull_transition_after_observation
+    assert ledger.oracle_admission_certifications == 2
+    assert ledger.common_witness_scans == 1
+    assert ledger.persistent_hull_recertifications == 1
+    assert ledger.on_demand_archive_retrievals == 1
+    assert ledger.on_demand_recertifications == 1
+
+    free_retrieval = MatchedAccessCostModel(
+        archive_retrieval_cost=0.0,
+        persistent_recertification_cost=2.0,
+        on_demand_recertification_cost=1.0,
+    ).evaluate(ledger)
+    assert free_retrieval.persistent_net_savings == pytest.approx(-1.0)
+
+    costly_retrieval = MatchedAccessCostModel(
+        archive_retrieval_cost=2.0,
+        persistent_recertification_cost=2.0,
+        on_demand_recertification_cost=1.0,
+    ).evaluate(ledger)
+    assert costly_retrieval.persistent_net_savings == pytest.approx(1.0)
+
+
+def test_matched_access_ledger_has_no_persistent_recertification_without_hull_churn() -> None:
+    candidates = [
+        _item("one", embedding=(1.0, 0.0), base_energy=-1.04, oracle_energy=-1.02),
+        _item("two", embedding=(0.0, 1.0), base_energy=-1.03, oracle_energy=-1.01),
+    ]
+    metrics = ActiveDiscoveryEvaluator(
+        BaseBoundaryAcquisition(),
+        FIFOBoundedMemory(capacity=2),
+        oracle_budget=2,
+        causal_hull_updates=False,
+    ).evaluate(candidates)
+    ledger = MatchedAccessOperationLedger.from_metrics(metrics)
+    assert ledger.persistent_hull_recertifications == 0
+    assert ledger.on_demand_archive_retrievals == 1
 
 
 def test_hypothetical_witnesses_never_enter_the_real_archive() -> None:

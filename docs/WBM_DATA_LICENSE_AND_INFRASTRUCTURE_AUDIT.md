@@ -10,10 +10,11 @@ The Matbench Discovery registry at commit
 
 | Artifact | Frozen source candidate | Registry license | Current decision |
 |---|---|---|---|
-| WBM structures/energies | Materials Cloud `2021.68`; 256,963-record curated WBM release | CC-BY-4.0 | research use appears compatible with attribution; exact files/checksums not yet frozen |
-| MP initial phase set | MP v2022.10.28 static artifact (`figshare` file `40344436`) | CC-BY-4.0 | research use appears compatible with attribution; exact file/checksum not yet frozen |
+| WBM structures/energies | Materials Cloud `2021.68` CSEs plus the upstream compiler's Google Drive structures/summary | CC-BY-4.0 | downloaded externally; raw-to-cleaned compiler gate produced exactly 256,963 IDs and an external manifest. Human license decision still pending. |
+| MP initial phase set | `2023-02-07-mp-computed-structure-entries.json.gz` (Figshare `40344436`, MD5 `76fc748db6b175bb80de4c276d27c235`) | CC-BY-4.0 | downloaded outside Git at `E:\DATA\EviMem-RL\artifacts`; official MD5 and frozen SHA-256 verified. Human license decision remains pending. |
+| MP initial parity reference | `2023-02-07-ppd-mp.pkl.gz` (Figshare `48241624`, MD5 `60d19d691fa1d338aa496a40a9641bef`) | CC-BY-4.0 | downloaded outside Git; official MD5 and frozen SHA-256 verified. CSE/PPD phase-membership audit is available in the parity environment. |
 | Matbench Discovery code/registry | GitHub commit above | MIT | code license only; it is not substituted for the data licenses |
-| Frozen predictor output | not yet selected | unresolved | **blocked** pending artifact, model provenance, license, release, and checksum |
+| Frozen predictor output | CHGNet 0.3.0 discovery predictions (Figshare `66646268`, MD5 `fd7cd3781a24be465aaeadf97663ce58`) | BSD-3-Clause model/checkpoint; prediction artifact pending audit | downloaded outside Git; official MD5 and frozen SHA-256 verified. It is the required primary predictor artifact; the checkpoint remains non-substituting. |
 | WBM structure artifact for SOAP | not yet selected | unresolved | **blocked** pending exact structure file, license, release, and checksum |
 
 Evidence URLs:
@@ -34,10 +35,10 @@ use. No dataset, prediction file, SOAP cache, or experiment output is committed.
 
 | Gate | Implemented check | Unit status | Real-artifact status |
 |---|---|---:|---:|
-| 1. Data and license | explicit license authority, external-path enforcement, SHA-256, four required artifact roles | pass | **blocked:** exact predictor/structure artifacts and all local checksums absent |
-| 2. MP initial causal hull | composition-specific linear-program hull using only frozen MP phase records; release and phase-set checksum in `HullSnapshot` | pass | not run: MP artifact absent |
-| 3. Oracle-isolated WBM reveal | policy-safe observable type has no energy/label fields; vault reveals one selected query once | pass | not run: WBM artifact absent |
-| 4. Frozen prediction and SOAP cache | predictor/config/content checksum, fixed SOAP parameters/species, normalized vectors, structure-identity lookup | pass | not run: prediction and structure artifacts absent |
+| 1. Data and license | explicit license authority, external-path enforcement, SHA-256, four required artifact roles | pass | **technical artifact subgate passed:** WBM raw IDs, MP CSE/PPD and official predictor files are external and checksummed. **Formal gate remains blocked** by human license/redistribution approval and the frozen SOAP/structure artifact. |
+| 2. MP initial causal hull | composition-specific linear-program hull using only frozen MP phase records; release and phase-set checksum in `HullSnapshot` | pass | **input-parity subgate passed:** CSE and PPD contain the same 154,718 unique `entry_id` values. Candidate-level initial-hull parity remains pending pool freeze. |
+| 3. Oracle-isolated WBM reveal | policy-safe observable type has no energy/label fields; vault reveals one selected query once | pass | **raw-source smoke pass:** all five files decode; a real structure decodes with pymatgen and energy remains absent from the observable object. Curated WBM IDs/structures are still blocked. |
+| 4. Frozen prediction and SOAP cache | predictor/config/content checksum, fixed SOAP parameters/species, normalized vectors, structure-identity lookup | pass | **prediction subgate passed:** CHGNet 0.3.0 official file has 256,963 unique IDs, exact cleaned-ID join, and no missing/excess IDs. SOAP remains blocked pending canonicalization/pool freeze and cache build. |
 | 5. Exact persistent/on-demand emulation | separate persistent FIFO and archive reconstruction; per-round action, ordered witness state, hull state, discovery state, and canonical trace checksum | pass | not run on WBM pools |
 
 “Unit pass” means the mechanism and failing tests exist using tiny synthetic
@@ -60,9 +61,71 @@ the last column pass with retained manifests and checksums.
 - Exact-emulation cost instrumentation may add timing fields, but any action,
   active witness, hull, or discovery mismatch is a hard failure.
 
+## Local engineering and parity runtimes
+
+The phase-one raw-source smoke checks used `pymatgen 2026.5.4`, `dscribe
+2.1.2`, and `chgnet 0.4.2`, installed in the local `llm` environment on
+2026-07-16. These versions establish that maintained interfaces can decode the
+external WBM structures; they do **not** freeze a predictor checkpoint or
+SOAP cache and they must not be used to regenerate the MP2020-corrected WBM
+labels. The latter remains pinned to the historical WBM compiler environment
+(for example, 2023-era pymatgen behavior) once the v2022.10.28 MP snapshot is
+available.
+
+The separate `wbm-parity` environment is installed with `pymatgen==2023.5.10`
+and is reserved for MP2020 correction and initial-PPD parity checks. It has no
+authority to declare parity until the checksummed MP CSE and PPD artifacts are
+available. Its outputs must be reported separately from the modern adapter
+environment. The published PPD needs a read-only unpickle compatibility
+workaround because its serialized `MaterialsProject2020Compatibility`
+constructor predates the pinned runtime. The workaround restores saved object
+state only; it never changes the file or recomputes a correction.
+
+## Verified frozen official inputs
+
+The three registry artifacts were moved from the repository-local staging
+directory to `E:\DATA\EviMem-RL\artifacts`, where they are excluded from Git.
+`OFFICIAL_ARTIFACT_MD5_VERIFICATION.json` records file ID, size, MD5 and
+SHA-256. The reproducible command below additionally validates CSE/PPD phase
+membership and strict prediction-to-cleaned-ID parity, writing its report
+outside the repository:
+
+```powershell
+conda run --no-capture-output -n wbm-parity python tools/audit_wbm_official_artifacts.py `
+  --artifact-dir E:\DATA\EviMem-RL\artifacts `
+  --cleaned-ids E:\DATA\EviMem-RL\manifests\wbm-cleaned\wbm-256963-cleaned-benchmark-ids.txt `
+  --output E:\DATA\EviMem-RL\manifests\official-artifact-audit.json
+```
+
+The audit reports technical integrity only. It deliberately leaves
+`formal_gate_passed=false` until an accountable human reviews research use,
+attribution and redistribution for every source, and it never exposes WBM
+oracle energy or stability labels to policy code.
+
+## External raw-to-cleaned ID artifact
+
+`tools/build_wbm_cleaned_id_manifest.py` writes only to an external output
+directory. The current run produced
+`wbm-256963-cleaned-benchmark-ids.txt` with ID checksum
+`sha256:ab2ff77ad9d17168a25e2a4724c98438f52bc8ef160a74e01d8eacf9b42e9bc1`.
+The accompanying JSON manifest records all source-file checksums, the six
+step-3 source-ID anomalies, the two missing step-5 initial structures, the
+un-normalized summary/CSE ID differences, the normalized ID equality gate, and
+the `257489 -> 257487 -> 256963` filter chain. It is an identity artifact only,
+not a scientific label or policy result.
+
+The current external JSON manifest has SHA-256
+`5fa86711e4f4b9c3b42ed46652724b93b94a352dd06ba3f5e6d9fb96932b2edb`.
+The separately downloaded official CHGNet 0.3.0 checkpoint has SHA-256
+`d14ab7c0f093efe64b60a7bcd540bca10e74fb7f46c86108a079af60524659d1`;
+it is retained only as a source artifact until its license manifest is manually
+approved and the official discovery prediction file has passed its own MD5 and
+ID-join gates.
+
 ## Next permitted work
 
 Only obtain or point to external artifacts, complete the executable manifest,
-freeze the maintained SOAP/predictor implementations, and run these five gates.
+freeze the maintained SOAP/predictor implementations, run raw-source smoke
+gates, and then run these five gates.
 Do not run uncertainty, CAL-style GP, compatible-residual, random, CAW-Joint,
 or any other comparative WBM policy until the real-artifact column passes.

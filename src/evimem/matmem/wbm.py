@@ -30,6 +30,65 @@ from .identity import MaterialIdentity
 from .protocols import ProtocolCertificate
 
 
+class WBMPhaseDiagramHullReviser:
+    """Exact composition-dependent WBM causal hull updater.
+
+    It rebuilds a phase diagram from the immutable MP phase set and *only*
+    oracle-revealed WBM entries. It never applies a cross-composition minimum
+    formation-energy shortcut.
+    """
+
+    def __init__(self, initial_phase_diagram: object, entries_by_card_id: Mapping[str, object]) -> None:
+        self._initial_entries = tuple(initial_phase_diagram.all_entries)
+        self._entries_by_card_id = dict(entries_by_card_id)
+        self._observed_card_ids: list[str] = []
+        self._phase_diagram = initial_phase_diagram
+
+    def _rebuild(self) -> None:
+        from pymatgen.analysis.phase_diagram import PhaseDiagram
+
+        self._phase_diagram = PhaseDiagram(
+            [*self._initial_entries, *(self._entries_by_card_id[item] for item in self._observed_card_ids)]
+        )
+
+    def _snapshot(self, query: MaterialQuery, call_index: int) -> HullSnapshot:
+        entry = self._entries_by_card_id.get(f"wbm-card:{query.query_id}")
+        if entry is None:
+            raise KeyError(f"missing WBM phase entry for {query.query_id}")
+        reference = float(self._phase_diagram.get_hull_energy_per_atom(entry.composition))
+        observed = "|".join(self._observed_card_ids)
+        digest = hashlib.sha256(f"{query.hull_snapshot.phase_set_checksum}|{observed}".encode()).hexdigest()
+        return query.hull_snapshot.model_copy(update={
+            "snapshot_id": f"{query.hull_snapshot.snapshot_id}:causal:{call_index}",
+            "reference_hull_energy_ev_per_atom": reference,
+            "phase_set_checksum": f"sha256:{digest}",
+            "known_through": query.as_of,
+            "built_at": query.as_of,
+        })
+
+    def revise(self, observed: MaterialMemoryCard, remaining_queries: Iterable[MaterialQuery], *, call_index: int) -> Mapping[str, HullSnapshot]:
+        if observed.card_id not in self._entries_by_card_id:
+            raise KeyError("revealed WBM card is absent from causal hull registry")
+        if observed.card_id not in self._observed_card_ids:
+            self._observed_card_ids.append(observed.card_id)
+            self._rebuild()
+        return {query.query_id: self._snapshot(query, call_index) for query in remaining_queries}
+
+    def final_stability(self, selected_cards: Iterable[MaterialMemoryCard]) -> Mapping[str, bool]:
+        selected = tuple(selected_cards)
+        for card in selected:
+            if card.card_id not in self._entries_by_card_id:
+                raise KeyError("selected WBM card is absent from causal hull registry")
+            if card.card_id not in self._observed_card_ids:
+                self._observed_card_ids.append(card.card_id)
+        self._rebuild()
+        result: dict[str, bool] = {}
+        for card in selected:
+            entry = self._entries_by_card_id[card.card_id]
+            result[card.material_id] = bool(self._phase_diagram.get_e_above_hull(entry, allow_negative=True) <= 1e-8)
+        return result
+
+
 def _sha256_file(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:
@@ -686,6 +745,7 @@ def run_fifo_exact_emulation(
     capacity: int,
     oracle_budget: float,
     causal_hull_updates: bool = True,
+    causal_hull_reviser: object | None = None,
 ) -> ExactEmulationAudit:
     """Execute the strict zero-cost FIFO parity gate on one fixed pool."""
 
@@ -695,12 +755,14 @@ def run_fifo_exact_emulation(
         FIFOBoundedMemory(capacity),
         oracle_budget=oracle_budget,
         causal_hull_updates=causal_hull_updates,
+        causal_hull_reviser=causal_hull_reviser,
     ).evaluate(pool)
     reconstructed_metrics = ActiveDiscoveryEvaluator(
         acquisition_factory(),
         ArchiveReconstructingFIFOMemory(capacity),
         oracle_budget=oracle_budget,
         causal_hull_updates=causal_hull_updates,
+        causal_hull_reviser=causal_hull_reviser,
     ).evaluate(pool)
     return assert_exact_emulation(
         ExactEmulationTrace.from_metrics(persistent_metrics),

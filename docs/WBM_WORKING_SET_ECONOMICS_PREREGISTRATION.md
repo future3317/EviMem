@@ -44,6 +44,45 @@ labelled stress tests and cannot establish GO.
 
 ## Leakage-safe fixed pools
 
+### Data-feasibility amendment required before formal execution
+
+An oracle-blind count over the frozen 256,963 cleaned WBM IDs was run on
+2026-07-16 and retained externally as
+`E:\DATA\EviMem-RL\outputs\exploratory\wbm-exact-system-feasibility-v1.json`.
+There are 75,480 exact chemical systems; the largest contains 46 cleaned
+candidates, with 0 systems containing 64 or 256. Therefore the exact-system,
+256-candidate pool specification below is **not executable** on WBM and the
+formal policy matrix remains suspended. This is a data-feasibility finding, not
+a discovery result: it used neither WBM energy, hull label, nor prediction
+error.
+
+Any subsequent formal WBM design must be a versioned amendment made before
+evaluation outcomes are accessed. It must either reduce the exact-system pool
+size to an attainable fixed value or define a chemically justified multi-system
+pool and revise causal-hull, clustering, and estimand definitions accordingly.
+It must not silently combine systems or selectively choose systems after seeing
+outcomes. The remaining text records the originally frozen, now infeasible
+256-candidate proposal; it is retained for traceability rather than executed.
+
+### Exploratory small-pool amendment v1
+
+The first executable WBM pilot uses **eight** oracle-blind exact-system pools,
+not the infeasible twelve 256-candidate pools: two hash-selected systems in
+each of `2-element × {small, large}` and `3-element × {small, large}` strata.
+Each system contributes 16 hash-selected candidates after removal of only
+byte-identical serialized CSE structures. The maximum exact-system count for
+four-or-more-element systems is seven, so those systems are explicitly out of
+scope rather than merged or padded. The pilot uses (B\in\{4,8,12\}) and
+(K\in\{0,2,4,8\}); it may support only binary/ternary mechanism evidence,
+not a general WBM claim. Exact MP-overlap/prototype canonicalization remains a
+separate unresolved gate, so results produced before it is implemented are
+exploratory and cannot change the frozen method-level NO-GO decision.
+
+The implementation rebuilds a composition-dependent phase diagram from the
+frozen MP phase set plus revealed WBM phases after every oracle call. The
+deprecated scalar minimum-energy update is prohibited and has no runtime
+fallback.
+
 Before outcome access, record WBM/Materials Project release IDs, licenses,
 checksums, canonicalization, duplicate/MP-overlap exclusions, and the hardware
 and software manifest. Group canonical WBM candidates by exact chemical system.

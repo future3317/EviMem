@@ -13,7 +13,7 @@ from evimem.matmem import (
     RetentionAwareBoundaryAcquisition,
 )
 
-from .test_matmem_active import _item, _protocol
+from .test_matmem_active import _item, _protocol, _SyntheticReviser
 
 
 def test_boundary_potential_links_coverage_to_hull_margin_ambiguity() -> None:
@@ -236,6 +236,7 @@ def test_causal_hull_revision_uses_only_an_already_observed_phase() -> None:
         BoundaryRiskRetention(1, potential),
         oracle_budget=2,
         causal_hull_updates=True,
+        causal_hull_reviser=_SyntheticReviser(),
     ).evaluate(candidates)
     assert result.selected_query_ids[0] == "deep-phase"
     assert result.hull_revision_count == 1
