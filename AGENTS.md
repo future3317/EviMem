@@ -54,3 +54,34 @@
 - Preserve quarantined contaminated outputs for audit traceability, but do not
   stage, train on, evaluate against, or re-export them. Do not overwrite their
   provenance with a repaired output; write a new versioned file instead.
+
+## External-model API safety
+
+- API keys are process secrets. Read a rotated key only from an environment
+  variable such as `DEEPSEEK_API_KEY`; never accept it as a CLI option or write
+  it to code, prompts, manifests, reports, fixtures, Git, or terminal output.
+- An API model may see only a minimal view derived from a safe packet: task ID,
+  source dataset, two claim texts, evidence locators, and visible source-level
+  notice. It must not receive source identifiers, checksums, raw exports,
+  sampling metadata, prior labels, or quarantined files.
+- API retries, malformed output, rate limits, or exhausted budget must leave a
+  task unannotated and queued for review. Never write a rule-derived fallback
+  as `ai_juror`, `ai_critic`, or `ai_adjudicated_silver`.
+- When the same model serves two blinded calls, call them separate blinded API
+  calls, not independent-model agreement. Record the true returned model ID,
+  a non-zero prompt checksum, packet-set checksum, and aggregate token usage.
+- DeepSeek API calls must explicitly set `thinking: {"type": "disabled"}`
+  unless the user specifically authorizes thinking-mode cost. Never retain
+  `reasoning_content` or chain-of-thought in artifacts.
+- Every exported API annotation must have a matching append-only per-call
+  ledger event with its stage, task/packet/prompt/annotation checksums,
+  requested and returned model IDs, hashed provider request ID, timestamp, and
+  usage. A `--resume` may reuse only an output proven by that ledger; manifests
+  must report newly called versus reused records separately.
+- External API execution is blind-primary-only. Never send one model's labels,
+  notes, critic output, or silver output to another external model. Compare
+  blind candidate exports locally with `tools/run_blind_adjudication_gate.py`.
+  The gate never selects a label winner: disagreement, non-sufficient evidence,
+  same-scope contradiction, or insufficient model diversity must remain in the
+  high-risk review queue. Even unanimous candidates are not gold, training
+  data, or final AI adjudication.

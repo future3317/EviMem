@@ -240,11 +240,12 @@ class CriticReview(BaseModel):
     juror_run_ids: tuple[str, str]
     packet_checksum: str
     issues: tuple[CriticIssue, ...]
+    model_id: str
     prompt_checksum: str
     annotation_provenance: str
     schema_version: Literal["phase1b-v3"] = SCHEMA_VERSION
 
-    @field_validator("task_id", "critic_run_id", "annotation_provenance")
+    @field_validator("task_id", "critic_run_id", "model_id", "annotation_provenance")
     @classmethod
     def _non_empty(cls, value: str) -> str:
         normalized = value.strip()
@@ -313,6 +314,19 @@ def _detect_method(claim_text: str) -> str | None:
     if first_token and first_token.replace("_", "").replace("-", "").isalnum():
         return first_token
     return None
+
+
+def _detect_scirex_task(claim_text: str) -> str | None:
+    """Extract the normalized task token from a rendered SciREX claim.
+
+    This is a fail-closed validation check only. It never supplies a label or
+    repairs a model output.
+    """
+    match = re.search(r"\bfor\s+(.+?)\s*=", claim_text, flags=re.IGNORECASE)
+    if match is None:
+        return None
+    task = re.sub(r"[\s_-]+", "", match.group(1)).lower()
+    return task or None
 
 
 def _has_forbidden_operation_text(text: str) -> str | None:
@@ -399,13 +413,6 @@ def validate_ai_adjudication_label(
     authority = AuthorityRelation(record["authority_relation"])
     evidence = EvidenceSufficiency(record["evidence_sufficiency"])
 
-    if semantic == SemanticRelation.CONTRADICTORY and scope == ScopeRelation.SAME_SCOPE:
-        if authority == AuthorityRelation.NOT_APPLICABLE:
-            raise ValueError(
-                "CONTRADICTORY + SAME_SCOPE requires an authority assessment; "
-                "NOT_APPLICABLE is invalid"
-            )
-
     source_dataset = packet.source_dataset if packet else None
     if source_dataset == "Crossref/Retraction Watch":
         if semantic != SemanticRelation.INSUFFICIENT_CONTEXT:
@@ -429,6 +436,34 @@ def validate_ai_adjudication_label(
                 "INSUFFICIENT"
             )
 
+    same_scope_contradiction = (
+        semantic == SemanticRelation.CONTRADICTORY and scope == ScopeRelation.SAME_SCOPE
+    )
+    if same_scope_contradiction:
+        # An external-safe packet intentionally contains no claim-level
+        # certificate, curator decision, or correction evidence.  Therefore a
+        # blind annotation cannot establish equal, newer, or older authority
+        # for a same-scope contradiction.  Keeping this fail-closed prevents
+        # the model from treating shared provenance or background knowledge as
+        # an authority determination.
+        if authority != AuthorityRelation.UNRESOLVED:
+            raise ValueError(
+                "CONTRADICTORY + SAME_SCOPE requires UNRESOLVED authority "
+                "without packet-visible claim-level correction evidence"
+            )
+    elif (
+        source_dataset != "Crossref/Retraction Watch"
+        and authority != AuthorityRelation.NOT_APPLICABLE
+    ):
+        # The external-safe schema has no field containing a verified
+        # claim-level authority comparison.  Outside a same-scope
+        # contradiction, authority is therefore irrelevant rather than an
+        # invitation to infer equality from a shared paper or timestamp.
+        raise ValueError(
+            "authority_relation must be NOT_APPLICABLE unless the visible "
+            "packet establishes a same-scope contradiction"
+        )
+
     if source_dataset == "SciREX" and scope == ScopeRelation.SAME_SCOPE:
         left_method = _detect_method(packet.left.claim_text) if packet else None
         right_method = _detect_method(packet.right.claim_text) if packet else None
@@ -436,6 +471,15 @@ def validate_ai_adjudication_label(
             raise ValueError(
                 f"SciREX claims with different methods cannot be SAME_SCOPE: "
                 f"{left_method} vs {right_method}"
+            )
+
+    if source_dataset == "SciREX" and semantic == SemanticRelation.UNRELATED:
+        left_task = _detect_scirex_task(packet.left.claim_text) if packet else None
+        right_task = _detect_scirex_task(packet.right.claim_text) if packet else None
+        if left_task and right_task and left_task == right_task:
+            raise ValueError(
+                "SciREX claims with the same visible task cannot be UNRELATED; "
+                "use a relation supported by their visible benchmark context"
             )
 
     if evidence in {EvidenceSufficiency.PARTIAL, EvidenceSufficiency.INSUFFICIENT}:

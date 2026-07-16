@@ -1,585 +1,868 @@
-**把新论文迁移到独立的 `E:\CODE\EviMem-RL` 是正确决定**，比继续在旧 `Piepaper` 上重构更合理。
+## 结论
 
-旧项目已经形成大量历史模块、实验数据、兼容路径和论文专属逻辑。新论文虽然继承 EviPGCE 的安全发布思想，但研究对象已经从“静态科学数据发布治理”变成了“带证据记忆的序列决策智能体”。两者强行共用同一个仓库，后面会不断出现：
+你的方向应该从 **EviMem-RL** 正式调整为：
 
-* 为兼容旧论文而保留无用接口；
-* 新旧 schema 相互转换；
-* 旧实验被新代码意外污染；
-* 无法分清某个组件究竟属于旧论文还是新方法；
-* reviewer 很难根据开源代码复现新论文的最小闭环。
+# **EviMem：Evidence-Certified Memory for Continual Scientific Curation**
 
-旧项目本来就存在 V1/V2 共存、多个 observation schema 和 fallback 逻辑，独立建仓正好避免继续背这些历史负担。
+不再做 RL，也不再把“训练材料领域大模型”作为核心。新的研究问题是：
 
-不过，需要非常明确地说：
+> **智能体能否将经过证据验证的成功、拒绝和冲突经验写入长期记忆，并利用这些记忆提升后续科学信息抽取，同时避免错误记忆污染数据库？**
 
-> **Claude 当前完成的是“新项目骨架迁移”，不是 EviMem-RL Methods 已经实现。**
+现有 150 DOI 不再作为主训练集或主要 benchmark，只保留为最终的真实材料数据库案例研究。主训练和主实验全部基于公开数据。
 
-“28 passed”只能说明这套小型骨架内部暂时自洽，不能说明完整科学策展 pipeline 已经正确。
+这是一次合理的方向收缩：你保留了当前代码最有价值的证据验证、certificate 和 publication gate，同时把论文创新集中在 **memory admission、retrieval、update、conflict 与 continual learning** 上。
 
 ---
 
-# 一、这次迁移做对了什么
+# 一、最终论文不再研究什么
 
-## 1. 新旧论文已经物理隔离
+不建议继续研究：
 
-现在：
+* 材料领域大模型预训练；
+* GRPO 或其他强化学习；
+* 自由行动的 scientific agent；
+* 多智能体角色堆叠；
+* 单纯的向量数据库或 GraphRAG；
+* 只在 150 DOI 上验证的材料抽取系统。
 
-* `E:\CODE\Piepaper`：旧论文 EviPGCE、旧实验和数据；
-* `E:\CODE\EviMem-RL`：新论文代码；
-* 没有复制数据、checkpoint 和实验结果；
-* 新项目不依赖 `src.evipgce`；
-* 旧项目没有被继续修改。
+这些方向或者资源要求高，或者容易被认为是工程组合。
 
-这是最关键的一步。
+新的论文应该研究三个可学习问题：
 
-旧论文的核心价值是：LLM 只能提出 candidate，只有 evidence binding、tuple verification、DomainPack validation、conflict resolution 和 publication gate 才能决定是否发布。
+[
+\text{Should Write}
+\rightarrow
+\text{What to Retrieve}
+\rightarrow
+\text{How to Update}
+]
 
-新项目应当继承这个**原则和经过验证的最小实现**，而不是继承旧仓库的所有代码。
+也就是：
 
-## 2. 没有伪造 GRPO
-
-Claude 明确说：
-
-> 当前只是可供 Transformers、PEFT、TRL 接入的安全底座，没有假装已经实现和训练 GRPO。
-
-这是正确的。现在直接写一个看似完整的 `grpo_trainer.py`，却没有 episode、真实 reward、轨迹数据和模型训练，只会制造“代码已经做完”的假象。
-
-## 3. 优先建立 canonical contracts
-
-先确定：
-
-* `EvidenceRef`
-* `CandidateObservation`
-* `ClaimState`
-* `VerificationCertificate`
-* `WarrantedMemory`
-* `CurationTrajectory`
-
-再写 controller 和训练，是正确顺序。
-
-特别是 memory 不能只是字符串摘要。它必须绑定 evidence、certificate、decision 和 policy version，这正是新论文最重要的研究对象。
-
-## 4. controller 不拥有 publication 权限
-
-这条必须永远保留。旧论文的消融已经表明，取消严格 gate 虽然可能提高表面 F1，却会允许大量不可验证记录直接释放。
+1. 哪些历史经验值得写入长期记忆；
+2. 当前论文应该检索哪些历史记忆；
+3. 新证据到来后，旧记忆应当新增、合并、冲突、降权还是失效。
 
 ---
 
-# 二、当前新仓库大概率还缺什么
+# 二、修改后的完整方法
 
-根据 Claude 的描述，新仓库目前迁移了：
+## 2.1 Memory item
 
-* contracts；
-* controller；
-* memory；
-* RL substrate；
-* benchmark；
-* human review；
-* runtime。
+每条记忆不再是普通自然语言摘要，而是：
 
-但回复中没有明确说已经完整迁移以下关键部分：
+[
+m_i =
+(c_i,e_i,z_i,d_i,t_i,v_i)
+]
 
-| 必需组件                                      | 当前状态判断            |
-| ----------------------------------------- | ----------------- |
-| Immutable Evidence Release builder        | 不确定，可能只有 contract |
-| Evidence block store                      | 不确定               |
-| DomainPack loader 和 validator             | 未明确迁移             |
-| Evidence binding cascade                  | 未明确迁移             |
-| Tuple-level verifier                      | 未明确迁移             |
-| Multi-block distributed evidence verifier | 大概率未实现            |
-| Conflict resolver                         | 未明确迁移             |
-| Publication gate                          | 声称保留原则，但新仓库实现不明   |
-| Atomic publication commit                 | 新仓库是否真正迁移不明       |
-| Audit/review store                        | 不明确               |
-| 真实 LLM proposer adapter                   | 大概率没有             |
-| 旧 Gold 数据只读导入器                            | 没有说明              |
-| 真实 sequential episodes                    | 大概率只有结构           |
-| Oracle trajectory builder                 | 不明确               |
-| Heuristic baseline                        | 不明确               |
-| SFT controller                            | 未实现               |
-| GRPO training                             | 明确未实现             |
-| 三随机种子实验                                   | 未进行               |
+其中：
 
-所以目前更准确的阶段应当叫：
+* (c_i)：结构化科学 claim；
+* (e_i)：不可变 EvidenceRef；
+* (z_i)：VerificationCertificate；
+* (d_i)：published、rejected、conflict、ambiguous 等决策；
+* (t_i)：时间和来源论文；
+* (v_i)：DomainPack 或 schema 版本。
 
-> **Phase 0A：独立仓库与方法接口初始化**
+例如：
 
-还不能说 Phase 0/1 已全部完成。
+```json
+{
+  "memory_type": "rejected",
+  "claim": {
+    "material": "PZT",
+    "property": "d33",
+    "value": 190,
+    "unit": "pC/N",
+    "condition": "room temperature"
+  },
+  "evidence_refs": ["ev_xxx"],
+  "certificate": {
+    "status": "rejected",
+    "reason": "prediction_not_measurement"
+  },
+  "source_document": "paper_xxx",
+  "policy_version": "piezoelectric@1.3.0"
+}
+```
+
+这使你的方法与 A-Mem、Mem0、普通 RAG 产生根本区别：已有方法主要组织笔记、对话事实或推理经验，而你的 memory 带有**证据、验证状态和发布权限**。A-Mem 会动态建立笔记属性与链接，Mem0 会从持续交互中抽取、合并和检索重要信息，ReasoningBank 则从成功和失败轨迹中提炼推理策略；这些工作说明“可演化记忆”是重要方向，但没有直接解决科学记录的证据资格和数据库发布安全问题。([NeurIPS 会议录][1])
 
 ---
 
-# 三、最需要警惕的一点：不要把“迁移接口”误认为“实现方法”
+## 2.2 四类记忆
 
-一个典型风险是：
+### Verified Memory
 
-```python
-class VerificationCertificate:
-    ...
-```
+已经通过 evidence binding、tuple verification 和 publication gate 的科学记录。
 
-已经存在，但真实运行中 certificate 可能只是测试里手工构造出来的，而不是由：
+作用：
+
+* 提供历史实体别名；
+* 提供常见证据位置；
+* 帮助识别重复结果；
+* 检测新结果是否真的新颖。
+
+### Rejected Memory
+
+被确定性验证器拒绝的候选，例如：
+
+* 数值属于预测而非实验；
+* 属性与材料绑定错误；
+* 缺失必要条件；
+* 同一数值附近存在多个材料；
+* 单位不兼容。
+
+它是论文很重要的创新，因为大部分 memory 方法只保存成功经验，而你的系统利用失败记忆防止智能体重复犯错。
+
+### Conflict Memory
+
+当两个记录具有相同的：
 
 ```text
-EvidenceRef
-→ evidence binding
-→ slot verification
-→ DomainPack validation
-→ conflict resolution
-→ publication gate
+entity + property + condition + measurement setting
 ```
 
-自动生成。
+但值或结论不兼容时建立冲突边，而不是直接覆盖旧记录。
 
-同样：
+### Superseded Memory
 
-```python
-class WarrantedMemoryStore:
-    ...
+后续证据或人工审查确认旧记录过期后，旧 memory 不删除，而标记：
+
+```text
+active → superseded
 ```
 
-存在，也不意味着它真的实现了：
-
-* certificate-based admission；
-* policy-version compatibility；
-* supersession；
-* conflict memory；
-* rejected memory；
-* stale memory filtering；
-* memory-to-action retrieval。
-
-新仓库下一阶段不是继续增加文件，而是验证：
-
-> **每一个 Methods 名词是否都对应一条真实、可运行、不可伪造的数据路径。**
+保留完整 lineage。
 
 ---
 
-# 四、28 个测试远远不够证明完整 pipeline
+## 2.3 三个可学习模块
 
-28 个测试作为新仓库第一版是正常的，但测试数量与旧项目的 4205 个不能直接比较。
+### 模块一：Memory Admission
 
-当前至少应补齐以下两个端到端场景。
+判断当前 episode 是否应写入长期记忆：
 
-## 场景 A：正确发布
+[
+p_{\text{write}}
+================
 
-输入一篇极小 fixture：
+g_\phi(c,e,z,d)
+]
 
-```text
-BaTiO3 exhibits a d33 value of 190 pC/N at room temperature.
-```
-
-系统必须真实完成：
-
-```text
-document
-→ immutable evidence release
-→ candidate
-→ ClaimState
-→ retrieve/inspect action
-→ deterministic slot verification
-→ DomainPack validation
-→ Verified-Strong certificate
-→ publication request
-→ atomic publication commit
-→ verified memory consolidation
-```
-
-最终断言：
-
-* publication store 恰好有一条记录；
-* certificate 引用真实 immutable EvidenceRef；
-* memory 引用同一 certificate；
-* controller 没有调用任何数据库 writer；
-* 同一 run 重试不会重复写入。
-
-## 场景 B：错误拒绝
-
-输入：
+输出：
 
 ```text
-The predicted d33 may reach 190 pC/N in future optimized samples.
+WRITE_VERIFIED
+WRITE_REJECTED
+WRITE_CONFLICT
+EPHEMERAL_ONLY
+IGNORE
 ```
 
-或者数值同时邻近多个材料。
-
-系统必须完成：
-
-```text
-candidate proposed
-→ evidence checked
-→ prediction/review/ambiguity detected
-→ gate rejected
-→ no publication
-→ rejection certificate
-→ governed rejected memory
-```
-
-最终断言：
-
-* publication store 为零；
-* audit store 有拒绝记录；
-* rejection reason 是确定性产生的；
-* rejected memory 可以被后续 episode 检索；
-* LLM 自己声称“已验证”不会改变结果。
-
-在这两个场景跑通以前，不要开始 SFT 或 GRPO。
+Certificate 是硬约束：没有证据和证书的 LLM 自我反思不能进入高权限长期记忆。
 
 ---
 
-# 五、新项目的推荐最终目录
+### 模块二：Evidence-Certified Retriever
 
-建议新仓库收敛为以下结构，而不是继续增加大量 manager 和 wrapper：
+检索分数不只看文本相似度：
 
-```text
-EviMem-RL/
-├── pyproject.toml
-├── README.md
-├── AGENTS.md
-├── configs/
-│   ├── domains/
-│   ├── experiments/
-│   └── models/
-├── docs/
-│   ├── METHODS.md
-│   ├── ARCHITECTURE.md
-│   └── IMPLEMENTATION_STATUS.md
-├── src/evimem/
-│   ├── contracts/
-│   │   ├── evidence.py
-│   │   ├── candidate.py
-│   │   ├── claim.py
-│   │   ├── certificate.py
-│   │   ├── memory.py
-│   │   └── trajectory.py
-│   ├── evidence/
-│   │   ├── release.py
-│   │   ├── store.py
-│   │   └── retrieval.py
-│   ├── domains/
-│   │   ├── models.py
-│   │   ├── loader.py
-│   │   └── validation.py
-│   ├── verification/
-│   │   ├── binding.py
-│   │   ├── tuple_verifier.py
-│   │   ├── multi_block.py
-│   │   ├── conflicts.py
-│   │   └── gate.py
-│   ├── publication/
-│   │   ├── store.py
-│   │   └── commit.py
-│   ├── memory/
-│   │   ├── store.py
-│   │   ├── admission.py
-│   │   ├── retrieval.py
-│   │   ├── consolidation.py
-│   │   └── supersession.py
-│   ├── controller/
-│   │   ├── actions.py
-│   │   ├── state.py
-│   │   ├── policy.py
-│   │   ├── executor.py
-│   │   └── engine.py
-│   ├── benchmark/
-│   │   ├── episodes.py
-│   │   ├── stream.py
-│   │   ├── oracle.py
-│   │   ├── baselines.py
-│   │   └── metrics.py
-│   ├── training/
-│   │   ├── datasets.py
-│   │   ├── imitation.py
-│   │   ├── rewards.py
-│   │   └── grpo.py
-│   └── runtime.py
-├── tests/
-│   ├── unit/
-│   ├── integration/
-│   ├── e2e/
-│   └── fixtures/
-└── scripts/
-    ├── export_legacy_assets.py
-    ├── build_benchmark.py
-    ├── run_heuristic.py
-    ├── train_sft.py
-    └── train_grpo.py
-```
+[
+S(q,m)=
+\alpha S_{\text{semantic}}
++\beta S_{\text{structure}}
++\gamma S_{\text{authority}}
++\eta S_{\text{temporal}}
+-\delta S_{\text{conflict}}
+-\xi S_{\text{stale}}.
+]
 
-不建议再建立：
+其中：
 
-```text
-managers/
-services/
-roles/
-handlers/
-processors/
-coordinators/
-```
+* semantic：语义相似；
+* structure：entity、property、condition 是否匹配；
+* authority：human-confirmed、verified、rejected 的权限；
+* temporal：是否符合当前时间；
+* conflict：是否存在未解决冲突；
+* stale：是否已经 superseded。
 
-除非其中确实存在多个可替换实现。否则这些层只会重新制造旧项目的过度设计。
+检索结果必须返回 memory 内容以及它的证据和决策状态，而不是只返回一段文本。
 
 ---
 
-# 六、“能用库完成的不自己写”应该如何执行
+### 模块三：Typed Memory Update
 
-这个原则是对的，但需要区分**基础设施**和**论文方法**。
-
-## 应当优先使用成熟库
-
-| 需求            | 建议                                     |
-| ------------- | -------------------------------------- |
-| Schema 与验证    | Pydantic v2                            |
-| 配置            | Hydra / OmegaConf，或者简单 YAML + Pydantic |
-| 数据表           | PyArrow / Polars                       |
-| 事务存储          | SQLAlchemy + SQLite/PostgreSQL         |
-| 数据集封装         | Hugging Face Datasets                  |
-| 向量检索 baseline | FAISS                                  |
-| 模型            | Transformers                           |
-| LoRA/QLoRA    | PEFT                                   |
-| SFT/GRPO      | TRL                                    |
-| 指标            | scikit-learn                           |
-| 日志            | Python logging / structlog             |
-| 实验记录          | MLflow 或 W&B                           |
-| 单元测试          | pytest                                 |
-| 代码质量          | Ruff + mypy/pyright                    |
-
-## 不应交给通用框架隐藏的部分
-
-以下是论文方法本身，应明确实现：
-
-* warranted-memory admission；
-* memory authority 与 policy compatibility；
-* state definition；
-* action space；
-* action masking；
-* verifier-shaped reward；
-* conflict-aware memory retrieval；
-* termination logic；
-* certificate-driven consolidation；
-* memory supersession；
-* publication safety boundary。
-
-不建议用 LangChain 或 LangGraph 把这些核心过程包进黑盒图节点。那会让：
-
-* 方法不透明；
-* reward 难以重放；
-* action 定义不严格；
-* reviewer 无法判断创新到底在哪里；
-* 依赖版本升级后行为发生变化。
-
----
-
-# 七、旧项目中应该迁移什么
-
-不要整目录复制，只迁移经过审计的最小代码。
-
-## 应迁移
-
-* `EvidenceReleaseManager` 的核心逻辑；
-* typed `EvidenceRef`；
-* DomainPack schema 和三个 domain config；
-* evidence binding 的经过验证部分；
-* tuple-level verification；
-* conflict resolution；
-* strict publication gate；
-* atomic idempotent commit；
-* Gold benchmark 的只读导出脚本；
-* 必要的 negative-control fixtures。
-
-旧项目已经实现了不可变 evidence release、typed locator、原子 commit 和版本化 DomainPack，这些属于新方法的安全基础。
-
-## 不应迁移
-
-* V1/V2 adapters；
-* old orchestrator；
-* multi-agent roles；
-* legacy wrappers；
-* 跨模块透传 manager；
-* 旧 pipeline CLI；
-* 历史兼容 schema；
-* 旧论文生成脚本；
-* 旧结果数据库；
-* 全局可变状态；
-* 旧 fallback 常量。
-
-## 数据处理方式
-
-新仓库不复制大数据是正确的，但需要建立：
+对于新证据与已有 memory，模型预测：
 
 ```text
-external_assets.yaml
+ADD
+MERGE
+LINK
+CONFLICT
+SUPERSEDE
+IGNORE
 ```
 
 例如：
 
+* 完全相同的 tuple：`MERGE`
+* 相同材料和属性，不同温度：`LINK`
+* 相同条件但数值明显冲突：`CONFLICT`
+* 新证据纠正旧错误：`SUPERSEDE`
+* 仅主题相似但无关系：`IGNORE`
+
+这一模块比“将新信息 append 到向量库”更有学术价值。
+
+---
+
+# 三、推荐使用的公开数据集
+
+我建议建立一个新的统一 benchmark：
+
+# **SciMem-Curate**
+
+它不是重新人工标注几千篇论文，而是把多个公开科学数据集统一转换成：
+
+```text
+document stream
++ scientific claims
++ evidence
++ memory operation
++ final decision
+```
+
+## 3.1 核心训练数据
+
+| 数据集                        | 规模和内容                                                                                                    | 在项目中的用途                                         |
+| -------------------------- | -------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| **SciREX**                 | 1,170 篇完整科学论文，包含 Method、Metric、Task、Material、Score 等文档级 N-ary relations；代码和数据采用 Apache-2.0。([GitHub][2]) | 主要的结构化科学记录与跨论文 memory 训练                        |
+| **QASPER**                 | 1,585 篇 NLP 论文、5,049 个问题，每个答案带 supporting evidence，部分问题需要跨多个章节取证。([arXiv][3])                            | 训练 evidence retrieval 和跨区域证据记忆                  |
+| **SciFact**                | 1,409 个科学 claim、5,183 篇候选摘要，带 support/refute 和 rationale。([Hugging Face][4])                             | 训练 verified、rejected 和 conflict memory          |
+| **Evidence Inference 2.0** | 3,346 篇临床试验文章、12,616 个 intervention–comparator–outcome prompts，并带 evidence。([ACL Anthology][5])          | 训练条件敏感关系、支持/无差异/反向结论与证据                         |
+| **MeasEval**               | 科学文本中的 quantity、measured entity、property、unit、qualifier 和 context 关系。([GitHub][6])                       | 辅助训练 value–unit–entity–property slot extraction |
+
+这几组公开数据合起来已经包含：
+
+* 数千篇科学文章；
+* 一万多条有证据的监督任务；
+* 支持与反驳；
+* 文档级 N-ary relations；
+* 跨章节 evidence；
+* 数值、单位、属性和条件。
+
+这比使用 150 DOI 训练稳健得多，而且不是依赖一个材料子领域。
+
+---
+
+## 3.2 主要域外测试集
+
+### POLYIE：材料领域域外测试
+
+POLYIE 包含 146 篇完整的 polymer solar cell 和 lithium battery 论文，由专家标注：
+
+```text
+Compound Name
+Property Name
+Property Value
+Condition
+```
+
+以及它们组成的 N-ary relation，数据与代码采用 Apache-2.0。它与当前 `CandidateObservation` 的 schema 非常接近，因此特别适合做**未在材料数据上训练的 OOD 测试**。([ACL Anthology][7])
+
+不建议将 POLYIE 全部用于训练。最好设置：
+
+* `POLYIE zero-shot OOD`
+* `POLYIE few-shot adaptation`
+* `POLYIE full supervised upper bound`
+
+这样可以证明你的 memory 方法不是只对 NLP 或生物医学论文有效。
+
+---
+
+### BioRED：生物医学域外测试
+
+BioRED 包含 600 篇 PubMed abstracts，具有多类实体、文档级关系，而且将关系标记为 novel finding 或 background knowledge。这个 novel/background 标注非常适合验证 memory 是否能区分“新发现”和“历史知识”。([arXiv][8])
+
+---
+
+### SciFact-Open：大规模检索压力测试
+
+SciFact-Open 在约 50 万篇研究摘要上评估开放域 scientific claim verification，原论文发现从小规模语料训练的系统迁移到开放域时至少下降 15 F1。它很适合检验：
+
+* memory store 扩展到大规模时的检索性能；
+* 错误相似记忆是否污染结果；
+* evidence-certified retrieval 是否优于普通向量检索。([arXiv][9])
+
+---
+
+## 3.3 不建议作为主数据集的资源
+
+### SuperMat
+
+虽然主题非常匹配，但其仓库明确说明完整 annotation 因版权原因并不公开，因此不适合作为论文的主要可复现训练集。([GitHub][10])
+
+### MatSci-NLP
+
+MatSci-NLP 提供 NER、relation classification、event extraction、slot filling、synthesis retrieval 等七种材料 NLP 任务，适合作为辅助预训练或补充实验。([GitHub][11])
+
+但仓库说明其子数据来自互联网，并要求分别参考原数据论文，因此各子集的许可证需要逐项审计。它不适合在没有 license manifest 的情况下直接打包成你的主要训练集。([GitHub][11])
+
+---
+
+# 四、如何把这些独立数据集变成 Memory 数据
+
+现有数据集本身大多不是 memory benchmark，因此需要构建 **continual episodes**，但应尽量从真实 annotation 推导，而不是让 LLM 随机生成。
+
+## 4.1 Episode 基本形式
+
+每个 episode：
+
 ```yaml
-legacy_project:
-  root: "E:/CODE/Piepaper"
-  evidence_release: "E:/CODE/Piepaper/..."
-  gold_benchmark: "E:/CODE/Piepaper/..."
-  domain_packs: "E:/CODE/Piepaper/domains"
-  read_only: true
-```
-
-实验时使用只读路径或导出后的 versioned manifest，不要让新项目修改旧数据。
-
----
-
-# 八、现在必须立刻做的三件事
-
-## 1. 初始化 Git
-
-新项目还没有 Git，这是当前最危险的问题。
-
-应立即：
-
-```bash
-cd E:\CODE\EviMem-RL
-git init
-git add .
-git commit -m "chore: initialize standalone EviMem-RL scaffold"
-```
-
-然后创建私有远程仓库并 push。
-
-否则下一次 Claude Code 大规模删除或修改后，很难判断哪些代码被破坏。
-
-## 2. 建立 Methods—Implementation 对照表
-
-新增：
-
-```text
-docs/IMPLEMENTATION_STATUS.md
-```
-
-格式应为：
-
-| Methods 部分               | 代码位置                  | 状态          | 是否真实运行 | 测试        |
-| ------------------------ | --------------------- | ----------- | ------ | --------- |
-| EvidenceRelease          | `evidence/release.py` | partial     | 否      | unit only |
-| Warranted admission      | `memory/admission.py` | implemented | 是      | 6 tests   |
-| Multi-block verification | 无                     | missing     | 否      | 无         |
-| GRPO                     | 无                     | missing     | 否      | 无         |
-
-禁止用“底座完成”这种模糊表述。
-
-## 3. 跑通两条真实端到端路径
-
-先实现：
-
-```text
-one publishable candidate
-one rejected candidate
-```
-
-再考虑 benchmark、SFT 和 RL。
-
----
-
-# 九、可以直接发给 Claude Code 的下一轮任务
-
-```text
-请继续处理 E:\CODE\EviMem-RL，但本轮不要实现 SFT、GRPO 或任何模型训练。
-
-目标：把当前 scaffold 升级为真正可运行的 deterministic EviMem-RL Phase 0，而不是继续增加接口或空壳模块。
-
-第一步：审计当前仓库
-1. 阅读 docs/METHODS.md 和 docs/ARCHITECTURE.md。
-2. 枚举全部源码和测试，查找 pass、TODO、NotImplementedError、mock-only implementation、dummy return、手工构造 certificate、无法执行的 protocol。
-3. 新建 docs/IMPLEMENTATION_STATUS.md，逐项对照 METHODS：
-   - immutable EvidenceRelease
-   - EvidenceRef
-   - CandidateObservation
-   - ClaimState
-   - VerificationCertificate
-   - DomainPack
-   - evidence binding
-   - tuple-level verification
-   - conflict resolution
-   - publication gate
-   - atomic commit
-   - warranted-memory admission
-   - retrieval
-   - consolidation
-   - supersession
-   - action controller
-   - executor
-   - trajectory
-   - reward
-   - benchmark
-   - oracle isolation
-   对每项标记 IMPLEMENTED / PARTIAL / STUB / MISSING，并给出文件和测试位置。
-4. 不得把 dataclass 存在视为功能已实现。
-
-第二步：建立 deterministic 最小闭环
-1. 从 E:\CODE\Piepaper 只迁移经过验证且必要的核心逻辑：
-   - EvidenceReleaseManager
-   - DomainPack schema/config
-   - evidence binding
-   - tuple verification
-   - conflict resolution
-   - publication gate
-   - atomic idempotent publication commit
-2. 迁移后必须改为 src.evimem 原生实现，不允许运行时 import src.evipgce、Piepaper 或 compat adapter。
-3. 不复制数据、DB、论文、结果或 checkpoint。
-4. 可以创建只读 legacy asset manifest/export script。
-
-第三步：实现两个真实 E2E 测试
-A. publishable fixture：
-   document → evidence release → candidate → claim state →
-   deterministic verification → publication request →
-   gate pass → atomic commit → warranted memory。
-B. rejected fixture：
-   prediction/ambiguous evidence → gate reject →
-   zero published records → rejection certificate →
-   rejected memory。
-必须验证：
-- controller 无数据库写权限；
-- 只有 commit service 可写 publication store；
-- retry 幂等；
-- certificate 引用真实 immutable EvidenceRef；
-- memory 引用 certificate 和 DomainPack version；
-- LLM 自报 verified/published 不影响结果。
-
-第四步：工程要求
-1. 优先使用 Pydantic v2、SQLAlchemy、PyArrow/Polars 等成熟库。
-2. 不使用 LangChain/LangGraph 隐藏核心 state/action/reward/memory 逻辑。
-3. 不新增 manager、wrapper、role 或兼容层，除非存在至少两个真实实现。
-4. 删除确认无引用的空壳和重复代码。
-5. 初始化 Git，提交当前 scaffold 基线，再分阶段提交本轮修改。
-6. 运行 pytest、ruff、compileall、git diff --check。
-7. 最终报告必须区分：
-   - 已真实运行的功能
-   - 仅定义 contract 的功能
-   - 尚未实现的训练/实验功能
-8. 本轮不宣称 Phase 1、SFT 或 GRPO 完成。
+episode:
+  history:
+    - previous verified/rejected/conflict memories
+  current_document:
+    text: ...
+    timestamp: ...
+  query:
+    claim_or_candidate: ...
+  gold:
+    relevant_memories: [...]
+    evidence: [...]
+    final_record: ...
+    memory_operation: ADD | MERGE | LINK | CONFLICT | IGNORE
 ```
 
 ---
 
-# 最终评价
+## 4.2 SciREX 的转换
 
-Claude 这次做出的**仓库隔离决策是正确的，甚至是必要的**。但是目前的新仓库应被看作：
+每个 N-ary relation：
 
-> 一个干净、方向正确的 EviMem-RL scaffold。
+```text
+Method + Task + Material + Metric + Score
+```
 
-而不是：
+转成一条 verified record。
 
-> 已经完成 Phase 0/1 的新论文方法实现。
+按照论文发表年份或固定文献顺序组成 stream。
 
-接下来不要继续扩展抽象层，也不要马上训练。先证明下面这条链是真实运行的：
+例如：
+
+```text
+Paper 1:
+BERT + NER + CoNLL03 + F1 + 91.2
+
+Paper 2:
+SciBERT + NER + CoNLL03 + F1 + 92.1
+```
+
+第二篇到达时，第一篇 memory：
+
+* 对 task、dataset 和 metric 有帮助；
+* 但不能把旧 method 和 score 错误复制过来；
+* 两条记录应当 `LINK`，而不是 `MERGE`。
+
+SciREX 有一个已知问题：约一半关系中至少一个实体只出现在被丢弃的表格里，因此端到端实验需要使用官方 filtered relation protocol，并把 table-missing 样本单独作为困难集，而不是误当作普通模型错误。([GitHub][12])
+
+---
+
+## 4.3 SciFact 的转换
+
+SciFact 天然提供：
+
+```text
+claim
+support evidence
+refute evidence
+rationale
+```
+
+可以转换为：
+
+* support → verified memory；
+* refute → rejected/conflict memory；
+* 无 evidence → ignore/ambiguous；
+* 同一主题的 support/refute pair → conflict episode。
+
+它是训练负向 memory 最重要的数据来源。
+
+---
+
+## 4.4 QASPER 的转换
+
+每个 question 是当前 query，已标注的 supporting paragraphs 是相关 memory/evidence。
+
+构造：
+
+* relevant evidence memory；
+* same-paper hard negatives；
+* same-topic but non-answer paragraphs；
+* multi-section evidence episodes。
+
+这样可以训练 retriever，而不用人工制造相关性标签。
+
+---
+
+## 4.5 Evidence Inference 的转换
+
+其结构：
+
+```text
+Intervention
+Comparator
+Outcome
+Result direction
+Evidence
+```
+
+适合构造条件敏感 memory：
+
+```text
+Drug A > Drug B on Outcome X
+Drug A = Drug B on Outcome Y
+Drug A < Drug B under Population Z
+```
+
+模型必须保留 outcome、population 和 condition，不能只因药物名称相同就合并。
+
+---
+
+## 4.6 Rejected memory 的生成原则
+
+优先使用真实标注：
+
+* SciFact 的 refute；
+* Evidence Inference 的方向标签；
+* 数据集中明确的 no-evidence；
+* deterministic gate 对模型候选的真实拒绝。
+
+可以生成 hard negative，但只能做以下受控变换：
+
+* 同一 value，替换 entity；
+* 同一 entity，替换 condition；
+* 同一 property，替换 unit；
+* 相同主题但错误 evidence。
+
+这些必须标记为 `controlled corruption`，不能伪装成天然论文冲突。
+
+---
+
+# 五、训练方案：不做 RL
+
+## Stage 1：训练 Memory Retriever
+
+使用 bi-encoder 对 query 和 memory 编码：
 
 [
-\text{Evidence}
-\rightarrow
-\text{Action}
-\rightarrow
-\text{Verification}
-\rightarrow
-\text{Certificate}
-\rightarrow
-\text{Publication/Reject}
-\rightarrow
-\text{Governed Memory}.
+h_q=f_\psi(q), \qquad h_m=f_\psi(m)
 ]
 
-这条链跑通以后，才有资格进入 heuristic baseline、oracle trajectory、SFT controller 和 GRPO。
+采用 contrastive loss：
+
+[
+\mathcal{L}_{ret}
+=================
+
+-\log
+\frac{\exp(s(q,m^+)/\tau)}
+{\exp(s(q,m^+)/\tau)+
+\sum_j \exp(s(q,m_j^-)/\tau)}.
+]
+
+正样本：
+
+* gold supporting evidence；
+* gold relevant relation；
+* 相同实体与正确上下文的历史记录。
+
+难负样本：
+
+* 相同实体但不同属性；
+* 相同属性但不同条件；
+* 相同数值但不同材料；
+* superseded 或 conflict memory。
+
+这一阶段可使用 `sentence-transformers` 和 FAISS 完成，单张 4090 足够。
+
+---
+
+## Stage 2：监督训练 Memory Manager
+
+输入：
+
+```text
+current candidate
++ verification certificate
++ retrieved memories
++ current evidence
+```
+
+输出：
+
+```json
+{
+  "admission": "WRITE_REJECTED",
+  "update_operation": "CONFLICT",
+  "target_memory_ids": ["mem_123"],
+  "reason_code": "same_context_incompatible_value"
+}
+```
+
+监督损失：
+
+[
+\mathcal{L}_{mem}
+=================
+
+\mathcal{L}*{admission}
++
+\lambda_u\mathcal{L}*{update}
++
+\lambda_t\mathcal{L}*{type}
++
+\lambda_r\mathcal{L}*{reason}.
+]
+
+可以使用 3B–7B 开源 instruct 模型做 QLoRA，不训练完整领域大模型。
+
+---
+
+## Stage 3：Memory-Conditioned Scientific Curation
+
+固定同一个 proposer，在不同 memory 方法下运行：
+
+[
+\hat{y}
+=======
+
+f_\theta(D,\operatorname{Retrieve}(D,\mathcal M)).
+]
+
+检索到的 memory 不作为“绝对事实”直接复制，而被组织成：
+
+```yaml
+verified_precedents:
+  - ...
+known_failure_patterns:
+  - ...
+possible_conflicts:
+  - ...
+required_checks:
+  - ...
+```
+
+之后仍由当前证据和 deterministic gate 决定是否发布。
+
+总训练目标可以写为：
+
+[
+\mathcal{L}
+===========
+
+\mathcal{L}*{extract}
++
+\lambda_1\mathcal{L}*{ret}
++
+\lambda_2\mathcal{L}*{admission}
++
+\lambda_3\mathcal{L}*{update}
++
+\lambda_4\mathcal{L}_{conflict}.
+]
+
+---
+
+# 六、必须对比的方法
+
+## 6.1 Memory 对比方法
+
+| 方法                      | 作用                                                        |
+| ----------------------- | --------------------------------------------------------- |
+| **No Memory**           | 每篇论文独立处理                                                  |
+| **Full History**        | 将全部历史直接塞进上下文                                              |
+| **BM25 Memory**         | 关键词检索                                                     |
+| **Dense Vector Memory** | embedding + top-k                                         |
+| **Summary Memory**      | 将历史压缩成摘要                                                  |
+| **Mem0**                | 动态抽取与合并长期记忆                                               |
+| **HippoRAG**            | 知识图和 PageRank 式关联检索                                       |
+| **A-Mem**               | 动态 note、tag、link 和 memory evolution                       |
+| **ReasoningBank**       | 保存成功与失败中提炼的策略                                             |
+| **EviMem**              | evidence + certificate + typed decision + governed update |
+
+LongMemEval 表明长期记忆不仅需要事实检索，还涉及多会话推理、时间信息、知识更新和拒答；MemoryAgentBench进一步将 memory 能力概括为准确检索、test-time learning、长程理解和冲突处理。这说明只比较一个向量 RAG baseline 不足以支撑 ICLR 投稿。([OpenReview][13])
+
+---
+
+## 6.2 科学信息抽取对比方法
+
+保持同一数据输入，还应比较：
+
+* SciBERT；
+* MatSciBERT；
+* DyGIE++；
+* PURE；
+* document-level IE baseline；
+* zero-shot LLM；
+* few-shot LLM；
+* full-text LLM；
+* evidence-RAG LLM。
+
+POLYIE 官方仓库本身提供了 BERT NER、DyGIE++、PURE 和 GPT 类 baseline，可以优先复用其公开实现与官方评测协议。([GitHub][14])
+
+最公平的比较方式是：
+
+> **固定相同的 base LLM、candidate proposer、token budget 和 publication gate，只替换 memory 模块。**
+
+否则 reviewer 会认为提升来自不同模型，而不是 memory。
+
+---
+
+# 七、最终实验划分
+
+## 7.1 训练
+
+```text
+SciREX train
+QASPER train
+SciFact train
+Evidence Inference train
+MeasEval train
+```
+
+## 7.2 ID 验证与测试
+
+使用各数据集官方 dev/test，不打乱原始划分。
+
+## 7.3 OOD 测试
+
+```text
+POLYIE
+BioRED
+```
+
+不在这两个数据集上训练主 memory 模型。
+
+## 7.4 大规模检索测试
+
+```text
+SciFact-Open 500K corpus
+```
+
+## 7.5 真实世界案例
+
+```text
+原来的 150 DOI Gold benchmark
+```
+
+它只作为：
+
+* real-world material database case study；
+* deterministic publication safety 验证；
+* 与旧 EviPGCE 的连接。
+
+不要再用它来训练，也不要把它作为唯一主结果。
+
+---
+
+# 八、需要报告的指标
+
+## 科学记录质量
+
+* tuple precision / recall / F1；
+* evidence span F1；
+* Published Observation F1；
+* Verified-Strong recall；
+* unsupported publication rate；
+* negative-control false publication。
+
+## Memory 本身
+
+* Recall@1 / Recall@5 / Recall@10；
+* MRR / nDCG；
+* memory admission precision；
+* ADD/MERGE/LINK/CONFLICT/IGNORE accuracy；
+* conflict resolution accuracy；
+* repeated-error reduction；
+* stale-memory error rate；
+* memory pollution robustness。
+
+## 持续学习
+
+定义：
+
+[
+\Delta_{\text{memory}}
+======================
+
+## F1_{\text{with memory}}
+
+F1_{\text{without memory}}.
+]
+
+还要报告：
+
+* 随着 stream 增长，性能是否提高；
+* memory size；
+* 每篇论文检索 token 数；
+* 历史错误是否持续传播；
+* 新 DomainPack/schema 下旧 memory 是否失效。
+
+---
+
+# 九、ICLR 论文应当怎样重新表述
+
+## 新标题
+
+**EviMem: Evidence-Certified Memory for Continual Scientific Curation**
+
+或者：
+
+**Learning What to Remember: Evidence-Governed Memory for Continual Scientific Information Extraction**
+
+## 新的四个主要贡献
+
+### 贡献一：新问题
+
+把 scientific information extraction 从独立文档预测，重新定义为持续文献流中的 memory-based curation。
+
+### 贡献二：新 memory 对象
+
+提出 evidence-certified memory，每条记忆携带：
+
+* structured claim；
+* immutable evidence；
+* verification certificate；
+* decision status；
+* time/version。
+
+### 贡献三：新 memory 学习机制
+
+学习：
+
+* admission；
+* retrieval；
+* typed update；
+* conflict resolution。
+
+但 publication 仍由确定性 gate 控制。
+
+### 贡献四：公开多领域 benchmark
+
+将 SciREX、QASPER、SciFact、Evidence Inference、MeasEval、POLYIE 和 BioRED 转换为统一的 continual scientific memory benchmark。
+
+---
+
+# 十、这个方向的关键风险
+
+## 风险一：只做规则型 memory store
+
+假如最终只是：
+
+```text
+certificate pass → store
+certificate fail → reject
+```
+
+这仍然更像系统工程，不够 ICLR。
+
+必须至少有两个可学习组件：
+
+* memory retriever；
+* memory admission/update model。
+
+---
+
+## 风险二：人为构造的 stream 太强
+
+主结果应尽量来自自然 annotations 和真实 publication ordering。
+
+人工 corruption 只能作为 memory stress test，不能成为全部训练和测试来源。
+
+---
+
+## 风险三：memory 只提升 retrieval，不提升最终科学记录
+
+必须证明 memory 能够：
+
+* 提高 tuple F1 或 Published F1；
+* 减少重复错误；
+* 更准确地区分新记录、重复记录和冲突记录；
+* 在不提高错误发布率的情况下提高召回率。
+
+---
+
+## 风险四：跨数据集 schema 不统一
+
+不要粗暴把所有数据变成一段 instruction 文本。
+
+应先建立统一的最小 schema：
+
+```text
+subject
+relation/property
+object/value
+unit
+condition
+evidence
+decision
+timestamp
+source
+```
+
+不同数据集缺失的字段允许为 `null`，但不能伪造。
+
+---
+
+# 十一、推荐的下一阶段
+
+当前 deterministic Phase 0 已经足够，不要继续扩展 publication 工程。
+
+接下来的正确顺序是：
+
+1. 将项目从 `EviMem-RL` 重命名或在论文层面改为 `EviMem`；
+2. 增加公开数据下载与 license audit；
+3. 建立统一 `ScientificMemoryRecord`；
+4. 实现 SciREX、QASPER、SciFact、Evidence Inference、MeasEval adapter；
+5. 构建无 future leakage 的 stream；
+6. 先跑 NoMem、BM25、Dense Memory；
+7. 再实现 certificate-aware retriever；
+8. 再训练 supervised admission/update model；
+9. 最后接 POLYIE、BioRED 和 150 DOI 做 OOD/真实案例。
+
+最小可发表版本不需要 RL，也不需要训练领域大模型：
+
+[
+\boxed{
+\text{Public Scientific Data}
++
+\text{Learned Certified Memory}
++
+\text{Continual Evaluation}
++
+\text{Deterministic Safety Gate}
+}
+]
+
+这会比原来的 EviMem-RL 更聚焦，也更适合单张 4090，并且更容易回答 ICLR reviewer 最核心的问题：
+
+> **你的 memory 方法究竟学会了什么，以及它为什么比普通 RAG、A-Mem 和 Mem0 更可靠？**
+
+可以设置每周检索 ICLR、ICML 和 NeurIPS 新出现的 agent-memory 工作，持续更新 baseline 列表和 related work。
+
+[1]: https://proceedings.neurips.cc/paper_files/paper/2025/hash/19909c36f51abc4856b4560aff3d36d6-Abstract-Conference.html?utm_source=chatgpt.com "A-Mem: Agentic Memory for LLM Agents"
+[2]: https://github.com/allenai/SciREX/blob/master/Statistics.md "SciREX/Statistics.md at master · allenai/SciREX · GitHub"
+[3]: https://arxiv.org/abs/2105.03011?utm_source=chatgpt.com "A Dataset of Information-Seeking Questions and Answers Anchored in Research Papers"
+[4]: https://huggingface.co/datasets/allenai/scifact?utm_source=chatgpt.com "allenai/scifact · Datasets at Hugging Face"
+[5]: https://aclanthology.org/anthology-files/pdf/bionlp/2020.bionlp-1.13.pdf?utm_source=chatgpt.com "Evidence Inference 2.0: More Data, Better Models"
+[6]: https://github.com/harperco/MeasEval "GitHub - harperco/MeasEval: SemEval-2021 Task 8: MeasEval data and other bits · GitHub"
+[7]: https://aclanthology.org/2024.naacl-long.131/ "POLYIE: A Dataset of Information Extraction from Polymer Material Scientific Literature - ACL Anthology"
+[8]: https://arxiv.org/abs/2204.04263?utm_source=chatgpt.com "BioRED: A Rich Biomedical Relation Extraction Dataset"
+[9]: https://arxiv.org/abs/2210.13777?utm_source=chatgpt.com "SciFact-Open: Towards open-domain scientific claim verification"
+[10]: https://github.com/lfoppiano/SuperMat "GitHub - lfoppiano/SuperMat: Superconductors material dataset · GitHub"
+[11]: https://github.com/BangLab-UdeM-Mila/NLP4MatSci-ACL23/tree/main/dataset "NLP4MatSci-ACL23/dataset at main · BangLab-UdeM-Mila/NLP4MatSci-ACL23 · GitHub"
+[12]: https://github.com/allenai/SciREX "GitHub - allenai/SciREX: Data/Code Repository for https://api.semanticscholar.org/CorpusID:218470122 · GitHub"
+[13]: https://openreview.net/pdf?id=pZiyCaVuti&utm_source=chatgpt.com "LONGMEMEVAL: BENCHMARKING CHAT ASSIST"
+[14]: https://github.com/jerry3027/PolyIE "GitHub - jerry3027/PolyIE · GitHub"

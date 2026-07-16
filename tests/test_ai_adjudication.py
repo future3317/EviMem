@@ -215,6 +215,20 @@ class TestHardRules:
         with pytest.raises(ValueError, match=r"CONTRADICTORY \+ SAME_SCOPE"):
             validate_ai_adjudication_label(record, packet=scirex_packet)
 
+    @pytest.mark.parametrize(
+        "authority",
+        ["EQUAL_AUTHORITY", "NEWER_MORE_AUTHORITATIVE", "OLDER_MORE_AUTHORITATIVE"],
+    )
+    def test_contradictory_same_scope_non_unresolved_authority_rejected(
+        self, scirex_packet: AdjudicationPacket, authority: str
+    ) -> None:
+        record = base_juror_dict(scirex_packet.task_id, scirex_packet.packet_checksum)
+        record["semantic_relation"] = "CONTRADICTORY"
+        record["scope_relation"] = "SAME_SCOPE"
+        record["authority_relation"] = authority
+        with pytest.raises(ValueError, match=r"CONTRADICTORY \+ SAME_SCOPE"):
+            validate_ai_adjudication_label(record, packet=scirex_packet)
+
     def test_contradictory_same_scope_unresolved_accepted(
         self, scirex_same_method_packet: AdjudicationPacket
     ) -> None:
@@ -228,6 +242,18 @@ class TestHardRules:
         validated = validate_ai_adjudication_label(record, packet=scirex_same_method_packet)
         assert validated["authority_relation"] == "UNRESOLVED"
 
+    @pytest.mark.parametrize(
+        "authority",
+        ["UNRESOLVED", "EQUAL_AUTHORITY", "NEWER_MORE_AUTHORITATIVE"],
+    )
+    def test_non_same_scope_relation_requires_not_applicable_authority(
+        self, scirex_packet: AdjudicationPacket, authority: str
+    ) -> None:
+        record = base_juror_dict(scirex_packet.task_id, scirex_packet.packet_checksum)
+        record["authority_relation"] = authority
+        with pytest.raises(ValueError, match="authority_relation must be NOT_APPLICABLE"):
+            validate_ai_adjudication_label(record, packet=scirex_packet)
+
     def test_scirex_different_methods_same_scope_rejected(
         self, scirex_packet: AdjudicationPacket
     ) -> None:
@@ -235,6 +261,23 @@ class TestHardRules:
         record["scope_relation"] = "SAME_SCOPE"
         with pytest.raises(ValueError, match="different methods"):
             validate_ai_adjudication_label(record, packet=scirex_packet)
+
+    def test_scirex_same_task_unrelated_rejected(
+        self, scirex_external_safe: dict[str, object]
+    ) -> None:
+        external_safe = json.loads(json.dumps(scirex_external_safe))
+        external_safe["data"]["right_claim"] = (
+            "U-Net Mean_IoU for Semantic_Segmentation = 0.9203 under "
+            '{"dataset": "PhC-U373"}'
+        )
+        packet = AdjudicationPacket.from_external_safe_record(
+            external_safe, provenance="packet:external_safe"
+        )
+        record = base_juror_dict(packet.task_id, packet.packet_checksum)
+        record["semantic_relation"] = "UNRELATED"
+        record["scope_relation"] = "DIFFERENT_SCOPE"
+        with pytest.raises(ValueError, match="same visible task cannot be UNRELATED"):
+            validate_ai_adjudication_label(record, packet=packet)
 
     def test_missing_canonical_field_rejected(
         self, scirex_packet: AdjudicationPacket
@@ -405,7 +448,7 @@ class TestJudgeMajorityVote:
         )
         draft["semantic_relation"] = "EQUIVALENT"
         draft["scope_relation"] = "SAME_SCOPE"
-        draft["authority_relation"] = "EQUAL_AUTHORITY"
+        draft["authority_relation"] = "NOT_APPLICABLE"
         draft["evidence_sufficiency"] = "PARTIAL"
         draft["requires_higher_tier_ai_review"] = False
         with pytest.raises(ValueError, match=r"EQUIVALENT \+ SAME_SCOPE"):
@@ -445,6 +488,7 @@ class TestCriticReview:
                     "explanation": "Right side lacks measurement temperature.",
                 }
             ],
+            "model_id": "test-critic-model",
             "prompt_checksum": PROMPT_CHECKSUM,
             "annotation_provenance": "ai_critic",
             "schema_version": "phase1b-v3",
@@ -468,6 +512,7 @@ class TestCriticReview:
                     "explanation": "The note suggests SUPERSEDE, which is forbidden.",
                 }
             ],
+            "model_id": "test-critic-model",
             "prompt_checksum": PROMPT_CHECKSUM,
             "annotation_provenance": "ai_critic",
             "schema_version": "phase1b-v3",
@@ -523,6 +568,33 @@ class TestCliPacket:
         records = read_jsonl_records(output_path)
         assert len(records) == 1
         assert records[0]["task_id"] == "scirex:0001"
+
+    def test_cli_packet_explicit_task_subset_is_label_free(
+        self, tmp_path: Path, scirex_external_safe: dict[str, object]
+    ) -> None:
+        input_path = tmp_path / "external_safe.jsonl"
+        output_dir = tmp_path / "packets"
+        other = json.loads(json.dumps(scirex_external_safe))
+        other["id"] = "scirex:0002"
+        other["data"]["pair_id"] = "scirex:0002"
+        write_jsonl_records(input_path, [scirex_external_safe, other])
+
+        from tools.run_ai_adjudication import main
+
+        assert main(
+            [
+                "packet",
+                "--input",
+                str(input_path),
+                "--output",
+                str(output_dir),
+                "--task-id",
+                "scirex:0002",
+            ]
+        ) == 0
+
+        packets = load_packets(output_dir)
+        assert set(packets) == {"scirex:0002"}
 
 
 class TestCliValidate:

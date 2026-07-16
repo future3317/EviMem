@@ -9,6 +9,8 @@ __pycache__/
 dist/
 build/
 
+# Local environment variables; use .env.example as a template.
+.env
 # Runtime state is never source code.
 dataset/
 artifacts/
@@ -16,6 +18,12 @@ outputs/
 *.db
 *.db-shm
 *.db-wal
+
+# Matbench Discovery artifacts: large compressed data files downloaded from
+# official Figshare registry and kept outside the repository.
+*.json.gz
+*.pkl.gz
+*.csv.gz
 
 # Local model and experiment output.
 checkpoints/
@@ -38,6 +46,8 @@ wandb/
 /packets/
 /sandboxes/
 /silver/
+/candidates/
+/quarantine/
 /recheck_tasks.jsonl
 /extract_recheck_ids.py
 /extract_recheck_tasks.py
@@ -55,3 +65,4 @@ wandb/
 /reports/phase1b/model_*_summary.md
 /reports/phase1b/model_annotation_comparison.json
 /reports/phase1b/model_annotation_comparison.md
+/reports/phase1b/AI_ADJUDICATION_CONTAMINATION_DISCLOSURE.md

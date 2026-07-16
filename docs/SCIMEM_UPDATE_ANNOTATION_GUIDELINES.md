@@ -97,6 +97,36 @@ missing context.
 - Do not call the adjudicated set gold until coverage, agreement, evidence
   alignment, and license gates pass.
 
+## API-model protocol
+
+An API model may assist with machine-provenance candidates, but it does not
+replace the distinction between candidates, adjudicated silver, and human gold.
+The API runner must:
+
+- read a secret only from the inherited environment or a local gitignored
+  `.env`; never store it in a command, prompt file, manifest, report, or Git;
+- send only a minimal view of an external-safe packet: task ID, source dataset,
+  claim text, evidence locators, and visible source-level notice;
+- record the returned model ID, non-zero prompt checksum, input packet-set
+  checksum, and aggregate token usage;
+- leave rate-limited, malformed, or validation-failed responses unannotated;
+  it must not create a rule-based fallback with model provenance;
+- label same-model double calls as separate blinded calls, not independent-model
+  agreement;
+- produce only blind `ai_juror` candidates; never send one candidate's labels
+  or notes to another external model; and
+- gate Crossref/Retraction Watch source-level records out of model annotation
+  unless separately visible claim-level evidence is added to the packet.
+
+`tools/run_deepseek_adjudication.py` permits authenticated execution only with
+`--primary-only`. Use at least two independently produced blind candidate
+exports and compare them locally with `tools/run_blind_adjudication_gate.py`.
+The local gate never chooses a four-axis winner: any disagreement, any
+non-sufficient evidence, any same-scope contradiction, or fewer than three
+distinct model IDs is routed to high-risk review. A unanimous result is only a
+provisional machine-consensus candidate, never silver or gold. A `--dry-run`
+prints the planned upper bound without an API key or network call.
+
 ## Label Studio Import and Export
 
 Use the standard Label Studio project configuration at

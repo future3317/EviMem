@@ -40,6 +40,12 @@ def _parser() -> argparse.ArgumentParser:
     packet.add_argument("--output", type=Path, required=True)
     packet.add_argument("--jsonl", action="store_true", help="Write one JSONL file instead of one file per packet")
     packet.add_argument("--provenance", type=str, default="packet:external_safe")
+    packet.add_argument(
+        "--task-id",
+        action="append",
+        dest="task_ids",
+        help="Include one explicit external-safe task ID; repeat to build a label-free subset.",
+    )
 
     juror = sub.add_parser("juror", help="Validate and compile juror annotations")
     juror.add_argument("--run-id", type=str, required=True, dest="run_id")
@@ -106,8 +112,21 @@ def _safe_filename(task_id: str) -> str:
 
 def cmd_packet(args: argparse.Namespace) -> int:
     records = read_jsonl_records(args.input)
+    requested_task_ids = args.task_ids or []
+    requested = set(requested_task_ids)
+    if len(requested) != len(requested_task_ids):
+        raise ValueError("duplicate --task-id")
     packets: list[dict[str, Any]] = []
+    observed: set[str] = set()
     for line_number, record in enumerate(records, start=1):
+        task_id = record.get("id")
+        if requested and task_id not in requested:
+            continue
+        if not isinstance(task_id, str):
+            raise ValueError(f"line {line_number}: external-safe record missing string id")
+        if task_id in observed:
+            raise ValueError(f"line {line_number}: duplicate selected task_id {task_id}")
+        observed.add(task_id)
         assert_no_sampling_or_gold_fields(record)
         try:
             packet = AdjudicationPacket.from_external_safe_record(
@@ -116,6 +135,10 @@ def cmd_packet(args: argparse.Namespace) -> int:
         except ValueError as exc:
             raise ValueError(f"line {line_number}: {exc}") from exc
         packets.append(packet.model_dump(mode="json"))
+
+    missing = requested - observed
+    if missing:
+        raise ValueError(f"requested external-safe task_id not found: {sorted(missing)[0]}")
 
     if args.jsonl:
         write_jsonl_records(args.output, packets)

@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "evimem"
 version = "0.2.0"
-description = "Evidence-certified memory for continual scientific curation"
+description = "Governed scientific memory and protocol-aware residual memory for materials discovery"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
@@ -34,6 +34,9 @@ dev = [
   "pytest-cov>=4.1",
   "ruff>=0.4",
 ]
+adjudication = [
+  "requests>=2.31,<3",
+]
 materials = [
   "numpy>=2",
   "scipy>=1.13",
@@ -61,6 +64,7 @@ pythonpath = ["src"]
 [tool.ruff]
 line-length = 100
 target-version = "py311"
+extend-exclude = ["quarantine"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "UP", "W"]

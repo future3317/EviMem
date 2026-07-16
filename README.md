@@ -2,6 +2,21 @@
 
 **Evidence-Certified Memory for Continual Scientific Curation**
 
+## Materials-discovery path
+
+The current paper-facing hypothesis is a **Decision-Aware Calibration Coreset
+(DACC)** for a frozen materials predictor. `K` bounds the residual witnesses
+used for online calibration; every revealed DFT result remains in an immutable
+audit archive. Real-WBM execution uses one allow-listed subprocess policy path,
+an oracle-isolated reveal boundary, and a composition-dependent causal hull.
+
+The corrected CAW-Joint method remains a frozen method-level NO-GO. The small
+WBM matched-trace pilot gives preliminary DACC mechanism evidence, not a
+superiority claim; survival-conditioned acquisition is currently negative and
+paused. See the [current DACC specification](docs/WBM_CALIBRATION_CORESET_AMENDMENT.md),
+[engineering WBM result](docs/WBM_ENGINEERING_P1_P15_AND_PILOT.md), and
+[research iteration history](docs/RESEARCH_ITERATION_HISTORY.md).
+
 EviMem studies three learnable decisions over a chronological scientific-document stream:
 
 ```text
@@ -108,6 +123,78 @@ Human annotation has not started. No model consensus is human consensus, the
 update manager was not trained, and no QLoRA run was performed. See the
 [annotation guidelines](docs/SCIMEM_UPDATE_ANNOTATION_GUIDELINES.md) and
 [labelbook](docs/SCIMEM_UPDATE_LABELBOOK.md).
+
+### DeepSeek API annotation runner
+
+`tools/run_deepseek_adjudication.py` provides an optional, fail-closed API
+runner for `deepseek-v4-pro` only. It reads only packet files, sends the model a
+minimal claim/evidence view, records the actual returned model ID and prompt
+checksum, and writes untracked run artifacts under `runs/`. Thinking mode is
+explicitly disabled (`thinking: {"type": "disabled"}`), so no chain-of-thought
+is requested or retained; concise JSON output is capped at 768 tokens per blind
+juror call. Every validated output is linked to an append-only
+per-call ledger containing only checksums, returned model identity, hashed
+provider request ID, timestamp, and token usage. It never treats an API output
+as human review, gold, training data, a memory operation, or a paper result.
+
+Authenticated execution is blind-primary-only: each external model receives a
+safe packet and emits its own candidate without seeing another model's labels.
+Crossref/Retraction Watch records are gated out without an API call because
+source-level metadata alone has no claim-level evidence. Run a cost-free plan
+before an authenticated execution:
+
+The V4 Pro juror protocol is versioned in each run manifest. V2 is frozen after
+its development and holdout audits; it remains selectable for reproduction. The
+default V4 prompt adds visible-claim-link gates, directional-scope self-checks,
+and conservative authority handling. The prior V3 and current V4 SciFact
+holdouts remain rejected model candidates: the runner and ledger work, but the
+visible-text audit found that their scientific relation labels are not reliable
+enough for acceptance. In every version, same-task SciREX benchmark records
+with different methods or datasets are `COMPATIBLE_DISTINCT +
+DIFFERENT_SCOPE`, not `UNRELATED`. The local validator rejects prohibited
+outputs but never replaces them with a rule-derived label.
+
+```powershell
+conda run --no-capture-output -n llm python tools/run_deepseek_adjudication.py `
+  --packets packets --output runs/deepseek-v4-pro-pass-a --primary-only --dry-run
+```
+
+After rotating and setting the key in the inherited process environment or the
+gitignored local `.env`, remove `--dry-run`. The runner reads only the
+`DEEPSEEK_API_KEY` assignment and never logs or exports it. Verify a completed
+run offline before interpreting it:
+
+```powershell
+conda run --no-capture-output -n llm python tools/run_deepseek_adjudication.py `
+  --packets packets --output runs/<run-id> --verify-run
+```
+
+Do not place a key in a command, file, or Git configuration.
+
+For a repeat blind review of an already selected local task subset, use
+`--primary-only` twice with distinct output/run directories. Each V4 Pro call
+sees only safe packets and emits `ai_juror` candidates only—never critic, judge,
+or silver labels. Select task IDs locally; do not send prior labels or reviewer
+notes to the external model.
+
+Compare blind candidate exports only on the local machine. The gate never
+chooses a label winner. With the V4-Pro-only workflow, two separate calls are a
+same-model stability check, not independent-model agreement. Disagreements,
+insufficient evidence, and same-scope contradictions require review; even a
+repeat-consistent candidate is not silver, gold, a training target, or a paper
+result.
+
+See the [V3/V4 SciFact holdout audit](reports/phase1b/DEEPSEEK_V3_V4_SCIFACT_HOLDOUT_AUDIT.md)
+before interpreting a model candidate. Current API candidates are useful only
+for review prioritization; they are not quality-accepted labels.
+
+```powershell
+conda run --no-capture-output -n llm python tools/run_blind_adjudication_gate.py `
+  --packets runs/review/packets `
+  --candidate runs/deepseek-v4-pro-pass-a/votes/juror-a.jsonl `
+  --candidate runs/deepseek-v4-pro-pass-b/votes/juror-a.jsonl `
+  --same-model-repeat --output runs/blind-gate
+```
 
 ## Data protocol
 

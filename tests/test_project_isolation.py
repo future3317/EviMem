@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import subprocess
 from pathlib import Path
 
 
@@ -37,10 +38,16 @@ def test_package_has_no_hardcoded_legacy_repository_paths() -> None:
     assert violations == []
 
 
-def test_clean_project_contains_no_runtime_data_directories() -> None:
+def test_runtime_data_directories_are_not_tracked_source() -> None:
     root = Path(__file__).resolve().parents[1]
     forbidden = ("dataset", "artifacts", "outputs", "checkpoints", "runs", "wandb")
-    assert [name for name in forbidden if (root / name).exists()] == []
+    tracked = subprocess.run(
+        ["git", "-C", str(root), "ls-files", "--", *forbidden],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.splitlines()
+    assert tracked == []
 
 
 def test_learning_components_cannot_import_publication_writers() -> None:

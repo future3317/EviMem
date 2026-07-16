@@ -22,6 +22,25 @@ paper results or SciMem-Update gold.
 
 ## System components
 
+### Current DACC materials-discovery path
+
+| Component | Status | Evidence |
+|---|---|---|
+| Native `MaterialMemoryCard` / causal dynamic hull snapshot | Implemented, unit-tested | `matmem/cards.py`; raw formation energy is retained, phase sets are time-bounded, and hull distance is recomputed by snapshot |
+| Protocol certificate and fail-closed transport | Implemented, unit-tested | `matmem/protocols.py`; only identical scientific protocols or canonical-group-disjoint same-structure transport maps transfer residuals |
+| Fixed-hyperparameter residual posterior | Implemented, unit-tested | `matmem/residual_posterior.py`; protocol-compatible fixed GP with deterministic samples and no evaluation-pool optimization |
+| Decision-aware calibration coreset | Implemented, unit-tested | `matmem/calibration_utility.py`, `matmem/coreset.py`; fixed non-negative facility-location gains and exact streaming one-swap over the current set plus one arrival |
+| Current acquisition policies | Implemented, unit-tested | `matmem/acquisition.py`; frozen hull distance, seeded random, posterior uncertainty, and the paused survival-conditioned secondary hypothesis |
+| Secure real-WBM evaluator | Implemented, unit-tested | `matmem/wbm_secure.py`; action-before-reveal log, oracle-isolated subprocess policy, composition-dependent hull update and exact same-FIFO emulation |
+| Current equal-capacity controls | Implemented, unit-tested | persistent/reconstructed FIFO and diversity; full observed history is represented by the secure evidence path when capacity is non-binding |
+| Certificate-compatible residual correction | Implemented, unit-tested | `matmem/residual.py`; unsupported/no-neighbor path abstains |
+| Protocol-stratified risk-controlled screening | Implemented, unit-tested | `matmem/risk.py`; stable requires a calibrated upper bound |
+| CAW-Joint | **Frozen method-level NO-GO** | exact historical implementation at tag `caw-method-no-go-2026-07-15`; retired live code summarized in `RESEARCH_ITERATION_HISTORY.md` |
+| WBM engineering P1/P1.5 | Passed for fixed historical-pipeline replay | 128 candidates, zero adapter parity mismatches, eight oracle-final stable candidates across five of eight pools |
+| DACC matched-trace pilot | Preliminary mechanism signal only | best mean RMSE/NLL, diversity best Brier, improvement in 5/8 systems and degradation in 3/8; no dominance claim |
+| Survival-conditioned acquisition | Negative and paused | worse in the two small engineering cells; no evaluation-pool tuning permitted |
+| Claim-grade WBM / MADE | **Not executed** | identity/overlap audit, more systems, calibration-only freezing, paired uncertainty and measured compute remain; MADE stays out of scope |
+
 | Component | Status | Evidence |
 |---|---|---|
 | Unified cross-domain memory schema | Implemented | `contracts/memory.py`; schema/governance tests |
@@ -37,6 +56,10 @@ paper results or SciMem-Update gold.
 | Component-level public dataset manifest | Implemented in Phase 1A | official LICENSE files take precedence over Hugging Face metadata |
 | Separate retrieval/admission/update views | Implemented | oracle payload physically separated from model input |
 | Annotation protocol | Implemented | labelbook, guidelines, disagreement taxonomy, Label Studio import/export |
+| Blind V4-Pro repeat gate | Implemented, fail-closed | `tools/run_blind_adjudication_gate.py`; two blind V4 Pro calls are a stability check only, no external critic/judge receives prior labels, and the gate never selects a winner |
+| V4-Pro scope-first V2 protocol | Frozen, audited candidate workflow | 20 SciREX + 20 SciFact blind candidates and 20 Crossref gate records; candidates remain `not_gold`, not training data, and not paper results |
+| V4-Pro evidence-bound scope V3 protocol | Executed; candidate output rejected | fresh 20-packet SciFact holdout exposed directional-scope, unsupported entity-link, and authority errors; output remains `not_gold` |
+| V4-Pro claim-link gates V4 protocol | Executed; candidate output rejected | fresh 20-packet SciFact holdout; 18 candidate outputs, 2 fail-closed blanks, and only 6/18 clearly labelbook-consistent in visible-text audit |
 
 ## Public-data readiness
 
@@ -98,3 +121,18 @@ licenses for selected fields pass, evidence locators/checksums are present,
 Label Studio import/config files exist, and compiled operations are hidden.
 SciMem-Update remains unavailable until annotation, adjudication, agreement, and
 post-export alignment checks pass.
+
+External API execution is limited to DeepSeek V4 Pro blind-primary calls. Each
+call receives a safe packet and may not see another model's output. Repeated V4
+Pro calls are a stability check, never independent-model agreement. The local
+blind gate routes any model disagreement, non-sufficient evidence, same-scope
+contradiction, or reused blind run to high-risk review; it emits no selected
+semantic label, silver label, or training target. A repeat-consistent candidate
+remains `not_gold` and cannot be used for training, formal evaluation, or paper
+results.
+
+The API workflow itself is implemented and ledger-verified, but its current
+model-only labels are **not quality-accepted**. The V3/V4 SciFact holdouts are
+documented in `reports/phase1b/DEEPSEEK_V3_V4_SCIFACT_HOLDOUT_AUDIT.md`; all
+such candidates remain review-queue artifacts, not retrieval/admission/update
+training data.

@@ -1,5 +1,23 @@
 # EviMem: Evidence-Certified Memory for Continual Scientific Curation
 
+> Research-direction note (2026-07): the document-curation system below remains
+> an audited implementation history. The planned materials method is DACC,
+> described in [WBM_CALIBRATION_CORESET_AMENDMENT.md](WBM_CALIBRATION_CORESET_AMENDMENT.md).
+> DACC does not use SciMem-Update labels or model-generated annotations.
+
+## 0. Proposed MatMem method
+
+MatMem takes a frozen materials predictor and a chronological stream of native
+formation-energy outcomes. It keeps at most \(K\) protocol-certified residual
+cards, selected by a greedy decision-aware coverage objective rather than by
+residual magnitude. Retrieval is direct only for matching scientific protocols;
+an explicit same-structure-calibrated transport map is required otherwise, and
+unsupported transitions abstain. Formation energy remains native; energy above
+hull is recomputed against a versioned current hull snapshot. Screening is
+stable only when a protocol-stratified calibrated upper bound is below the
+threshold. This method is implemented as contracts and deterministic evaluation
+machinery only; Matbench Discovery/JARVIS experiments are not yet executed.
+
 ## 1. Research question
 
 Scientific information extraction is usually evaluated one document at a time, while real databases receive a chronological stream in which later evidence can repeat, contradict, or invalidate earlier records. EviMem asks whether an extractor can learn:
@@ -150,9 +168,13 @@ Annotators independently assign `SemanticRelation`, `ScopeRelation`,
 `AuthorityRelation`, and `EvidenceSufficiency` using the repository labelbook.
 The standard Label Studio UI omits compiled operations. Crossref records preserve
 API response checksum, source, update type, timestamp, and DOI relation; all
-claim-level effects remain `awaiting_human_evidence_annotation`. Double
-annotation, adjudication, agreement analysis, evidence recheck, and export audit
-must finish before any SciMem-Update gold claim.
+claim-level effects remain `awaiting_human_evidence_annotation`. Model-only
+candidate labels may prioritize targeted review but never satisfy annotation or
+adjudication requirements. A visible-text audit of current DeepSeek V4 Pro
+holdouts rejected the candidate sets for scientific-relation quality; see
+`reports/phase1b/DEEPSEEK_V3_V4_SCIFACT_HOLDOUT_AUDIT.md`. Targeted expert
+annotation, adjudication, agreement analysis, evidence recheck, and export
+audit must finish before any SciMem-Update gold claim.
 
 ## 7. Training status
 

@@ -1,6 +1,6 @@
 ---
 name: evimem-ai-adjudication
-description: AI-adjudicated silver annotation workflow for SciMem-Update Phase 1B. Activate when the user invokes /evimem-ai-adjudication with modes packet, juror, critic, judge, normalize, or validate, or when asked about AI adjudication, silver labels, blind juror review, or canonical annotation validation for SciMem-Update.
+description: Fail-closed blind-candidate annotation workflow for SciMem-Update Phase 1B. Activate when the user invokes /evimem-ai-adjudication with modes packet, juror, critic, judge, normalize, or validate, or when asked about blind juror review, candidate routing, or canonical annotation validation for SciMem-Update.
 argument-hint: <mode> [mode-specific args]
 allowed-tools: [Read, Glob, Grep, Bash, Write, Edit]
 ---
@@ -42,6 +42,7 @@ Modes:
 - `judge` — Review packets, two juror outputs, and a critic review to produce an `ai_adjudicated_silver` JSONL.
 - `normalize` — Losslessly normalize Label Studio nested exports or canonical JSONL.
 - `validate` — Fail-closed validation of canonical JSONL against the schema and hard rules.
+- `deepseek-api` — Run the V4-Pro-only DeepSeek blind-candidate workflow on safe packets only.
 
 ## General safety rules (apply to every mode)
 
@@ -54,6 +55,69 @@ Modes:
 7. Never output operation fields or labels: `ADD`, `MERGE`, `LINK`, `CONFLICT`, `SUPERSEDE`, `IGNORE`, `compiled_operation`, `update_operation`, `operation`, or `memory_operation`.
 8. Each label must be based only on the visible evidence in the current packet. Do not use dataset strata, batch patterns, previous task labels, or hidden files to infer labels.
 9. Temporary reasoning may be written locally, but the final exported record must keep only a short, evidence-locatable note. Do not preserve chain-of-thought in the exported artifact.
+
+## Mode: deepseek-api
+
+Use `tools/run_deepseek_adjudication.py` when an API model is authorized for
+machine-provenance candidate generation. The runner permits only
+`deepseek-v4-pro` and reads its credential only from `DEEPSEEK_API_KEY`. Never place a
+credential in a command, file, report, prompt, or Git configuration.
+
+The runner accepts only a packet directory. It sends DeepSeek a minimal model
+view that excludes source document IDs and checksums, retains the true returned
+model ID and a per-call prompt checksum, and writes all output under ignored
+`runs/` paths. It explicitly disables DeepSeek thinking mode and never retains
+reasoning content. Each validated annotation is linked to an append-only
+checksum-only API ledger; do not accept a resumed record without its matching
+ledger proof. It never auto-falls back to a rule-derived semantic label.
+
+Run a no-cost plan first:
+
+```powershell
+conda run --no-capture-output -n llm python tools/run_deepseek_adjudication.py `
+  --packets packets --output runs/deepseek-v4-pro-pass-a --primary-only --dry-run
+```
+
+Then, after setting a rotated key in the inherited process environment or the
+gitignored local `.env`, remove `--dry-run`. The runner reads only the
+`DEEPSEEK_API_KEY` assignment and never exports it. After completion, run the
+offline ledger audit:
+
+```powershell
+conda run --no-capture-output -n llm python tools/run_deepseek_adjudication.py `
+  --packets packets --output runs/<run-id> --verify-run
+```
+
+Authenticated API execution must include `--primary-only`. Crossref/Retraction
+Watch records are put in a source-level gate file without a model call.
+Primary-only results are candidates, not adjudicated silver. Never pass one
+model's labels or notes to another external model. Compare two or more blind
+candidate exports locally with `tools/run_blind_adjudication_gate.py`; its gate
+never selects a label winner and routes disagreement, non-sufficient evidence,
+same-scope contradiction, or insufficient model diversity to high-risk review.
+
+## Mode: blind-gate
+
+Run this mode only on the local machine after two or more blind candidate
+exports. The gate reads candidate files locally; it never sends their labels or
+notes to another model, and it does not write a selected four-axis label, silver
+label, or memory operation. Under the V4-Pro-only policy, the two exports must
+come from separate blind API calls with distinct `juror_run_id` values; this is
+a stability check, never independent-model agreement.
+
+```powershell
+conda run --no-capture-output -n llm python tools/run_blind_adjudication_gate.py `
+  --packets runs/review/packets `
+  --candidate runs/deepseek-v4-pro-pass-a/votes/juror-a.jsonl `
+  --candidate runs/deepseek-v4-pro-pass-b/votes/juror-a.jsonl `
+  --same-model-repeat --output runs/blind-gate
+```
+
+With `--same-model-repeat`, a fully consistent, sufficient-evidence result is
+only `same_model_repeat_consistent_candidate`: it is not multi-model consensus,
+silver, gold, a training target, or a paper result. Disagreement on any axis,
+non-sufficient evidence, same-scope contradiction, or a reused blind run
+requires review.
 
 ## Mode: packet
 
@@ -102,6 +166,10 @@ Behavior:
 
 ## Mode: critic (run in a read-only sandbox)
 
+**External-model prohibition:** an external API model must not run this mode,
+because it would receive prior annotator labels. Use `blind-gate` for model
+candidate routing. This mode is retained only for a local human review process.
+
 Review packets plus two frozen juror outputs and identify errors.
 
 ```
@@ -130,6 +198,10 @@ python tools/run_ai_adjudication.py critic --input packets/ --juror-a votes/juro
 4. Run `python tools/run_ai_adjudication.py validate --input <output> --packets <input>`.
 
 ## Mode: judge (run in a separate sandbox)
+
+**External-model prohibition:** an external API model must not run this mode,
+because it would receive prior annotator labels. Use `blind-gate` for model
+candidate routing. This mode is retained only for a local human review process.
 
 Produce an `ai_adjudicated_silver` label from packet + jurors + critic.
 
