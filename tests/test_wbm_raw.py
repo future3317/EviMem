@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from evimem.matmem import (
+from matmem import (
     WBMRawOracleVault,
     raw_wbm_records_from_payload,
     validate_raw_wbm_release,

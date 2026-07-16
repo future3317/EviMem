@@ -5,7 +5,7 @@ import itertools
 import numpy as np
 import pytest
 
-from evimem.matmem import (
+from matmem import (
     CalibrationUtilityBuilder,
     CalibrationUtilityMatrix,
     FacilityLocationCoresetPlanner,

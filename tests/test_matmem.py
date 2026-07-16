@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 import pytest
 from pydantic import ValidationError
 
-from evimem.matmem import (
+from matmem import (
     CalibrationUtilityBuilder,
     CanonicalGroupSplit,
     CompatibilityKind,

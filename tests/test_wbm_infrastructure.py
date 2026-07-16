@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from evimem.matmem import (
+from matmem import (
     DataLicenseDecision,
     ExternalDataArtifact,
     FrozenPredictionSOAPCache,

@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from evimem.matmem import (
+from matmem import (
     AppendOnlyWBMEventLog,
     CalibrationUtilityBuilder,
     CompositionHullState,
@@ -30,7 +30,7 @@ from evimem.matmem import (
     assert_exact_emulation,
     replay_wbm_event_log,
 )
-from evimem.matmem.protocols import ProtocolCertificate
+from matmem.protocols import ProtocolCertificate
 
 NOW = datetime(2023, 2, 7, tzinfo=UTC)
 OBSERVED = NOW + timedelta(days=1)

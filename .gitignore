@@ -10,6 +10,7 @@ dist/
 build/
 
 # Runtime state is never source code.
+.env
 dataset/
 artifacts/
 outputs/
@@ -27,31 +28,3 @@ wandb/
 .claude/settings.json
 .claude/settings.local.json
 
-# AI annotation packets, model votes, adjudication exports, and their reports
-# are local experiment artifacts. The tracked annotation protocol remains in
-# annotation/ and docs/.
-/annotation/scimem_update_pilot_external_safe.jsonl
-/annotation/scimem_update_pilot_model_*.jsonl
-/annotation/scimem_update_pilot_sanitized_*.jsonl
-/annotation/scimem_update_pilot_consensus_*.jsonl
-/annotation/scimem_update_pilot_needs_human_adjudication.jsonl
-/packets/
-/sandboxes/
-/silver/
-/recheck_tasks.jsonl
-/extract_recheck_ids.py
-/extract_recheck_tasks.py
-/generate_recheck_annotations.py
-/validate_recheck.py
-/scripts/annotate_model_*.py
-/scripts/compare_model_annotations.py
-/scripts/compare_sanitized_blind_models.py
-/scripts/create_external_safe_export.py
-/scripts/merge_model_candidates.py
-/scripts/run_model_*.py
-/reports/phase1b/CODEX_*_QA.md
-/reports/phase1b/QUARANTINE_MANIFEST.md
-/reports/phase1b/external_safe_export_summary.md
-/reports/phase1b/model_*_summary.md
-/reports/phase1b/model_annotation_comparison.json
-/reports/phase1b/model_annotation_comparison.md

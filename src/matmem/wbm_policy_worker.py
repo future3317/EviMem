@@ -11,7 +11,7 @@ SRC_ROOT = Path(__file__).resolve().parents[2]
 if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
-from evimem.matmem import (  # noqa: E402
+from matmem import (  # noqa: E402
     CalibrationUtilityBuilder,
     FacilityLocationCoresetPlanner,
     FixedKernelGPConfig,
@@ -27,7 +27,7 @@ from evimem.matmem import (  # noqa: E402
     SourceProvenance,
     SurvivalConditionedAcquisition,
 )
-from evimem.matmem.wbm_secure import PolicyState  # noqa: E402
+from matmem.wbm_secure import PolicyState  # noqa: E402
 
 POLICY_TIME = datetime(2000, 1, 1, tzinfo=UTC)
 

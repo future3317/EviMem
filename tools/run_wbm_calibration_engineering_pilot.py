@@ -36,7 +36,7 @@ from build_wbm_candidate_parity_audit import (  # noqa: E402
     _repair_historical_composition_interface,
 )
 
-from evimem.matmem import (  # noqa: E402
+from matmem import (  # noqa: E402
     AppendOnlyWBMEventLog,
     CalibrationUtilityBuilder,
     CompositionHullState,
@@ -63,7 +63,7 @@ from evimem.matmem import (  # noqa: E402
     WBMOracleVault,
     compare_facility_and_joint_objectives,
 )
-from evimem.matmem.protocols import ProtocolCertificate  # noqa: E402
+from matmem.protocols import ProtocolCertificate  # noqa: E402
 
 INITIAL_TIME = datetime(2023, 2, 7, tzinfo=UTC)
 OBSERVED_TIME = INITIAL_TIME + timedelta(days=1)
