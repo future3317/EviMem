@@ -6,37 +6,14 @@ It consumes native structure and calculation outcomes, never LLM annotations.
 
 from .acquisition import (
     AcquisitionScore,
-    BaseBoundaryAcquisition,
-    BoundaryUncertaintyAcquisition,
-    LegacyTwoScenarioAcquisition,
-    OnDemandKNNArchiveAcquisition,
+    FrozenHullDistanceAcquisition,
     PosteriorUncertaintyAcquisition,
-    ProtocolAwareBoundaryAcquisition,
     SeededRandomAcquisition,
     SurvivalConditionedAcquisition,
 )
-from .active import (
-    ActiveDiscoveryEvaluator,
-    ActiveDiscoveryMetrics,
-    ActiveStep,
-    CardOracleVault,
-)
 from .baselines import (
-    DeterministicReservoirMemory,
     DiversityBoundedMemory,
     FIFOBoundedMemory,
-    FullHistoryMemory,
-    ResidualPriorityMemory,
-)
-from .boundary import (
-    BoundaryEstimate,
-    BoundaryPotentialValue,
-    BoundaryRetentionSelection,
-    BoundaryRiskConfig,
-    BoundaryRiskPotential,
-    BoundaryRiskRetention,
-    BoundaryWitness,
-    BruteForceRetentionSolver,
 )
 from .calibration_utility import CalibrationUtilityBuilder, CalibrationUtilityMatrix
 from .cards import HullSnapshot, MaterialMemoryCard, MaterialQuery, SourceProvenance
@@ -45,16 +22,7 @@ from .coreset import (
     FacilityLocationCoresetPlanner,
     StreamingCalibrationCoreset,
 )
-from .economics import MatchedAccessCost, MatchedAccessCostModel, MatchedAccessOperationLedger
-from .evaluation import (
-    DeploymentStrategy,
-    DiscoveryMetrics,
-    OnlineDiscoveryEvaluator,
-    RiskCoveragePoint,
-    ScreeningOutcome,
-    risk_coverage_curve,
-)
-from .hull_engine import CausalHullEngine, SyntheticMinHullEngine
+from .hull_engine import CausalHullEngine
 from .identity import CanonicalGroupSplit, MaterialIdentity
 from .protocols import (
     CompatibilityKind,
@@ -123,23 +91,9 @@ from .wbm_secure import (
 
 __all__ = [
     "AcquisitionScore",
-    "ActiveDiscoveryEvaluator",
-    "ActiveDiscoveryMetrics",
-    "ActiveStep",
     "AppendOnlyWBMEventLog",
-    "BaseBoundaryAcquisition",
-    "BoundaryUncertaintyAcquisition",
-    "BruteForceRetentionSolver",
-    "BoundaryEstimate",
-    "BoundaryPotentialValue",
-    "BoundaryRetentionSelection",
-    "BoundaryRiskConfig",
-    "BoundaryRiskPotential",
-    "BoundaryRiskRetention",
-    "BoundaryWitness",
     "CalibrationUtilityBuilder",
     "CalibrationUtilityMatrix",
-    "CardOracleVault",
     "CausalHullEngine",
     "CompatibilityKind",
     "CompositionHullState",
@@ -150,33 +104,23 @@ __all__ = [
     "DataAuditFinding",
     "DataLicenseAuditReport",
     "DataLicenseDecision",
-    "DeterministicReservoirMemory",
-    "DeploymentStrategy",
-    "DiscoveryMetrics",
     "DiversityBoundedMemory",
     "FIFOBoundedMemory",
     "FacilityLocationCoresetPlanner",
     "FixedKernelGPConfig",
     "FixedKernelResidualGP",
-    "FullHistoryMemory",
+    "FrozenHullDistanceAcquisition",
     "FrozenPredictionSOAPCache",
     "FrozenPredictionSOAPRecord",
     "HullSnapshot",
-    "LegacyTwoScenarioAcquisition",
     "MatchedResidualPair",
     "MaterialMemoryCard",
     "MaterialIdentity",
     "MaterialQuery",
-    "MatchedAccessCost",
-    "MatchedAccessCostModel",
-    "MatchedAccessOperationLedger",
     "MPCausalHullBuilder",
     "MPPhaseRecord",
-    "OnlineDiscoveryEvaluator",
-    "OnDemandKNNArchiveAcquisition",
     "PosteriorUncertaintyAcquisition",
     "ProtocolCertificate",
-    "ProtocolAwareBoundaryAcquisition",
     "ProtocolCompatibility",
     "ProtocolCompatibilityResolver",
     "ProtocolRiskController",
@@ -192,18 +136,14 @@ __all__ = [
     "ResidualCorrector",
     "ResidualPosterior",
     "ResidualPrediction",
-    "ResidualPriorityMemory",
-    "RiskCoveragePoint",
     "RiskDecision",
     "ScreeningDecision",
-    "ScreeningOutcome",
     "SeededRandomAcquisition",
     "SourceProvenance",
     "SecureWBMRunner",
     "StreamingCalibrationCoreset",
     "StreamingCoresetEvidence",
     "SurvivalConditionedAcquisition",
-    "SyntheticMinHullEngine",
     "SOAPCacheConfig",
     "WBMObservableRecord",
     "WBMActionRecord",
@@ -226,6 +166,5 @@ __all__ = [
     "audit_external_data_artifacts",
     "replay_wbm_event_log",
     "raw_wbm_records_from_payload",
-    "risk_coverage_curve",
     "validate_raw_wbm_release",
 ]

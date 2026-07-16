@@ -5,11 +5,11 @@ import itertools
 import numpy as np
 
 from evimem.matmem import (
-    BaseBoundaryAcquisition,
     CalibrationUtilityMatrix,
     FacilityLocationCoresetPlanner,
     FixedKernelGPConfig,
     FixedKernelResidualGP,
+    FrozenHullDistanceAcquisition,
     ProtocolCompatibilityResolver,
     ResidualPrediction,
     SurvivalConditionedAcquisition,
@@ -175,7 +175,7 @@ def test_fixed_kernel_posterior_is_protocol_safe_and_deterministic() -> None:
 
 def test_zero_survival_weight_returns_base_ranking_verbatim() -> None:
     queries = (_query("a", base_energy=-1.05), _query("b", base_energy=-1.01))
-    proposal = BaseBoundaryAcquisition()
+    proposal = FrozenHullDistanceAcquisition()
     base = proposal.rank(queries, ())
     acquisition = SurvivalConditionedAcquisition(
         proposal,
@@ -199,7 +199,7 @@ def test_redundant_fantasy_has_zero_survival_bonus_and_is_not_admitted() -> None
         ),
     )
     acquisition = SurvivalConditionedAcquisition(
-        BaseBoundaryAcquisition(),
+        FrozenHullDistanceAcquisition(),
         _ZeroPosterior(),  # type: ignore[arg-type]
         planner,
         proposal_size=2,

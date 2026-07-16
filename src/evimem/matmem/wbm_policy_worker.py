@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
@@ -17,12 +16,14 @@ from evimem.matmem import (  # noqa: E402
     FacilityLocationCoresetPlanner,
     FixedKernelGPConfig,
     FixedKernelResidualGP,
+    FrozenHullDistanceAcquisition,
     HullSnapshot,
     MaterialIdentity,
     MaterialMemoryCard,
     MaterialQuery,
     PosteriorUncertaintyAcquisition,
     ProtocolCompatibilityResolver,
+    SeededRandomAcquisition,
     SourceProvenance,
     SurvivalConditionedAcquisition,
 )
@@ -136,6 +137,16 @@ def _calibration_policy(state: PolicyState, args: argparse.Namespace) -> str:
     return acquisition.rank(queries, witnesses)[0].query_id
 
 
+def _baseline_policy(state: PolicyState, args: argparse.Namespace) -> str:
+    queries, witnesses = _material_views(state)
+    acquisition = (
+        FrozenHullDistanceAcquisition()
+        if args.policy == "frozen"
+        else SeededRandomAcquisition(args.seed)
+    )
+    return acquisition.rank(queries, witnesses)[0].query_id
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -154,22 +165,8 @@ def main() -> None:
     parser.add_argument("--survival-weight", type=float, default=1.0)
     args = parser.parse_args()
     state = PolicyState.model_validate_json(sys.stdin.read())
-    if args.policy == "frozen":
-        selected = min(
-            state.queries,
-            key=lambda item: (
-                item.base_hull_distance_ev_per_atom / item.oracle_cost,
-                item.query_id,
-            ),
-        ).query_id
-    elif args.policy == "random":
-        selected = min(
-            state.queries,
-            key=lambda item: (
-                hashlib.sha256(f"{args.seed}:{item.query_id}".encode()).hexdigest(),
-                item.query_id,
-            ),
-        ).query_id
+    if args.policy in {"frozen", "random"}:
+        selected = _baseline_policy(state, args)
     else:
         selected = _calibration_policy(state, args)
     sys.stdout.write(selected)

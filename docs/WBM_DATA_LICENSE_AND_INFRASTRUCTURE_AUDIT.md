@@ -124,9 +124,10 @@ ID-join gates.
 
 ## P0/P1 amendment (2026-07-16)
 
-P0 execution correctness now passes through the sole secure WBM runner; see
-`WBM_P0_EXECUTION_AUDIT.md`. This does not change the human-license blocker or
-authorize a policy comparison.
+P0 execution correctness now passes through the sole secure WBM runner. The
+retired gate document is summarized in `RESEARCH_ITERATION_HISTORY.md`; the
+full version remains at commit `e313499`. This does not by itself authorize a
+claim-grade policy comparison.
 
 The frozen 128 engineering candidates now have a versioned external audit at
 `E:\DATA\EviMem-RL\manifests\wbm-parity-128-merged-audit-v2.json`. The audit
@@ -147,10 +148,11 @@ does not make an official-energy reproduction claim. Under that scope,
 cross-environment P1 has zero numerical or label mismatches and full-system
 P1.5 has been executed. See `WBM_ENGINEERING_P1_P15_AND_PILOT.md`.
 
-## Next permitted work
+## Current authorization boundary
 
-Only obtain or point to external artifacts, complete the executable manifest,
-freeze the maintained SOAP/predictor implementations, run raw-source smoke
-gates, and then run these five gates.
-Do not run uncertainty, CAL-style GP, compatible-residual, random, CAW-Joint,
-or any other comparative WBM policy until the real-artifact column passes.
+The official artifacts, cleaned IDs, historical-pipeline parity, SOAP cache and
+small oracle-isolated engineering pools are available for DACC debugging. They
+do not establish claim-grade identity independence, redistribution permission,
+or paper-level superiority. Comparative claim-grade execution still requires
+the canonical/prototype overlap audit, calibration-only parameter freezing and
+the system-count/uncertainty plan listed in the current DACC specification.

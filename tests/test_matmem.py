@@ -8,9 +8,7 @@ from pydantic import ValidationError
 from evimem.matmem import (
     CalibrationUtilityBuilder,
     CanonicalGroupSplit,
-    CardOracleVault,
     CompatibilityKind,
-    DeploymentStrategy,
     FacilityLocationCoresetPlanner,
     FIFOBoundedMemory,
     FixedKernelGPConfig,
@@ -20,7 +18,6 @@ from evimem.matmem import (
     MaterialIdentity,
     MaterialMemoryCard,
     MaterialQuery,
-    OnlineDiscoveryEvaluator,
     ProtocolCertificate,
     ProtocolCompatibilityResolver,
     ProtocolRiskController,
@@ -29,7 +26,6 @@ from evimem.matmem import (
     ScreeningDecision,
     SourceProvenance,
     StreamingCalibrationCoreset,
-    risk_coverage_curve,
 )
 
 
@@ -343,73 +339,3 @@ def test_risk_controller_rejects_uncalibrated_stable_screen_and_controls_upper_b
     decision = controller.screen(query, correction)
     assert decision.decision == ScreeningDecision.STABLE
     assert decision.upper_hull_distance_ev_per_atom == pytest.approx(-0.02)
-
-
-def test_chronological_evaluator_never_uses_current_oracle_before_screening() -> None:
-    query_one = _query("one", base_energy=-1.03)
-    card_one = _card("one", formation_energy=-0.94)
-    query_two = _query("two", base_energy=-1.03)
-    card_two = _card("two", formation_energy=-0.94)
-    resolver = ProtocolCompatibilityResolver()
-    policy = _coreset(1, resolver)
-    controller = ProtocolRiskController(minimum_calibration_size=3)
-    controller.fit(
-        query_one,
-        [0.0, 0.0, 0.0],
-        alpha=0.2,
-        calibration_id="fixed-protocol-calibration",
-        exchangeability_assumed=True,
-    )
-    metrics = OnlineDiscoveryEvaluator(
-        policy,
-        ResidualCorrector(resolver),
-        controller,
-    ).evaluate(
-        [query_one, query_two],
-        CardOracleVault({"one": card_one, "two": card_two}),
-    )
-    assert metrics.event_count == 2
-    assert metrics.abstention_rate == pytest.approx(0.5)
-    assert metrics.false_stable_count == 0
-    assert metrics.final_memory_size == 1
-
-
-def test_deployment_strategies_and_risk_coverage_are_reported_separately() -> None:
-    query = _query("deploy", base_energy=-1.03)
-    card = _card("deploy", formation_energy=-0.94)
-    resolver = ProtocolCompatibilityResolver()
-    controller = ProtocolRiskController(minimum_calibration_size=3)
-    controller.fit(
-        query,
-        [0.0, 0.0, 0.0],
-        alpha=0.2,
-        calibration_id="deployment-calibration",
-        exchangeability_assumed=True,
-    )
-    strict, outcomes = OnlineDiscoveryEvaluator(
-        _coreset(1, resolver),
-        ResidualCorrector(resolver),
-        controller,
-        deployment_strategy=DeploymentStrategy.STRICT_ABSTAIN,
-    ).evaluate_with_outcomes([query], CardOracleVault({"deploy": card}))
-    base, base_outcomes = OnlineDiscoveryEvaluator(
-        _coreset(1, resolver),
-        ResidualCorrector(resolver),
-        controller,
-        deployment_strategy=DeploymentStrategy.BASE_ONLY,
-    ).evaluate_with_outcomes([query], CardOracleVault({"deploy": card}))
-    assert strict.coverage == 0.0
-    assert base.coverage == 1.0
-    assert base.false_stable_rate == 1.0
-    strict_curve = risk_coverage_curve(outcomes, [0.0, 1.0])
-    assert [point.coverage for point in strict_curve] == [0.0, 0.0]
-    base_curve = risk_coverage_curve(base_outcomes, [0.0, 1.0])
-    assert [point.coverage for point in base_curve] == [0.0, 1.0]
-    assert base_curve[-1].false_stable_rate == 1.0
-
-
-def test_stream_vault_rejects_oracle_outcome_from_a_different_protocol() -> None:
-    query = _query("same", protocol=_protocol("PBE"))
-    vault = CardOracleVault({"same": _card("same", protocol=_protocol("PBE+U"))})
-    with pytest.raises(ValueError, match="query scientific protocol"):
-        vault.reveal(query)
