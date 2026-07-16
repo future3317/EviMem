@@ -1,11 +1,21 @@
 {
   "schema_version": "wbm-calibration-engineering-v1",
   "execution_authorized": false,
+  "engineering_execution_authorized": true,
+  "claim_grade_execution_authorized": false,
   "blocked_by": [
-    "P1_candidate_numerical_identity_parity",
-    "P1_5_frozen_pool_support_audit",
-    "human_license_redistribution_decision"
+    "claim_grade_canonical_prototype_and_wbm_mp_overlap_audit",
+    "claim_grade_cross_system_precision_target",
+    "human_publication_redistribution_signoff"
   ],
+  "engineering_gate": {
+    "claim_scope": "fixed_historical_pipeline_wbm_replay",
+    "p1_passed": true,
+    "p1_5_support_present": true,
+    "local_research_use_passed": true,
+    "publication_redistribution_passed": false,
+    "made_authorized": false
+  },
   "posterior": {
     "kernel": "matern52",
     "length_scale": 0.35,
@@ -27,5 +37,5 @@
     "survival_weight": 1.0,
     "status": "secondary_unvalidated_hypothesis"
   },
-  "formal_run_rule": "A runner must reject this file while execution_authorized is false."
+  "formal_run_rule": "Claim-grade and MADE runners must reject this file while execution_authorized is false; the audited engineering runner additionally requires the external P1/P1.5 and local-use manifests."
 }

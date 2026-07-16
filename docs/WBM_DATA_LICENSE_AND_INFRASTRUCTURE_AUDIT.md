@@ -135,15 +135,17 @@ modern-adapter replay, and official CHGNet predictions. Historical
 `pymatgen==2023.5.10` and modern `pymatgen==2026.5.4` replay values agree for
 all 128 corrected formation energies and initial hull distances in this subset.
 
-Formal P1 nevertheless remains **blocked**. The available explicit-ID
+Exact-official-energy P1 remains unavailable, but it no longer blocks the
+method-adaptive engineering pilot. The available explicit-ID
 `wbm-summary.txt` contains raw/legacy energy columns, not an independently
 published candidate-level MP2020-corrected compiled summary. Those raw columns
 must not be relabeled as official corrected energy or official initial-hull
 truth. Prototype clustering, MP-overlap, claim-grade canonical identity and
-human license review also remain pending. Until an official compiled artifact
-is acquired or the result is explicitly scoped as a fixed historical-pipeline
-WBM replay, no official-energy reproduction claim is allowed and P1.5 is not
-executed as a formal gate.
+human publication/redistribution review also remain pending. The engineering
+study is now explicitly scoped as a fixed historical-pipeline WBM replay; it
+does not make an official-energy reproduction claim. Under that scope,
+cross-environment P1 has zero numerical or label mismatches and full-system
+P1.5 has been executed. See `WBM_ENGINEERING_P1_P15_AND_PILOT.md`.
 
 ## Next permitted work
 

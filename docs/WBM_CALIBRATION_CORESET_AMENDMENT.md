@@ -1,7 +1,7 @@
 # Decision-aware calibration coreset amendment
 
-**Status (2026-07-16): implementation/mechanism GO; real-WBM evidence
-NO-GO until P1 and P1.5 pass.** This amendment does not alter the frozen WBM
+**Status (2026-07-16): engineering P1/P1.5 pass; preliminary matched-trace
+mechanism signal; claim-grade evidence remains NO-GO.** This amendment does not alter the frozen WBM
 pool, cost protocol, or execution gates. It replaces CAW-Joint as the proposed
 research hypothesis; the tag `caw-method-no-go-2026-07-15` remains immutable.
 
@@ -147,19 +147,25 @@ paper claim.
 
 ## Remaining gates
 
-1. Finish human license/redistribution decisions.
-2. Resolve or formally scope the unavailable independent candidate-level
-   MP2020-corrected WBM summary.
+The detailed gate resolution and first real-data diagnostics are recorded in
+`WBM_ENGINEERING_P1_P15_AND_PILOT.md`. Local research use, historical-replay
+P1 and frozen-pool engineering support now pass. Remaining claim-grade work is:
+
+1. Complete final human publication/redistribution sign-off.
+2. Retain the explicit fixed-historical-pipeline scope; do not claim exact
+   reproduction of an unavailable independent official corrected summary.
 3. Complete relaxed-structure canonicalization, cell-invariant matching,
    prototype clustering and WBM-MP overlap audit.
-4. Pass P1 numerical/identity parity and the frozen P1.5 support audit.
+4. Freeze claim-grade system count from a declared precision target.
 5. Freeze GP hyperparameters and the new method configuration only on isolated
    calibration chemical systems.
 6. Replace the engineering-only values in `configs/wbm_calibration.json` with
    calibration-system estimates and set execution authorization only after an
    independent gate review. The allow-listed WBM subprocess implementation is
    present, but has not been used for a comparative run.
-7. Run the preregistered minimal matrix only after all preceding gates pass.
+7. Run only a small capacity/parameter confirmation grid before deciding
+   whether a claim-grade matrix is justified. Survival-conditioned acquisition
+   is paused after negative B4/K4 and B8/K2 engineering results.
 
 The primary real-data GO condition is non-single-point dominance over FIFO,
 diversity and reservoir at equal K while approaching full-history Brier/NLL at
