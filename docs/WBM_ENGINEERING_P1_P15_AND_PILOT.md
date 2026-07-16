@@ -107,7 +107,8 @@ initial-hull Brier column above rather than silently overwriting it.
 |---|---:|---:|---:|---:|---:|---:|
 | FIFO | 0.0712 | -0.2875 | 0.0767 | 0.2681 | 0.0444 | 0.6079 |
 | full history | 0.0697 | 0.5179 | 0.0482 | 0.1819 | 0.0444 | 0.4638 |
-| diversity | 0.0768 | 0.3847 | **0.0396** | **0.1530** | 0.0482 | 0.5746 |
+| diversity | 0.0768 | 0.3847 | 0.0396 | 0.1530 | 0.0482 | 0.5746 |
+| GP-variance one-swap | 0.0762 | 0.3942 | **0.0358** | **0.1419** | 0.0479 | 0.5164 |
 | DACC | **0.0656** | -0.4841 | 0.0469 | 0.1826 | **0.0393** | 0.3695 |
 | joint-risk one-swap | 0.0688 | **-0.5404** | 0.0447 | 0.1783 | 0.0407 | **0.3634** |
 
@@ -126,19 +127,27 @@ does not distinguish selectors. It is therefore a valid but uninformative
 primary metric here; broader systems and prequential evaluation are required.
 
 ```text
-E:\DATA\EviMem-RL\outputs\engineering\wbm-objective-fidelity-matched-b8-k2-v3\summary.json
-SHA-256 ed86b1666716ce9b40e23b5de10d01a5c8fd98d8a1f9bfeb1bfc7e3d2ccfc3ee
+E:\DATA\EviMem-RL\outputs\engineering\wbm-objective-fidelity-gpvariance-matched-b8-k2-v1\summary.json
+SHA-256 1cf8336f8b78c2223246aec0bf142077ea77c526bd39133550d38211571415b6
 ```
 
 This diagnostic supports retaining DACC as the simpler primary hypothesis and
 keeping joint risk as a fidelity baseline. It does not support promoting joint
-risk, claiming superiority, or entering MADE.
+risk, claiming superiority, or entering MADE. The capacity-matched GP-variance
+baseline is stronger than geometric diversity on causal Brier/log loss in this
+cell, while DACC remains better on RMSE/CRPS. This reinforces the need for a
+non-single-point capacity grid rather than a winner claim from the current cell.
+
+The rerun also removed a latent engineering truncation: `full_history` no
+longer uses a hard-coded 16-witness reconstructed FIFO view and now exposes the
+entire revealed archive. This does not change the present `B=8` numbers, but is
+required before any `B>16` comparison.
 
 ## Decision
 
 - **Continue** the primary calibration-coreset hypothesis to a feasible frozen
-  grid over tight capacities and calibration-only hyperparameters, with a
-  GP-variance one-swap baseline.
+  grid over tight capacities and calibration-only hyperparameters; the
+  GP-variance one-swap baseline is now implemented and must remain in that grid.
 - **Pause** survival-conditioned acquisition; do not tune fantasy counts or
   weights against these evaluation pools.
 - Do not claim superiority until canonical/prototype overlap, more independent

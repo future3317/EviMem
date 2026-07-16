@@ -12,6 +12,7 @@ from evimem.matmem import (
     FixedKernelGPConfig,
     FixedKernelResidualGP,
     FrozenHullDistanceAcquisition,
+    GPVarianceOneSwapMemory,
     JointPosteriorRiskOneSwapPlanner,
     ProtocolCompatibilityResolver,
     ResidualPrediction,
@@ -294,6 +295,51 @@ def test_objective_fidelity_scores_identical_one_swap_candidates() -> None:
     assert diagnostic.facility_selected_card_ids == facility_preview.selected_card_ids
     assert diagnostic.joint_risk_selected_card_ids == joint_preview.selected_card_ids
     assert diagnostic.facility_joint_risk_regret >= 0
+
+
+@pytest.mark.parametrize("seed", range(5))
+def test_gp_variance_one_swap_matches_manual_neighborhood(seed: int) -> None:
+    generator = np.random.default_rng(seed)
+    posterior = FixedKernelResidualGP(
+        ProtocolCompatibilityResolver(),
+        config=FixedKernelGPConfig(length_scale=0.35),
+    )
+    memory = GPVarianceOneSwapMemory(2, posterior)
+    queries = tuple(
+        _query(f"variance-q-{index}", embedding=tuple(generator.normal(size=3)))
+        for index in range(4)
+    )
+    current = tuple(
+        _card(f"variance-c-{index}", embedding=tuple(generator.normal(size=3)))
+        for index in range(2)
+    )
+    for card in current:
+        memory.admit(card, queries)
+    before = memory.cards()
+    new_card = _card("variance-new", embedding=tuple(generator.normal(size=3)))
+    memory.admit(new_card, queries)
+    cards_by_id = {card.card_id: card for card in (*before, new_card)}
+    before_ids = tuple(card.card_id for card in before)
+    candidates = (
+        before_ids,
+        (new_card.card_id, before_ids[1]),
+        (before_ids[0], new_card.card_id),
+    )
+
+    def objective(ids: tuple[str, ...]) -> float:
+        prediction = posterior.clone_unfit().fit(
+            tuple(cards_by_id[card_id] for card_id in ids)
+        ).predict(queries)
+        return sum(value * value for value in prediction.std_ev_per_atom)
+
+    objectives = {ids: objective(ids) for ids in candidates}
+    improving = [ids for ids in candidates[1:] if objectives[ids] < objectives[before_ids]]
+    expected = (
+        min(improving, key=lambda ids: (objectives[ids], tuple(sorted(ids))))
+        if improving
+        else before_ids
+    )
+    assert tuple(card.card_id for card in memory.cards()) == expected
 
 
 def test_zero_survival_weight_returns_base_ranking_verbatim() -> None:

@@ -28,6 +28,7 @@ def test_strategy_factorization_keeps_acquisition_matched() -> None:
     config = MODULE["FixedKernelGPConfig"](length_scale=0.35)
     fifo_policy, _ = MODULE["_strategy"]("fifo", 4, config)
     diversity_policy, _ = MODULE["_strategy"]("diversity", 4, config)
+    variance_policy, _ = MODULE["_strategy"]("gp_variance_one_swap", 4, config)
     coreset_policy, _ = MODULE["_strategy"]("decision_coreset", 4, config)
     joint_policy, _ = MODULE["_strategy"](
         "joint_posterior_risk_one_swap", 4, config
@@ -35,6 +36,7 @@ def test_strategy_factorization_keeps_acquisition_matched() -> None:
     assert (
         fifo_policy.policy
         == diversity_policy.policy
+        == variance_policy.policy
         == coreset_policy.policy
         == joint_policy.policy
     )
@@ -51,3 +53,10 @@ def test_strategy_factorization_keeps_acquisition_matched() -> None:
         == frozen_coreset.identity_checksum
         == frozen_joint.identity_checksum
     )
+
+
+def test_full_history_baseline_does_not_truncate_after_sixteen_witnesses() -> None:
+    config = MODULE["FixedKernelGPConfig"](length_scale=0.35)
+    _, evidence = MODULE["_strategy"]("full_history", 2, config)
+    archive = tuple(range(32))
+    assert evidence.active(archive) == archive

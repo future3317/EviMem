@@ -45,6 +45,7 @@ from evimem.matmem import (  # noqa: E402
     FacilityLocationCoresetPlanner,
     FixedKernelGPConfig,
     FixedKernelResidualGP,
+    GPVarianceOneSwapMemory,
     HullSnapshot,
     JointPosteriorRiskOneSwapPlanner,
     MaterialIdentity,
@@ -79,6 +80,38 @@ class _DiversityEvidence:
         return self.memory.cards()
 
     def admit(self, card: Any, query_pool: tuple[MaterialQuery, ...]) -> None:
+        self.memory.admit(card, query_pool)
+
+
+class _FullHistoryEvidence:
+    """Expose every revealed witness; this baseline has no finite K label."""
+
+    capacity = 2**31 - 1
+
+    def active(self, archive: tuple[Any, ...]) -> tuple[Any, ...]:
+        return archive
+
+    def admit(self, card: Any, query_pool: tuple[MaterialQuery, ...]) -> None:
+        del card, query_pool
+
+
+class _GPVarianceEvidence:
+    def __init__(self, capacity: int, config: FixedKernelGPConfig) -> None:
+        self.capacity = capacity
+        self.memory = GPVarianceOneSwapMemory(
+            capacity,
+            FixedKernelResidualGP(ProtocolCompatibilityResolver(), config=config),
+        )
+
+    def active(self, archive: tuple[Any, ...]) -> tuple[MaterialMemoryCard, ...]:
+        del archive
+        return self.memory.cards()
+
+    def admit(
+        self,
+        card: MaterialMemoryCard,
+        query_pool: tuple[MaterialQuery, ...],
+    ) -> None:
         self.memory.admit(card, query_pool)
 
 
@@ -249,9 +282,11 @@ def _strategy(
     if name == "free_same_fifo":
         return base_policy, ReconstructedFIFOEvidence(capacity)
     if name == "full_history":
-        return base_policy, ReconstructedFIFOEvidence(16)
+        return base_policy, _FullHistoryEvidence()
     if name == "diversity":
         return base_policy, _DiversityEvidence(capacity)
+    if name == "gp_variance_one_swap":
+        return base_policy, _GPVarianceEvidence(capacity, config)
     if name == "decision_coreset":
         return base_policy, _ObjectiveFidelityEvidence(
             capacity, config, selector="facility"
@@ -701,6 +736,7 @@ def main() -> None:
         "fifo",
         "full_history",
         "diversity",
+        "gp_variance_one_swap",
         "decision_coreset",
         "joint_posterior_risk_one_swap",
     ]

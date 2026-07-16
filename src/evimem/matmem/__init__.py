@@ -14,6 +14,7 @@ from .acquisition import (
 from .baselines import (
     DiversityBoundedMemory,
     FIFOBoundedMemory,
+    GPVarianceOneSwapMemory,
 )
 from .calibration_utility import CalibrationUtilityBuilder, CalibrationUtilityMatrix
 from .cards import HullSnapshot, MaterialMemoryCard, MaterialQuery, SourceProvenance
@@ -112,6 +113,7 @@ __all__ = [
     "DataLicenseDecision",
     "DiversityBoundedMemory",
     "FIFOBoundedMemory",
+    "GPVarianceOneSwapMemory",
     "FacilityLocationCoresetPlanner",
     "FixedKernelGPConfig",
     "FixedKernelResidualGP",

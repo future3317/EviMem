@@ -143,6 +143,7 @@ The current suite checks:
 - one-swap streaming output matches exhaustive optimization over the K+1 union;
 - weighted baseline risk uses the same query weights and units as gains;
 - joint-posterior-risk one-swap matches manual random-instance enumeration;
+- GP-variance one-swap matches manual random-instance neighborhood enumeration;
 - facility and joint diagnostics score the identical candidate subsets;
 - a below-threshold marginal gain is rejected;
 - protocol-incompatible cards do not enter the GP posterior;
@@ -174,8 +175,8 @@ P1 and frozen-pool engineering support now pass. Remaining claim-grade work is:
    calibration-system estimates before any claim-grade comparison. The
    allow-listed WBM subprocess has been exercised only by the small engineering
    pilots described in the companion result document.
-7. Add a GP-variance/pivoted-Cholesky one-swap baseline and run only a small
-   frozen capacity grid before deciding
+7. The GP-variance one-swap baseline is implemented and has passed the first
+   matched-action cell. Run only a small frozen capacity grid before deciding
    whether a claim-grade matrix is justified. Survival-conditioned acquisition
    is paused after negative B4/K4 and B8/K2 engineering results.
 
