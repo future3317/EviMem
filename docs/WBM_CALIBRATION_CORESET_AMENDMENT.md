@@ -179,6 +179,10 @@ P1 and frozen-pool engineering support now pass. Remaining claim-grade work is:
    matched-action cell. Run only a small frozen capacity grid before deciding
    whether a claim-grade matrix is justified. Survival-conditioned acquisition
    is paused after negative B4/K4 and B8/K2 engineering results.
+8. The exact-system grid, trace-prefix reuse, prequential causal metrics and
+   system-clustered bootstrap are implemented. The frozen oracle-blind manifest
+   contains 16 systems and 334 candidates. Paper-level inference remains
+   blocked until non-inferiority margins are frozen outside evaluation systems.
 
 The primary real-data GO condition is a non-single-point region that improves
 over FIFO, diversity and GP variance at equal K and is strictly non-dominated

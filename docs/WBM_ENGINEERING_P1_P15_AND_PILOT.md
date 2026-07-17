@@ -153,3 +153,44 @@ required before any `B>16` comparison.
 - Do not claim superiority until canonical/prototype overlap, more independent
   systems, paired uncertainty and measured compute are complete.
 - MADE remains blocked.
+
+## Frozen exact-system grid implementation (2026-07-17)
+
+The next evaluation no longer uses fixed-size 16-candidate pools. An
+oracle-blind manifest selects every eligible exact chemical system using
+`SHA256(release_id || chemical_system)`, with at most eight systems per binary,
+ternary and quaternary-or-higher stratum. Every selected system retains all of
+its cleaned candidates in a frozen ID-hash order. The realized manifest has 16
+systems and 334 candidates: eight binary systems, eight ternary systems, and no
+quaternary-or-higher system because none reaches the preregistered `N_s >= 16`
+minimum. Exact chemical systems are never mixed.
+
+The reported grid has 37 labels/system but only 15 physical traces/system.
+For an identical strategy and capacity, the `B=12` trace is run once and its
+immutable prefixes supply eligible `B=4` and `B=8` labels. Full history is run
+once, and joint-posterior risk runs only at `(8,2)` and `(12,4)`. Survival and
+the already-completed exhaustive subset diagnostic are disabled.
+
+After each reveal, composition-dependent hull update and retention, an
+evaluator-only prequential scorer evaluates every remaining candidate. It
+reports boundary-weighted causal CRPS, Brier and log loss, residual RMSE/NLL,
+false-stable cost, posterior-fit/retention/prediction/pipeline time and parent
+RSS. Oracle outcomes remain inside the evaluator and are never serialized to
+the policy subprocess. Statistical comparison uses paired exact-system
+differences and a deterministic system-clustered bootstrap.
+
+The infrastructure smoke covered all 16 systems at `B=4,K=1` with FIFO. Every
+system produced exactly four prequential rounds. This validates execution only;
+it is not a comparative result. Immutable external artifacts are:
+
+```text
+E:\DATA\EviMem-RL\manifests\wbm-frozen-exact-system-grid-v1.json
+SHA-256 1529f1a73d0d74050fba8a6a05a386398d88ea4b4b4ca236f33cc30feb702a14
+
+E:\DATA\EviMem-RL\outputs\engineering\wbm-frozen-grid-prequential-smoke-b4-k1-fifo-v1\summary.json
+SHA-256 50d43ea90554aeb16c393b15abbc3a7c0986640a520e667ec9864a923eb5664e
+```
+
+Paper-level GO remains blocked because causal Brier/log-loss non-inferiority
+margins have not yet been frozen on disjoint calibration systems. Evaluation
+systems cannot be used to choose those margins.

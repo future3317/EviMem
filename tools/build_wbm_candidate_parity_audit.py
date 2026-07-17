@@ -60,8 +60,17 @@ def _pool_rows(path: Path) -> dict[str, dict[str, Any]]:
                 "prototype_cluster_id": None,
                 "mp_overlap_group": None,
             }
-    if len(rows) != 128:
-        raise ValueError(f"frozen engineering pool has {len(rows)} candidates, expected 128")
+    selection = payload["selection"]
+    declared_count = selection.get("selected_candidate_count")
+    if declared_count is not None and len(rows) != declared_count:
+        raise ValueError(
+            f"frozen pool has {len(rows)} candidates, manifest declares {declared_count}"
+        )
+    pool_size = selection.get("pool_size")
+    if pool_size is not None and len(rows) != int(pool_size) * len(pools):
+        raise ValueError("fixed-size frozen pool manifest has an inconsistent row count")
+    if not rows:
+        raise ValueError("frozen pool manifest has no candidate rows")
     return rows
 
 
@@ -325,7 +334,7 @@ def merge(args: argparse.Namespace) -> None:
     parity = json.loads(args.parity_input.read_text(encoding="utf-8"))
     modern_rows = {row["query_id"]: row for row in modern["rows"]}
     parity_rows = {row["query_id"]: row for row in parity["rows"]}
-    if set(modern_rows) != set(parity_rows) or len(modern_rows) != 128:
+    if set(modern_rows) != set(parity_rows) or not modern_rows:
         raise ValueError("modern and parity candidate sets differ")
     rows = []
     for query_id in sorted(parity_rows):

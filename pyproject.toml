@@ -19,6 +19,7 @@ dependencies = [
   "scikit-learn>=1.5",
   "pymatgen>=2025",
   "dscribe>=2.1",
+  "psutil>=5.9",
 ]
 
 [project.optional-dependencies]

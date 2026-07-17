@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+import psutil
 
 TOOLS_DIR = Path(__file__).resolve().parent
 if str(TOOLS_DIR) not in sys.path:
@@ -53,6 +54,8 @@ from matmem import (  # noqa: E402
     MaterialQuery,
     PersistentFIFOEvidence,
     PolicySubprocess,
+    PrequentialCausalEvaluator,
+    PrequentialRoundMetrics,
     ProtocolCompatibilityResolver,
     ReconstructedFIFOEvidence,
     SecureWBMRunner,
@@ -61,6 +64,7 @@ from matmem import (  # noqa: E402
     StreamingCoresetEvidence,
     WBMOracleRecord,
     WBMOracleVault,
+    aggregate_prequential_prefix,
     compare_facility_and_joint_objectives,
 )
 from matmem.protocols import ProtocolCertificate  # noqa: E402
@@ -113,6 +117,62 @@ class _GPVarianceEvidence:
         query_pool: tuple[MaterialQuery, ...],
     ) -> None:
         self.memory.admit(card, query_pool)
+
+
+class _PrequentialEvidence:
+    """Evaluator-side instrumentation around an oracle-blind evidence strategy."""
+
+    def __init__(self, delegate: Any, evaluator: PrequentialCausalEvaluator) -> None:
+        self.delegate = delegate
+        self.evaluator = evaluator
+        self.capacity = delegate.capacity
+        self.rounds: list[PrequentialRoundMetrics] = []
+        self._archive: tuple[MaterialMemoryCard, ...] = ()
+        self._process = psutil.Process()
+        self._round_started: float | None = None
+        self._awaiting_post_admission_active = False
+
+    def active(
+        self, archive: tuple[MaterialMemoryCard, ...]
+    ) -> tuple[MaterialMemoryCard, ...]:
+        self._archive = archive
+        active = self.delegate.active(archive)
+        if self._awaiting_post_admission_active:
+            if self._round_started is None or not self.rounds:
+                raise RuntimeError("prequential round timing state is inconsistent")
+            self.rounds[-1] = self.rounds[-1].model_copy(
+                update={
+                    "round_pipeline_seconds": time.perf_counter()
+                    - self._round_started
+                }
+            )
+            self._round_started = None
+            self._awaiting_post_admission_active = False
+        else:
+            self._round_started = time.perf_counter()
+        return active
+
+    def admit(
+        self,
+        card: MaterialMemoryCard,
+        query_pool: tuple[MaterialQuery, ...],
+    ) -> object:
+        started = time.perf_counter()
+        result = self.delegate.admit(card, query_pool)
+        retention_seconds = time.perf_counter() - started
+        updated_archive = (*self._archive, card)
+        active = self.delegate.active(updated_archive)
+        self.rounds.append(
+            self.evaluator.evaluate(
+                round_index=len(self.rounds) + 1,
+                queries=query_pool,
+                cards=active,
+                retention_seconds=retention_seconds,
+                parent_rss_bytes=self._process.memory_info().rss,
+            )
+        )
+        self._awaiting_post_admission_active = True
+        return result
 
 
 class _ObjectiveFidelityEvidence:
@@ -468,6 +528,7 @@ def _run_one(
     acquisition: str,
     log_path: Path,
     ppd: Any,
+    include_exhaustive_subset_audit: bool = False,
 ) -> dict[str, Any]:
     selected_ids = {query.query_id for query in queries}
     universe_by_id = {item.query_id: item for item in universe}
@@ -487,8 +548,23 @@ def _run_one(
     phase_entries = {
         item.query_id: item.entry for item in universe if item.query_id in selected_ids
     }
+    oracle_formation_by_id = {
+        query_id: float(ppd.get_form_energy_per_atom(item.entry))
+        for query_id, item in universe_by_id.items()
+        if query_id in selected_ids
+    }
     policy, evidence = _strategy(name, capacity, config, acquisition=acquisition)
+    prequential = _PrequentialEvidence(
+        evidence,
+        PrequentialCausalEvaluator(
+            CalibrationUtilityBuilder(
+                FixedKernelResidualGP(ProtocolCompatibilityResolver(), config=config)
+            ),
+            oracle_formation_by_id,
+        ),
+    )
     started = time.perf_counter()
+    initial_rss = psutil.Process().memory_info().rss
     with AppendOnlyWBMEventLog(log_path) as event_log:
         result = SecureWBMRunner(
             queries=queries,
@@ -499,16 +575,11 @@ def _run_one(
                 source_version="MP-2022.10.28",
             ),
             policy=policy,
-            evidence_access=evidence,
+            evidence_access=prequential,
             oracle_universe=universe,
             event_log=event_log,
         ).run(oracle_budget=float(budget))
     query_by_id = {query.query_id: query for query in queries}
-    oracle_formation_by_id = {
-        query_id: float(ppd.get_form_energy_per_atom(item.entry))
-        for query_id, item in universe_by_id.items()
-        if query_id in query_by_id
-    }
     history_cards = tuple(
         _material_card(query_by_id[query_id], oracle_formation_by_id[query_id])
         for query_id in result.selected_query_ids
@@ -651,9 +722,14 @@ def _run_one(
             capacity=capacity,
             config=config,
         )
-        if name == "decision_coreset"
+        if name == "decision_coreset" and include_exhaustive_subset_audit
         else None
     )
+    prequential_rounds = tuple(prequential.rounds)
+    prequential_aggregate = aggregate_prequential_prefix(
+        prequential_rounds, len(result.selected_query_ids)
+    )
+    final_rss = psutil.Process().memory_info().rss
     return {
         "pool": pool_name,
         "strategy": name,
@@ -661,6 +737,13 @@ def _run_one(
         "budget": budget,
         "capacity": capacity,
         "wall_seconds": time.perf_counter() - started,
+        "prequential_rounds": [item.model_dump(mode="json") for item in prequential_rounds],
+        "prequential": prequential_aggregate,
+        "peak_parent_rss_bytes": max(
+            initial_rss,
+            final_rss,
+            int(prequential_aggregate["peak_parent_rss_bytes"] or 0),
+        ),
         "calibration": calibration,
         "objective_fidelity_rounds": getattr(evidence, "diagnostics", None),
         "offline_subset_audit": subset_audit,
@@ -685,9 +768,20 @@ def main() -> None:
         "--acquisition", choices=("gp_uncertainty", "frozen"), default="gp_uncertainty"
     )
     parser.add_argument(
+        "--include-exhaustive-subset-audit",
+        action="store_true",
+        help="repeat the expensive B8/K2 subset diagnostic; disabled for grid runs",
+    )
+    parser.add_argument(
         "--include-paused-survival",
         action="store_true",
         help="run the frozen negative survival diagnostic without tuning it",
+    )
+    parser.add_argument(
+        "--strategy",
+        action="append",
+        dest="strategies",
+        help="run only this retention strategy; repeat for multiple strategies",
     )
     args = parser.parse_args()
     repo_root = Path(__file__).resolve().parents[1]
@@ -732,7 +826,7 @@ def main() -> None:
         noise_std_ev_per_atom=0.01,
         jitter=1e-10,
     )
-    strategy_names = [
+    default_strategy_names = [
         "fifo",
         "full_history",
         "diversity",
@@ -740,7 +834,16 @@ def main() -> None:
         "decision_coreset",
         "joint_posterior_risk_one_swap",
     ]
-    if args.acquisition == "gp_uncertainty":
+    if args.strategies:
+        unknown = set(args.strategies) - set(
+            (*default_strategy_names, "free_same_fifo", "survival_coreset")
+        )
+        if unknown:
+            raise ValueError(f"unknown requested strategies: {sorted(unknown)}")
+        strategy_names = list(dict.fromkeys(args.strategies))
+    else:
+        strategy_names = default_strategy_names
+    if args.acquisition == "gp_uncertainty" and not args.strategies:
         strategy_names.insert(1, "free_same_fifo")
     if args.include_paused_survival:
         strategy_names.append("survival_coreset")
@@ -794,25 +897,29 @@ def main() -> None:
                         / f"{pool_name}-{strategy_name}.jsonl"
                     ),
                     ppd=ppd,
+                    include_exhaustive_subset_audit=(
+                        args.include_exhaustive_subset_audit
+                    ),
                 )
             )
     by_pool_strategy = {(run["pool"], run["strategy"]): run for run in runs}
-    for pool_name in pool_payload["selection"]["pools"]:
-        reference_run = by_pool_strategy[(pool_name, "decision_coreset")]
-        reference_audit = reference_run["offline_subset_audit"]
-        if reference_audit is None:
-            continue
-        for strategy_name in strategy_names:
-            run = by_pool_strategy[(pool_name, strategy_name)]
-            if run["selected_query_ids"] != reference_run["selected_query_ids"]:
+    if "decision_coreset" in strategy_names:
+        for pool_name in pool_payload["selection"]["pools"]:
+            reference_run = by_pool_strategy[(pool_name, "decision_coreset")]
+            reference_audit = reference_run["offline_subset_audit"]
+            if reference_audit is None:
                 continue
-            active_ids = (
-                run["events"][-1]["active_witness_ids"] if run["events"] else []
-            )
-            equal_capacity = len(active_ids) == args.capacity
-            observable = run["calibration"]["observable_weighted_joint_risk"]
-            oracle_loss = run["calibration"]["asymmetric_weighted_decision_loss"]
-            run["offline_subset_audit"] = {
+            for strategy_name in strategy_names:
+                run = by_pool_strategy[(pool_name, strategy_name)]
+                if run["selected_query_ids"] != reference_run["selected_query_ids"]:
+                    continue
+                active_ids = (
+                    run["events"][-1]["active_witness_ids"] if run["events"] else []
+                )
+                equal_capacity = len(active_ids) == args.capacity
+                observable = run["calibration"]["observable_weighted_joint_risk"]
+                oracle_loss = run["calibration"]["asymmetric_weighted_decision_loss"]
+                run["offline_subset_audit"] = {
                 "history_size": reference_audit["history_size"],
                 "capacity": args.capacity,
                 "enumerated_exact_capacity_subset_count": reference_audit[
@@ -852,9 +959,9 @@ def main() -> None:
                 ),
                 "reused_from_matched_action_reference": strategy_name
                 != "decision_coreset",
-            }
+                }
     parity_mismatches = []
-    if "free_same_fifo" in strategy_names:
+    if {"fifo", "free_same_fifo"}.issubset(strategy_names):
         for pool_name in pool_payload["selection"]["pools"]:
             persistent = by_pool_strategy[(pool_name, "fifo")]
             reconstructed = by_pool_strategy[(pool_name, "free_same_fifo")]
@@ -879,6 +986,14 @@ def main() -> None:
         "interval_90_mean_width_ev_per_atom",
     )
     aggregates = {}
+    prequential_metric_names = (
+        "boundary_weighted_causal_crps",
+        "boundary_weighted_causal_brier",
+        "boundary_weighted_causal_log_loss",
+        "residual_rmse_ev_per_atom",
+        "residual_gaussian_nll",
+        "boundary_weighted_false_stable_cost",
+    )
     for strategy_name in strategy_names:
         selected = [run for run in runs if run["strategy"] == strategy_name]
         aggregates[strategy_name] = {
@@ -891,11 +1006,32 @@ def main() -> None:
                 run["benchmark_false_confirmations"] for run in selected
             ),
             "wall_seconds": sum(run["wall_seconds"] for run in selected),
+            "peak_parent_rss_bytes": max(
+                run["peak_parent_rss_bytes"] for run in selected
+            ),
+            "posterior_fit_seconds": sum(
+                run["prequential"]["posterior_fit_seconds"] for run in selected
+            ),
+            "retention_seconds": sum(
+                run["prequential"]["retention_seconds"] for run in selected
+            ),
+            "prediction_seconds": sum(
+                run["prequential"]["prediction_seconds"] for run in selected
+            ),
+            "round_pipeline_seconds": sum(
+                run["prequential"]["round_pipeline_seconds"] for run in selected
+            ),
             **{
                 f"mean_remaining_{metric}": float(
                     np.mean([run["calibration"][metric] for run in selected])
                 )
                 for metric in metric_names
+            },
+            **{
+                f"mean_prequential_{metric}": float(
+                    np.mean([run["prequential"][metric] for run in selected])
+                )
+                for metric in prequential_metric_names
             },
         }
         eligible_audits = [
@@ -1013,7 +1149,9 @@ def main() -> None:
         "pool_count": len(pool_payload["selection"]["pools"]),
         "embedding": "exact finite-pool SOAP Gram factorization",
         "free_same_fifo_exact_action_parity": (
-            not parity_mismatches if "free_same_fifo" in strategy_names else None
+            not parity_mismatches
+            if {"fifo", "free_same_fifo"}.issubset(strategy_names)
+            else None
         ),
         "free_same_fifo_mismatch_pools": parity_mismatches,
         "matched_frozen_acquisition_action_parity": (
@@ -1033,7 +1171,7 @@ def main() -> None:
     (args.output_dir / "summary.json").write_text(
         json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
-    if "free_same_fifo" in strategy_names:
+    if {"fifo", "free_same_fifo"}.issubset(strategy_names):
         print(f"free_same_fifo_exact_action_parity={not parity_mismatches}")
     if args.acquisition == "frozen":
         print(f"matched_frozen_acquisition_action_parity={not matched_trace_mismatches}")

@@ -46,6 +46,18 @@ conda run --no-capture-output -n llm python -m pip install -e ".[dev]"
 conda run --no-capture-output -n llm python tools/run_wbm_calibration_engineering_pilot.py --help
 ```
 
+The frozen exact-system grid is constructed and executed with external
+manifests and outputs only:
+
+```powershell
+conda run --no-capture-output -n llm python tools/build_wbm_frozen_grid_manifest.py --help
+conda run --no-capture-output -n llm python tools/run_wbm_frozen_grid.py --help
+```
+
+The grid uses `B={4,8,12}`, valid `K={1,2,4}`, all candidates from each selected
+exact chemical system, GP variance as the primary calibration baseline, and
+joint-posterior risk only in the two frozen sentinel cells. Survival is absent.
+
 ## Development
 
 ```powershell

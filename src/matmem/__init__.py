@@ -61,6 +61,18 @@ from .wbm import (
     WBMOracleRecord,
     audit_external_data_artifacts,
 )
+from .wbm_grid import (
+    FROZEN_BUDGETS,
+    FROZEN_CAPACITIES,
+    JOINT_RISK_SENTINELS,
+    PRIMARY_STRATEGIES,
+    FrozenGridCell,
+    PrequentialCausalEvaluator,
+    PrequentialRoundMetrics,
+    aggregate_prequential_prefix,
+    frozen_grid_cells,
+    paired_system_bootstrap,
+)
 from .wbm_raw import (
     RAW_WBM_EXPECTED_ENTRY_COUNTS,
     RAW_WBM_FILENAMES,
@@ -118,6 +130,7 @@ __all__ = [
     "FixedKernelGPConfig",
     "FixedKernelResidualGP",
     "FrozenHullDistanceAcquisition",
+    "FrozenGridCell",
     "FrozenPredictionSOAPCache",
     "FrozenPredictionSOAPRecord",
     "HullSnapshot",
@@ -130,6 +143,8 @@ __all__ = [
     "MPCausalHullBuilder",
     "MPPhaseRecord",
     "PosteriorUncertaintyAcquisition",
+    "PrequentialCausalEvaluator",
+    "PrequentialRoundMetrics",
     "ObjectiveFidelityCandidate",
     "ObjectiveFidelityDiagnostic",
     "ProtocolCertificate",
@@ -181,4 +196,11 @@ __all__ = [
     "replay_wbm_event_log",
     "raw_wbm_records_from_payload",
     "validate_raw_wbm_release",
+    "FROZEN_BUDGETS",
+    "FROZEN_CAPACITIES",
+    "JOINT_RISK_SENTINELS",
+    "PRIMARY_STRATEGIES",
+    "aggregate_prequential_prefix",
+    "frozen_grid_cells",
+    "paired_system_bootstrap",
 ]
