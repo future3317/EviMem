@@ -284,3 +284,34 @@ def paired_system_bootstrap(
         "bootstrap_seed": seed,
         "bootstrap_iterations": iterations,
     }
+
+
+def paired_system_improvement_bootstrap(
+    reference_by_system: Mapping[str, float],
+    improved_by_system: Mapping[str, float],
+    *,
+    seed: int,
+    iterations: int,
+) -> dict[str, float | int]:
+    """Bootstrap a positive-is-better paired loss improvement by exact system."""
+
+    if iterations < 1:
+        raise ValueError("bootstrap iterations must be positive")
+    if set(reference_by_system) != set(improved_by_system) or not reference_by_system:
+        raise ValueError("paired bootstrap requires identical nonempty system IDs")
+    systems = tuple(sorted(reference_by_system))
+    improvements = np.asarray(
+        [reference_by_system[item] - improved_by_system[item] for item in systems],
+        dtype=float,
+    )
+    generator = np.random.default_rng(seed)
+    draws = generator.integers(0, len(systems), size=(iterations, len(systems)))
+    means = np.mean(improvements[draws], axis=1)
+    return {
+        "system_count": len(systems),
+        "mean_improvement": float(np.mean(improvements)),
+        "ci95_low": float(np.quantile(means, 0.025)),
+        "ci95_high": float(np.quantile(means, 0.975)),
+        "bootstrap_seed": seed,
+        "bootstrap_iterations": iterations,
+    }

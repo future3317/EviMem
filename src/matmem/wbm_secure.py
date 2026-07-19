@@ -829,6 +829,23 @@ class WBMEvent(BaseModel):
     reveal_checksum: str
 
 
+class BudgetPrefixParityRecord(BaseModel):
+    """Behavioral parity of one state under an alternative budget label."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    round_index: int
+    canonical_budget: float
+    compared_budget: float
+    spent_before_round: float
+    canonical_selected_query_id: str
+    compared_selected_query_id: str
+    actions_match: bool
+    active_witness_ids: tuple[str, ...]
+    post_reveal_hull_checksum: str
+    prequential_metric_input_checksum: str
+
+
 class WBMRunResult(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
@@ -839,6 +856,7 @@ class WBMRunResult(BaseModel):
     oracle_final_true_discoveries: int
     benchmark_false_confirmations: int
     events: tuple[WBMEvent, ...]
+    budget_prefix_parity: tuple[BudgetPrefixParityRecord, ...] = ()
     trace_checksum: str
 
 
@@ -870,13 +888,21 @@ class SecureWBMRunner:
         self.oracle_universe = tuple(oracle_universe)
         self.event_log = event_log
 
-    def run(self, *, oracle_budget: float) -> WBMRunResult:
+    def run(
+        self,
+        *,
+        oracle_budget: float,
+        budget_prefix_checks: tuple[float, ...] = (),
+    ) -> WBMRunResult:
         if oracle_budget <= 0:
             raise ValueError("oracle budget must be positive")
+        if any(value <= 0 or value > oracle_budget for value in budget_prefix_checks):
+            raise ValueError("prefix parity budgets must be in (0, oracle_budget]")
         remaining = dict(self.queries)
         archive: list[MaterialMemoryCard] = []
         causal_by_query: dict[str, bool] = {}
         events: list[WBMEvent] = []
+        budget_prefix_parity: list[BudgetPrefixParityRecord] = []
         spent = 0.0
         round_index = 1
         while remaining:
@@ -887,16 +913,32 @@ class SecureWBMRunner:
             )
             if not affordable:
                 break
+            pre_reveal_active = self.evidence_access.active(tuple(archive))
             state = PolicyState.create(
                 round_index=round_index,
                 remaining_budget=oracle_budget - spent,
                 queries=affordable,
-                witnesses=self.evidence_access.active(tuple(archive)),
+                witnesses=pre_reveal_active,
                 history_query_ids=(item.material_id for item in archive),
                 active_witness_capacity=self.evidence_access.capacity,
                 policy_identity_checksum=self.policy.identity_checksum,
             )
             selected_id = self.policy.select(state)
+            alternate_actions = {
+                compared_budget: self.policy.select(
+                    PolicyState.create(
+                        round_index=round_index,
+                        remaining_budget=compared_budget - spent,
+                        queries=affordable,
+                        witnesses=pre_reveal_active,
+                        history_query_ids=(item.material_id for item in archive),
+                        active_witness_capacity=self.evidence_access.capacity,
+                        policy_identity_checksum=self.policy.identity_checksum,
+                    )
+                )
+                for compared_budget in sorted(set(budget_prefix_checks))
+                if compared_budget != oracle_budget and spent < compared_budget
+            }
             authorization = self.event_log.append_action(
                 round_index=round_index,
                 selected_query_id=selected_id,
@@ -929,6 +971,24 @@ class SecureWBMRunner:
                 )
             self.evidence_access.admit(revealed.card, tuple(remaining.values()))
             active = self.evidence_access.active(tuple(archive))
+            prequential_metric_input_checksum = _checksum(
+                {
+                    "remaining_queries": [
+                        item.model_dump(mode="json")
+                        for item in PolicyState.create(
+                            round_index=round_index + 1,
+                            remaining_budget=0.0,
+                            queries=remaining.values(),
+                            witnesses=active,
+                            history_query_ids=(item.material_id for item in archive),
+                            active_witness_capacity=self.evidence_access.capacity,
+                            policy_identity_checksum=self.policy.identity_checksum,
+                        ).queries
+                    ],
+                    "active_witness_ids": [item.card_id for item in active],
+                    "hull_phase_checksum": self.hull_state.phase_set_checksum,
+                }
+            )
             archive_checksum = _checksum([item.card_id for item in archive])
             reveal_record = self.event_log.append_reveal(
                 round_index=round_index,
@@ -954,6 +1014,21 @@ class SecureWBMRunner:
                     reveal_checksum=reveal_record.reveal_checksum,
                 )
             )
+            budget_prefix_parity.extend(
+                BudgetPrefixParityRecord(
+                    round_index=round_index,
+                    canonical_budget=oracle_budget,
+                    compared_budget=compared_budget,
+                    spent_before_round=spent - query.oracle_cost,
+                    canonical_selected_query_id=selected_id,
+                    compared_selected_query_id=alternative_id,
+                    actions_match=alternative_id == selected_id,
+                    active_witness_ids=tuple(item.card_id for item in active),
+                    post_reveal_hull_checksum=self.hull_state.phase_set_checksum,
+                    prequential_metric_input_checksum=prequential_metric_input_checksum,
+                )
+                for compared_budget, alternative_id in alternate_actions.items()
+            )
             round_index += 1
         selected_final = self.hull_state.selected_final_stability()
         oracle_final = self.hull_state.oracle_final_stability(self.oracle_universe)
@@ -973,6 +1048,7 @@ class SecureWBMRunner:
             oracle_final_true_discoveries=sum(oracle_final.values()),
             benchmark_false_confirmations=false_confirmations,
             events=tuple(events),
+            budget_prefix_parity=tuple(budget_prefix_parity),
             trace_checksum=_checksum(payload),
         )
 

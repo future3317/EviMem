@@ -529,6 +529,7 @@ def _run_one(
     log_path: Path,
     ppd: Any,
     include_exhaustive_subset_audit: bool = False,
+    audit_budget_prefix: bool = False,
 ) -> dict[str, Any]:
     selected_ids = {query.query_id for query in queries}
     universe_by_id = {item.query_id: item for item in universe}
@@ -578,7 +579,18 @@ def _run_one(
             evidence_access=prequential,
             oracle_universe=universe,
             event_log=event_log,
-        ).run(oracle_budget=float(budget))
+        ).run(
+            oracle_budget=float(budget),
+            budget_prefix_checks=(4.0, 8.0, 12.0)
+            if audit_budget_prefix and budget == 12
+            else (),
+        )
+    if audit_budget_prefix and budget == 12:
+        expected_pairs = 4 + 8
+        if len(result.budget_prefix_parity) != expected_pairs or not all(
+            item.actions_match for item in result.budget_prefix_parity
+        ):
+            raise RuntimeError("budget-prefix behavioral parity gate failed")
     query_by_id = {query.query_id: query for query in queries}
     history_cards = tuple(
         _material_card(query_by_id[query_id], oracle_formation_by_id[query_id])
@@ -747,6 +759,11 @@ def _run_one(
         "calibration": calibration,
         "objective_fidelity_rounds": getattr(evidence, "diagnostics", None),
         "offline_subset_audit": subset_audit,
+        "budget_prefix_parity_passed": (
+            all(item.actions_match for item in result.budget_prefix_parity)
+            if audit_budget_prefix and budget == 12
+            else None
+        ),
         **result.model_dump(mode="json"),
     }
 
@@ -776,6 +793,11 @@ def main() -> None:
         "--include-paused-survival",
         action="store_true",
         help="run the frozen negative survival diagnostic without tuning it",
+    )
+    parser.add_argument(
+        "--audit-budget-prefix",
+        action="store_true",
+        help="hard-check B4/B8 behavior against each canonical B12 trace",
     )
     parser.add_argument(
         "--strategy",
@@ -900,6 +922,7 @@ def main() -> None:
                     include_exhaustive_subset_audit=(
                         args.include_exhaustive_subset_audit
                     ),
+                    audit_budget_prefix=args.audit_budget_prefix,
                 )
             )
     by_pool_strategy = {(run["pool"], run["strategy"]): run for run in runs}

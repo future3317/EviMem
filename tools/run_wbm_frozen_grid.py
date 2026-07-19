@@ -105,6 +105,7 @@ def _run_physical_group(args: argparse.Namespace, group: dict[str, Any]) -> Path
         str(group["capacity"]),
         "--acquisition",
         "frozen",
+        "--audit-budget-prefix",
     ]
     for strategy in group["strategies"]:
         command.extend(("--strategy", strategy))

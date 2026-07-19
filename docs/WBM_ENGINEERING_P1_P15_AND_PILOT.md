@@ -194,3 +194,34 @@ SHA-256 50d43ea90554aeb16c393b15abbc3a7c0986640a520e667ec9864a923eb5664e
 Paper-level GO remains blocked because causal Brier/log-loss non-inferiority
 margins have not yet been frozen on disjoint calibration systems. Evaluation
 systems cannot be used to choose those margins.
+
+## Final pre-grid calibration gates (frozen design, not results)
+
+The complete comparison grid remains blocked by three hard gates. They are
+implemented as external-artifact workflows, but their outcomes have not been
+used to inspect an evaluation comparison.
+
+1. The current fixed GP is registered without re-searching parameters:
+   Matérn-5/2, length scale `0.35`, signal standard deviation `0.08 eV/atom`,
+   noise standard deviation `0.01 eV/atom`, and jitter `1e-10`. It must pass a
+   full-history prequential numeric sanity check on eight disjoint calibration
+   exact systems (four binary and four ternary, each with `N_s >= 16`) before
+   its status changes from engineering-only to calibration-frozen.
+2. FIFO and GP-variance one-swap, with no DACC result consulted, define the
+   Brier and log-loss non-inferiority margins. For each loss `m`, the immutable
+   rule is `min(0.10 * GPV_macro_loss, 0.20 * max(GPV_over_FIFO_95%_LB, 0))`.
+   A nonpositive paired lower bound therefore freezes a zero margin rather than
+   permitting a post-hoc tolerance.
+3. Every canonical `B=12` trace must demonstrate behavioral prefix parity at
+   the first four and eight rounds after rebuilding the identical history and
+   changing only `remaining_budget`. Selected query IDs, active witnesses,
+   causal-hull checksums and evaluator metric-input checksums are recorded;
+   any action mismatch rejects prefix reuse for that strategy.
+
+The calibration-system selector excludes both the 16 evaluation systems and
+the eight earlier GP-development systems using only cleaned membership,
+composition, structure bytes and release-ID hashes. A 173-candidate
+calibration manifest, SOAP cache and official prediction/PPD join have been
+created outside Git. The calibration runner was deliberately paused before it
+produced an immutable summary, so **no GP configuration or margin is currently
+frozen** and the comparative grid remains prohibited.

@@ -28,10 +28,18 @@ def _raw_entries_by_id(
     candidates = read_observable_candidates(
         cse_root=cse_root, structures_root=structures_root, cleaned_ids=_read_cleaned_ids(cleaned_ids)
     )
-    selected_hashes = {item.query_id: item.exact_structure_sha256 for item in candidates if item.query_id in selected}
+    selected_hashes = {
+        item.query_id: item.exact_structure_sha256
+        for item in candidates
+        if item.query_id in selected
+    }
     if set(selected_hashes) != selected:
         raise ValueError("selected pool IDs are absent from cleaned observable candidates")
     # CSE sequence has the same audited source order; recover records by checksum.
+    # Invert once: scanning all five CSE files must not be O(all_records * pool_size).
+    query_ids_by_hash: dict[str, list[str]] = {}
+    for query_id, checksum in selected_hashes.items():
+        query_ids_by_hash.setdefault(checksum, []).append(query_id)
     records: dict[str, dict] = {}
     for step in range(1, 6):
         payload = json.loads(bz2.decompress((cse_root / f"step_{step}.json.bz2").read_bytes()))
@@ -40,8 +48,7 @@ def _raw_entries_by_id(
             checksum = "sha256:" + hashlib.sha256(
                 json.dumps(structure, sort_keys=True, separators=(",", ":")).encode()
             ).hexdigest()
-            matches = [query_id for query_id, expected in selected_hashes.items() if expected == checksum]
-            for query_id in matches:
+            for query_id in query_ids_by_hash.get(checksum, ()):
                 records[query_id] = entry
     if set(records) != selected:
         raise ValueError("could not recover every selected CSE structure by its frozen checksum")

@@ -14,6 +14,7 @@ from matmem import (
     aggregate_prequential_prefix,
     frozen_grid_cells,
     paired_system_bootstrap,
+    paired_system_improvement_bootstrap,
 )
 
 from .test_matmem import _card, _query
@@ -113,3 +114,13 @@ def test_system_clustered_bootstrap_is_paired_and_deterministic() -> None:
     assert left["mean_paired_difference"] == pytest.approx(-1 / 30)
     with pytest.raises(ValueError, match="identical"):
         paired_system_bootstrap(dacc, {"A-B": 0.2}, seed=17, iterations=10)
+
+
+def test_system_clustered_improvement_bootstrap_uses_positive_loss_reduction() -> None:
+    fifo = {"A-B": 0.3, "C-D": 0.2, "E-F": 0.4}
+    gpv = {"A-B": 0.2, "C-D": 0.1, "E-F": 0.3}
+    result = paired_system_improvement_bootstrap(fifo, gpv, seed=19, iterations=1000)
+    assert result["mean_improvement"] == pytest.approx(0.1)
+    assert result == paired_system_improvement_bootstrap(
+        fifo, gpv, seed=19, iterations=1000
+    )

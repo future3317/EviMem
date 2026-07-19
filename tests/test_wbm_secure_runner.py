@@ -155,6 +155,7 @@ def _run(
     evidence: object,
     policy: PolicySubprocess | None = None,
     budget: float = 2,
+    prefix_checks: tuple[float, ...] = (),
     second_formation_energy: float = -0.10,
 ):
     queries, records, entries, universe = _fixture(
@@ -174,7 +175,7 @@ def _run(
         oracle_universe=universe,
         event_log=log,
     )
-    result = runner.run(oracle_budget=budget)
+    result = runner.run(oracle_budget=budget, budget_prefix_checks=prefix_checks)
     log.close()
     return result, entries, universe
 
@@ -246,6 +247,23 @@ def test_unqueried_oracle_counterfactual_cannot_change_actions(tmp_path: Path) -
         second_formation_energy=0.40,
     )
     assert baseline.selected_query_ids == changed.selected_query_ids
+
+
+def test_budget_prefix_parity_changes_only_state_checksum_not_behavior(tmp_path: Path) -> None:
+    result, _, _ = _run(
+        tmp_path,
+        log_name="prefix-parity.jsonl",
+        evidence=PersistentFIFOEvidence(1),
+        budget=3,
+        prefix_checks=(1, 2, 3),
+    )
+    assert len(result.budget_prefix_parity) == 3
+    assert all(record.actions_match for record in result.budget_prefix_parity)
+    assert all(record.active_witness_ids for record in result.budget_prefix_parity)
+    assert all(
+        record.prequential_metric_input_checksum.startswith("sha256:")
+        for record in result.budget_prefix_parity
+    )
 
 
 def test_secure_runner_updates_composition_hull_before_evidence_admission(

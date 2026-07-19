@@ -72,6 +72,7 @@ from .wbm_grid import (
     aggregate_prequential_prefix,
     frozen_grid_cells,
     paired_system_bootstrap,
+    paired_system_improvement_bootstrap,
 )
 from .wbm_raw import (
     RAW_WBM_EXPECTED_ENTRY_COUNTS,
@@ -85,6 +86,7 @@ from .wbm_raw import (
 )
 from .wbm_secure import (
     AppendOnlyWBMEventLog,
+    BudgetPrefixParityRecord,
     CompositionHullState,
     CorrectedPhaseEntry,
     ExactEmulationAudit,
@@ -111,6 +113,7 @@ from .wbm_secure import (
 __all__ = [
     "AcquisitionScore",
     "AppendOnlyWBMEventLog",
+    "BudgetPrefixParityRecord",
     "CalibrationUtilityBuilder",
     "CalibrationUtilityMatrix",
     "CausalHullEngine",
@@ -202,5 +205,6 @@ __all__ = [
     "PRIMARY_STRATEGIES",
     "aggregate_prequential_prefix",
     "frozen_grid_cells",
+    "paired_system_improvement_bootstrap",
     "paired_system_bootstrap",
 ]
