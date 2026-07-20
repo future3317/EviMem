@@ -13,6 +13,40 @@ hashes below are provenance pointers, not instructions to add those artifacts
 to the repository. Old negative, invalidated and interrupted results must not
 be overwritten or selectively replaced.
 
+## Canonical-record contract
+
+This file is the **single authoritative research audit trail**. It preserves
+the complete iteration logic and the evidence judgment attached to every
+result, including results that no longer belong in the paper's main text. A
+manuscript edit may move old methods to an appendix or summarize them as an
+ablation, but it must not erase their scientific disposition from this file.
+
+The other files in `docs/` are frozen technical annexes. They may contain
+longer formulas, tables, implementation notes or preregistration details, but
+they do not override this ledger. Before deleting or shortening an annex, all
+unique experiment identity, checksum, correction, failure attribution,
+validity label and stopping decision must first be copied here. Git tags remain
+the recovery mechanism for retired code; restoring an old runner to the live
+architecture is not a preservation mechanism.
+
+Every evidence item in this ledger has one of the following dispositions:
+
+| Disposition | Meaning | Permitted use |
+|---|---|---|
+| **Authoritative valid** | Correct data contract, frozen estimand and complete output | May support the claim stated here, but no broader claim |
+| **Mechanism diagnostic** | Valid for implementation or causal attribution, not a superiority result | May explain behavior or motivate a test |
+| **Historical invalidated** | A later provenance, leakage, semantic or evaluator defect changes its scientific meaning | Preserve for audit; never cite as claim-grade performance |
+| **Incomplete/interrupted** | Physical execution or summary is incomplete | Preserve; never merge, extrapolate or use for inference |
+| **Sealed/unopened** | Evaluation outcomes were intentionally not accessed because a calibration gate failed | Preserve the seal; never use for development |
+| **Proposal only** | Formula, architecture or research plan without an authorized positive experiment | May define a future gate; never describe as a result |
+| **Stopped/NO-GO** | The registered hypothesis failed its decision, inference or systems gate | Do not repeat without stating which failed assumption and gate changed |
+
+Evidence judgments are monotone in one direction: a later experiment may
+invalidate or narrow an older claim, but it cannot silently promote a
+diagnostic, interrupted run or opened evaluation set into confirmatory
+evidence. A new implementation must receive a new identifier rather than
+relabel an old result.
+
 ## Current decision in one paragraph
 
 CAW-Joint failed after correcting self-removal information gain, memory
@@ -74,6 +108,134 @@ ledger.
 - **Representation compression:** AKSC's proposed alternative: select a basis
   without outcomes, but update low-dimensional natural parameters with every
   revealed outcome. It was a proposal, not a positive experimental result.
+
+## Evidence-adjudication matrix
+
+This table is the compact judgment layer over experiments E0--E14. Detailed
+paths and hashes appear in the numbered entries below.
+
+| Stage | Evidence disposition | What is established | What is not established | Rerun/continuation rule |
+|---|---|---|---|---|
+| Corrected CAW-Joint | Stopped/NO-GO; synthetic mechanism history | Self-removal, memory semantics, fixed weights and exact retention were corrected; one narrow coupled mechanism exists | Joint superiority or a universal retention principle | Recover only from the frozen tag for audit; do not restore to live code |
+| Working-set economics | Mechanism/preregistration diagnostic | Access economics and evidence selection are distinct estimands; matched free retrieval must be exactly equivalent | A persistence advantage on WBM | Reuse the estimand definitions only if a measured access cost exists |
+| Secure WBM P0 | Authoritative infrastructure | Oracle isolation, append-only reveal, parity energy, initial structure and causal hull contracts | Any method-performance claim | Must remain a hard prerequisite for WBM work |
+| Early DACC pilot | Historical invalidated for paper claims | The implementation produced nonconstant behavior and a weak engineering signal | Claim-grade WBM advantage; old structure/energy semantics were later corrected | Never cite absolute performance; recovery tag only |
+| DACC joint-risk diagnostic | Mechanism diagnostic | Singleton facility gain is not identical to joint GP risk; joint risk is correlated and more expensive | That joint-risk one-swap is a superior replacement | No wider grid; retained as decision-mismatch evidence |
+| Interrupted frozen grid | Incomplete/interrupted | Resource accounting and some physical traces exist | Any grid-level comparison or confidence interval | Never resume, merge or fill missing cells selectively |
+| P3C local projection | Mechanism diagnostic and stopped/NO-GO | Proper projection is implemented and solves its local reference problem | Truth calibration, selection-aware inference or causal superiority | Do not tune divergence, weights, capacity or run a larger effect-estimation panel |
+| Parity/structure repair | Authoritative defect finding | Modern-energy drift and relaxed-structure leakage were real; type-level fixes close both paths | That pre-repair metrics remain scientifically valid | Preserve old results only as data-audit history |
+| Corrected 32-system P3C replication | Authoritative stopping evidence | Early probability signal does not replicate; P3C is slower and not Pareto superior | A material positive P3C effect | P3C main line is closed |
+| Fixed-GP dispersion/ceiling | Authoritative diagnostic with explicitly approximate legacy probability fields | Reference GP is underdispersed and K=2 is below effective-dimension scale | A universal full-history optimum or calibrated oracle posterior | Exact-threshold cleanup cannot reverse the stopping decision |
+| B40 compute gate | Authoritative systems NO-GO | GP numerical work is not a WBM end-to-end bottleneck | That representation compression is useless in all workloads | Reconsider only after a new workload independently passes the Amdahl gate |
+| JARVIS--MP v1 | Authoritative negative mechanism result | Real paired signal exists; hard implementation gates pass; global transport and rank-16 state fail | Safe cross-system reuse or a positive compressed-state result | Opened systems are development-closed and cannot calibrate v2+ |
+| JARVIS--MP v3 | Sealed calibration-stage NO-GO | Element offsets reduce but do not certify protocol discrepancy | Any v3 evaluation performance | Keep all 12 evaluation systems sealed; never relax 0.15 retrospectively |
+| Environment-conditional transport + robust hull certificate | Proposal only | A falsifiable next architecture and decision-level gate are defined | Accuracy, coverage, hull preservation, compute benefit or paper-level GO | Requires new calibration systems, a frozen decision certificate and a measured systems constraint |
+
+## Cross-iteration cause judgments
+
+The following attributions summarize which explanations have been actively
+tested rather than inferred from a negative headline.
+
+| Possible explanation | Final judgment | Evidence basis |
+|---|---|---|
+| Selector or runner is numerically degenerate | Low for corrected P3C and JARVIS v1 | Constructed failure tests, nonzero objective ranges, selector disagreement and exact persistent/replay checks |
+| Oracle information or target structure leaked into policy state | Confirmed historically, fixed | Fourteen Au--Te energy drifts, three label flips and relaxed-structure SOAP leakage; typed parity/structure contracts now fail closed |
+| Input ordering or persistent/replay asymmetry explains the result | Low after hard gates | Deterministic order rules, checksum replay and exact homogeneous/emulation parity |
+| Too few WBM candidates caused P3C failure | Low for the registered B8/K2 estimand | Two disjoint panels contain 32 exact systems and 683 candidates; the fresh panel reverses the early signal |
+| WBM trajectories are too short for a systems-compression claim | High, then experimentally closed for WBM | B40 on the three longest eligible systems still yields at most 0.689% GP share |
+| Frozen GP/reference is misspecified | High | Mean squared standardized LOO residual 16.90 and nominal 90% coverage 62.4% |
+| DACC objective mismatches deployed joint inference | High | Singleton facility and joint-risk choices disagree; joint posterior is the deployed predictor |
+| P3C preserves reference but not causal truth | High | Proper projection headroom is recovered locally without corrected cross-system decision superiority |
+| Outcome-dependent contribution deletion induces selection mismatch | Medium--high | Retained/evicted residual differences and descriptive retention AUC; complete archive remains the correct target |
+| JARVIS--MP pair construction is invalid | Low for the frozen task | Composition agreement plus frozen `StructureMatcher` leaves 1,658 real pairs; oracle and target structure remain isolated |
+| Global transport generalizes across exact systems | Rejected | V1 held-out violation rate is 45.3202%; 88.459% of source--target shift variance lies between systems |
+| Element-only reference correction is sufficient | Rejected at calibration | V3 clustered radius 0.177264 eV/atom exceeds the frozen 0.15 ceiling |
+| Rank-16 failure proves representation compression is intrinsically bad | Unsupported | Rank 16 was not justified by a measured bottleneck and projection RMSE is 0.41698 eV/atom; this is an intentionally restrictive representation, not a lower bound |
+
+## Manuscript treatment versus evidence preservation
+
+The current paper-facing story and the complete audit record serve different
+purposes. The main paper should not present two mutually exclusive methods.
+The live positive principle is all-outcome representation compression; the old
+definition `M_t subset A_t, |M_t| <= K`, the fixed-card figures, DACC and P3C
+retention formulas belong to a historical appendix or negative-results
+analysis. Moving them out of the main narrative does **not** authorize deleting
+them from this ledger.
+
+Until a robust hull certificate and positive decision--cost frontier exist,
+the paper has two honest identities:
+
+1. a negative-results paper on Decision--Inference--Systems Alignment, with
+   all-outcome state as a control that excludes outcome deletion; or
+2. a future positive method paper whose current title and claims remain
+   provisional until transport, hull decision and systems gates pass.
+
+The hybrid claim "a positive certified method has been introduced" is not
+supported. The exact linear--Gaussian sufficiency result is a necessary
+implementation theorem, but it is standard conjugate sufficiency and is not by
+itself the paper's theory contribution.
+
+## Statistical and metric boundaries that must remain attached to E13--E14
+
+1. V3 used ten exact systems for 90% system-clustered split conformal
+   calibration with the maximum within-system absolute error as its score. The
+   finite-sample index is
+
+   \[
+   \left\lceil(10+1)(1-0.1)\right\rceil=10,
+   \]
+
+   so the reported 100% calibration-cluster coverage is largely constructive:
+   the radius is the maximum of ten system scores. The effective generalization
+   sample size is the number of exact systems, not 677 pairs.
+2. The frozen 0.15 eV/atom ceiling is an immutable v3 stopping rule. It must not
+   become the next method's scientific objective. Future gates must ask whether
+   the uncertainty interval certifies a candidate's hull decision or action,
+   because the same energy radius has different meaning near and far from the
+   hull.
+3. V1's paired-affine action regret (`0.00096`) and hull decision cost
+   (`0.81615`) measure different registered decisions. Regret scores only the
+   selected next action; hull cost scores classification over the remaining
+   pool. A policy can rank the best next query correctly while misclassifying
+   many unqueried candidates. This separation is expected and must not be
+   described as a metric inconsistency.
+4. The conformal absolute-error radius is not a Gaussian standard deviation.
+   Any pilot likelihood that inserts it as a variance scale is a working model,
+   not a distribution-free posterior-calibration guarantee.
+5. Rank 16 is a historical pilot choice. Without a measured bottleneck, future
+   work may use full rank or a calibration-frozen higher rank; prediction loss
+   caused by an arbitrary rank restriction is not evidence of a useful
+   compression frontier.
+
+## Next authorized hypothesis, preserved as a proposal rather than a result
+
+The latest review narrows the only scientifically distinct continuation to
+three layers:
+
+1. **Environment-conditional directed transport.** Predict target--source
+   discrepancy from observable source structure, local coordination,
+   element-conditioned environments, composition complexity and protocol-pair
+   identity. Unseen elements, unsupported environments and excessive OOD score
+   abstain.
+2. **Same-candidate transport base plus all-target-outcome correction.** Keep
+   the low-fidelity same-candidate prediction outside the global residual
+   projection. Every revealed target residual relative to that base updates
+   fixed-dimensional sufficient statistics; no accepted target contribution
+   is deleted.
+3. **Robust hull-decision certificate.** For simultaneous certified intervals
+   `E_i in [L_i,U_i]`, compute lower and upper feasible hull energies over legal
+   composition mixtures. Certify stable, unstable or abstain directly, and
+   bound the epsilon-optimal action set. Do not convert an interval certificate
+   into an unproved Gaussian probability.
+
+This proposal changes the failed assumption from global/composition-only
+transport to environment-conditional transport and changes the gate from a
+global energy radius to decision-level selective coverage. It still requires
+new system-level calibration, fresh evaluation, a simultaneous-coverage or
+risk-control argument, strong target-only/naive-pooling/paired-delta/full-replay
+baselines, and at least one measured access, certification, communication or
+compute constraint. Until those prerequisites pass, it remains **proposal
+only**.
 
 ## Research iteration chain
 
@@ -350,6 +512,28 @@ ledger.
 | Composition-dependent causal hull | `1b37686` |
 | DACC implementation | `0fb29eb` |
 | First engineering WBM result | `76b8612` |
+
+## Preserved technical-annex source map
+
+These annexes remain in Git for exact technical detail. Their status and
+allowed use are governed by this ledger.
+
+| Annex | Preserved content | Authority boundary |
+|---|---|---|
+| `RESEARCH_ITERATION_HISTORY.md` | Narrative CAW--DACC--P3C--AKSC chronology and retired-code recovery guidance | Historical annex; this ledger controls current status |
+| `WBM_CALIBRATION_CORESET_AMENDMENT.md` | P3C equations, neighborhood search, proper-divergence variants and P1 follow-up | Stopped-method specification, not an active method |
+| `WBM_ENGINEERING_P1_P15_AND_PILOT.md` | Infrastructure gates, DACC/joint-risk/P3C engineering tables and frozen calibration details | Mixed historical/diagnostic evidence; validity labels here prevail |
+| `P3C_FAILURE_ATTRIBUTION_2026-07-20.md` | Code/data/method/theory decomposition and 32-system corrected replication | Technical support for E8--E11 |
+| `AKSC_CEILING_DIAGNOSTIC_2026-07-20.md` | Effective dimension, reference dispersion and proposed all-outcome architecture | Diagnostic/proposal annex; B40 later stops WBM AKSC |
+| `WBM_LONG_ARCHIVE_COMPUTE_GATE_2026-07-20.md` | Checkpointed B40 timing and Amdahl decision | Technical support for E12 |
+| `WBM_DATA_LICENSE_AND_INFRASTRUCTURE_AUDIT.md` | WBM/MP/CHGNet license, artifact, parity and oracle-boundary provenance | Infrastructure evidence only |
+| `JARVIS_MP_MULTIFIDELITY_PREREGISTRATION.md` | Real pair construction, v1 result, v3 calibration and immutable hashes | Technical support for E13--E14 |
+| `DECISION_SUFFICIENT_SCIENTIFIC_STATE.md` | Current formal problem, alignment gates and paper-facing method boundary | Live specification; not a positive result |
+
+If an annex is later removed from the active branch, its last commit/tag and
+all unique audit facts must first be recorded in this table and in the relevant
+numbered evidence entry. Manuscript page pressure is never a reason to destroy
+the research audit trail.
 
 The live package keeps the secure WBM path, P3C/legacy selectors as audited
 diagnostics, fixed-GP components and failure-capable tests. Removed historical

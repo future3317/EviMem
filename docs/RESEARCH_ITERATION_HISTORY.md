@@ -1,9 +1,12 @@
 # Materials-memory research iteration history
 
-This file records conclusions from retired experiments without keeping their
-runners, duplicated evaluators, or frozen preregistration machinery on the live
-branch. Git tags preserve exact code and documents; datasets and run outputs
-remain outside Git.
+This file is a preserved technical annex. Its unique chronology and evidence
+judgments are consolidated in `docs/EXPERIMENT_LEDGER.md`, the single canonical
+audit trail. Do not delete this annex merely to shorten the active project; it
+may be reduced only after verifying that every unique experiment identity,
+correction, result, validity label and recovery point remains in the ledger.
+Git tags preserve exact code and documents; datasets and run outputs remain
+outside Git.
 
 **Current status must be read first:** P3C is stopped, AKSC is not authorized as
 the WBM paper's next main method, and the paper remains NO-GO. The complete

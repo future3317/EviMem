@@ -24,18 +24,18 @@ method: full-history GP numerical work is at most 0.689% of real round-pipeline
 time, so perfect elimination would yield at most a 1.00694x ideal speedup. WBM
 is consequently the homogeneous, low-compute-cost null regime in which full
 history should remain active. See the
-[live decision-state specification](docs/DECISION_SUFFICIENT_SCIENTIFIC_STATE.md),
-[current P3C specification](docs/WBM_CALIBRATION_CORESET_AMENDMENT.md),
-[engineering WBM result](docs/WBM_ENGINEERING_P1_P15_AND_PILOT.md),
-[code/data/method/theory attribution](docs/P3C_FAILURE_ATTRIBUTION_2026-07-20.md),
-[fixed-GP/AKSC ceiling audit](docs/AKSC_CEILING_DIAGNOSTIC_2026-07-20.md),
-[long-archive compute-relevance gate](docs/WBM_LONG_ARCHIVE_COMPUTE_GATE_2026-07-20.md), and
-[research iteration history](docs/RESEARCH_ITERATION_HISTORY.md). The
-[authoritative experiment and decision ledger](docs/EXPERIMENT_LEDGER.md) is the
-required starting point before proposing another method or rerunning an old
-experiment. It records the complete DACC -> P3C -> outcome-contribution
-deletion/reference-mismatch -> AKSC -> B40 stopping chain, external artifact
-paths, hashes, invalidated runs and recovery tags.
+[authoritative experiment and evidence ledger](docs/EXPERIMENT_LEDGER.md) is the
+single required starting point before proposing another method, editing the
+paper's historical account or rerunning an old experiment. It preserves the
+complete CAW-Joint -> DACC -> P3C -> outcome-contribution
+deletion/reference-mismatch -> AKSC -> B40 -> JARVIS--MP v1/v3 chain, evidence
+dispositions, external paths and hashes, invalidated/interrupted/sealed runs,
+recovery tags, statistical boundaries and future authorization rules. Detailed
+technical annexes remain available through its source map; they do not override
+the ledger and must not be deleted until any unique audit content has been
+migrated there. The separate
+[live decision-state specification](docs/DECISION_SUFFICIENT_SCIENTIFIC_STATE.md)
+defines the current paper-facing hypothesis rather than the historical record.
 
 A real JARVIS--MP multi-protocol task has now been constructed from 1,658
 same-material structure-matched pairs. The v1 global-affine evaluation passes
