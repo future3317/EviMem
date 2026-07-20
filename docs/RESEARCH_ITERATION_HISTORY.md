@@ -201,10 +201,43 @@ most `2 epsilon` one-step regret; and a component occupying fraction `f` of
 end-to-end time permits at most `1/(1-f)` ideal speedup if eliminated. The B40
 gate places current WBM in the no-forgetting null regime.
 
-The next material hypothesis is Certified Hull-Decision State: protocol-valid
-evidence influence, directed transport uncertainty, hull-support/facet state,
-stable/unstable/abstain decisions, and an `epsilon`-optimal action set. It is
-not implemented and must reduce exactly to full history for homogeneous
-zero-transport-error evidence. See
-`docs/DECISION_SUFFICIENT_SCIENTIFIC_STATE.md` for the formal definition and
-pre-implementation gates.
+The next material hypothesis was Certified Hull-Decision State:
+protocol-valid evidence influence, directed transport uncertainty,
+hull-support/facet state, stable/unstable/abstain decisions, and an
+`epsilon`-optimal action set. It was subsequently implemented in the natural
+v4 JARVIS--MP experiment and still reduces to full history for homogeneous
+zero-transport-error evidence. The implementation closes the mechanism gap;
+the fresh evaluation does not support superiority. See
+`docs/DECISION_SUFFICIENT_SCIENTIFIC_STATE.md` and
+`docs/ENVIRONMENT_HULL_CERTIFICATE_2026-07-20.md`.
+
+## 2026-07-20 natural v4 closure: certificate soundness without superiority
+
+V4 deliberately removed the hard-coded research artifacts exposed by prior
+iterations. It uses the frozen CHGNet-0.3.0 source-structure embedding,
+same-candidate ridge delta learning, leave-one-exact-system-out ridge
+selection, leverage-scaled exact-system conformal intervals, all-target-outcome
+Bayesian-ridge natural parameters, and robust competing-hull linear programs.
+There is no manually selected local descriptor, fixed rank, outcome capacity,
+eviction rule, OOD multiplier or global energy ceiling. Fixed hashes,
+exclusion lists, alpha and decision tolerance are preregistration contracts,
+not candidate-specific method branches.
+
+All 45 systems used by v1/v3 were excluded. Calibration used 210 new exact
+systems and passed its frozen mechanism gates. Evaluation then opened 72
+further exact systems once. The robust certificate made zero errors whenever
+the registered simultaneous interval event held, and all-outcome correction
+improved its frozen environment-only base. However simultaneous coverage was
+50/56 supported systems (`89.2857%`) versus the frozen 90% requirement, and
+the proposed point method was significantly worse than naive source-as-target
+reuse in both hull error and one-step regret. The final result is therefore a
+non-degenerate, authoritative NO-GO.
+
+This closes the sequence rather than restarting it. DACC failed because its
+singleton objective did not match joint inference; P3C repaired that local
+objective but deleted outcome contributions and preserved a misspecified
+reference; AKSC avoided deletion but failed the WBM systems-relevance gate;
+JARVIS v1/v3 rejected global and composition-only transport; and v4 shows that
+a richer natural representation plus a sound selective certificate still does
+not beat the simplest source baseline. Future work must add genuinely new
+protocol information or a measured constraint and must use untouched systems.

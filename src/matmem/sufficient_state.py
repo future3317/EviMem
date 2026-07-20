@@ -190,3 +190,93 @@ class AllOutcomeLinearGaussianState:
             stable_probability=tuple(probabilities),
             compatible_witness_count=(self._accepted_count,) * len(items),
         )
+
+
+class AllOutcomeTargetCorrectionState:
+    """All-target-outcome Bayesian ridge correction on a frozen representation.
+
+    This state is the natural-parameter form of ridge regression.  It stores no
+    cards and exposes no capacity or eviction operation.  Every target reveal
+    contributes exactly one outer product and response vector update.
+    """
+
+    def __init__(
+        self,
+        *,
+        feature_mean: tuple[float, ...],
+        feature_scale: tuple[float, ...],
+        ridge_penalty: float,
+        residual_variance_ev2_per_atom2: float,
+    ) -> None:
+        if len(feature_mean) < 2 or len(feature_mean) != len(feature_scale):
+            raise ValueError("target correction requires a fixed feature dimension")
+        if any(
+            not math.isfinite(value) for value in (*feature_mean, *feature_scale)
+        ) or any(value <= 0 for value in feature_scale):
+            raise ValueError("target correction feature standardization is invalid")
+        if (
+            not math.isfinite(ridge_penalty)
+            or ridge_penalty <= 0
+            or not math.isfinite(residual_variance_ev2_per_atom2)
+            or residual_variance_ev2_per_atom2 <= 0
+        ):
+            raise ValueError("target correction scales must be finite and positive")
+        self.feature_mean = np.asarray(feature_mean, dtype=np.float64)
+        self.feature_scale = np.asarray(feature_scale, dtype=np.float64)
+        self.ridge_penalty = ridge_penalty
+        self.residual_variance_ev2_per_atom2 = residual_variance_ev2_per_atom2
+        dimension = len(feature_mean) + 1
+        self._precision = np.eye(dimension, dtype=np.float64) * ridge_penalty
+        self._eta = np.zeros(dimension, dtype=np.float64)
+        self._outcome_count = 0
+
+    def _feature(self, embedding: tuple[float, ...]) -> np.ndarray:
+        if len(embedding) != len(self.feature_mean):
+            raise ValueError("target correction embedding dimension differs from freeze")
+        vector = np.asarray(embedding, dtype=np.float64)
+        if not np.isfinite(vector).all():
+            raise ValueError("target correction embedding must be finite")
+        return np.concatenate(([1.0], (vector - self.feature_mean) / self.feature_scale))
+
+    @property
+    def accepted_outcome_count(self) -> int:
+        return self._outcome_count
+
+    @property
+    def state_size_scalars(self) -> int:
+        dimension = len(self.feature_mean) + 1
+        return dimension**2 + dimension + 1
+
+    def update(
+        self, embedding: tuple[float, ...], target_minus_base_ev_per_atom: float
+    ) -> None:
+        if not math.isfinite(target_minus_base_ev_per_atom):
+            raise ValueError("target correction outcome must be finite")
+        feature = self._feature(embedding)
+        self._precision += np.outer(feature, feature)
+        self._eta += feature * target_minus_base_ev_per_atom
+        self._outcome_count += 1
+
+    def natural_parameters(self) -> tuple[np.ndarray, np.ndarray]:
+        return self._precision.copy(), self._eta.copy()
+
+    def state_checksum(self) -> str:
+        digest = hashlib.sha256()
+        digest.update(self.feature_mean.tobytes(order="C"))
+        digest.update(self.feature_scale.tobytes(order="C"))
+        digest.update(self._precision.tobytes(order="C"))
+        digest.update(self._eta.tobytes(order="C"))
+        digest.update(np.asarray([self._outcome_count], dtype=np.int64).tobytes())
+        return "sha256:" + digest.hexdigest()
+
+    def predict(self, embedding: tuple[float, ...]) -> tuple[float, float]:
+        feature = self._feature(embedding)
+        mean = float(feature @ np.linalg.solve(self._precision, self._eta))
+        leverage = 1.0 + float(feature @ np.linalg.solve(self._precision, feature))
+        working_std = math.sqrt(
+            max(
+                self.residual_variance_ev2_per_atom2 * leverage,
+                np.finfo(float).eps,
+            )
+        )
+        return mean, working_std

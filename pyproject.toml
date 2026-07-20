@@ -21,6 +21,7 @@ dependencies = [
   "pymatgen>=2025",
   "dscribe>=2.1",
   "psutil>=5.9",
+  "chgnet>=0.4.2,<0.5",
 ]
 
 [project.optional-dependencies]

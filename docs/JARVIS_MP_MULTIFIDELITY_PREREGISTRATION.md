@@ -1,7 +1,8 @@
 # JARVIS--MP protocol-heterogeneity pilot
 
 **Frozen result status (2026-07-20): v1 evaluation NO-GO; v3 composition
-certificate NO-GO with fresh evaluation unopened.** This is Regime C of the
+certificate NO-GO with fresh evaluation unopened; v4 environment-conditional
+evaluation completed as a fresh-system NO-GO.** This is Regime C of the
 Decision--Inference--Systems program. WBM remains the homogeneous null control;
 it is not the positive benchmark. The immutable designs are
 `configs/jarvis_mp_protocol_activation_v1.json` and
@@ -165,15 +166,75 @@ remove part of the discrepancy but do not certify the remaining
 structure/environment-dependent protocol error. The 12 fresh evaluation
 systems remain unopened and cannot be used to choose a richer transport.
 
-## Consequence for the next method
+## V4 natural environment transport and robust hull certificate
+
+V4 removed the manually selected descriptor, fixed-rank bottleneck, global
+energy ceiling and outcome-card capacity. Its point predictor is the natural
+same-candidate correction
+
+\[
+\widehat E_T(x)=E_S(x)+
+g_{\rm ridge}\!\left(h_{\rm CHGNet\text{-}0.3.0}(x),E_S(x)\right),
+\]
+
+where the frozen source-structure embedding is observable before the target
+reveal. Ridge strength is selected by leave-one-exact-system-out prediction on
+transport-fit systems. A disjoint exact-system split calibrates
+leverage-normalized maximum errors. All revealed target residuals relative to
+this base update Bayesian-ridge natural parameters; no capacity or eviction
+interface exists.
+
+For simultaneous intervals \(E_i\in[L_i,U_i]\), the implementation removes a
+candidate from its own competing set and solves lower- and upper-energy hull
+linear programs. It certifies stable when the candidate's upper energy is no
+higher than the lower competing hull, certifies unstable when its lower energy
+is above the upper competing hull, and abstains otherwise. The conformal
+radius is never interpreted as a Gaussian standard deviation.
+
+The authoritative external task is
+`E:\DATA\EviMem-RL\multifidelity\jarvis-mp-v4-natural`. Its task-manifest
+SHA-256 is
+`ba5bfc139364ecb1b97248e8f72fd646e12ffaa9277a6494f4ebbb265eee5cff`.
+All 45 v1/v3 systems were excluded before construction. The task contains 210
+calibration systems (2,056 pairs) and 72 fresh evaluation systems (717 pairs).
+The calibration-only vault SHA-256 is
+`288483a5e035a081bc988b56b2d29bd9fd911e019e26023f7a5bf9747a5e6f83`;
+the sealed evaluation vault SHA-256 before opening is
+`cfabf766990b1acde0b16b98c9bc3c39d73aba40f967be8c4bd6572471f338b6`.
+
+Calibration passed without relaxing a threshold. The final freeze SHA-256 is
+`954acb310a156299c25aaa4b5415a3d6cf0e4118286f73c8d6c03e0a2380279c`.
+It registered a normalized simultaneous conformal quantile of `0.151757347`,
+zero certified errors on 48 calibration interval-inlier systems, macro
+certified coverage of `17.3216%`, and a bootstrap lower bound of `12.4201%`.
+Streaming and archive replay were exact.
+
+The evaluation was then opened once. Its immutable SHA-256 is
+`644fd0b547284034314c3c105a9b040363c1bd4b1ec3dc54df1ef191e4242f94`.
+Fifty of 56 supported systems satisfied the simultaneous interval event
+(`89.2857%`), missing the frozen 90% requirement by one system. The certificate
+made zero errors on interval inliers. Nevertheless the environment plus
+all-outcome method was significantly worse than naive source-as-target reuse:
+hull-error difference `+0.07410` with 95% interval
+`[+0.02387,+0.12954]`, and one-step-regret difference `+0.01200` with interval
+`[+0.00422,+0.02031]`. The online all-outcome correction improved its own
+environment-only base in MAE and hull error, so the implementation is
+non-degenerate; it simply does not win the registered comparison.
+
+The v4 systems are now opened and development-closed. No CHGNet layer, ridge
+grid, conformal level, support rule or hull tolerance may be tuned on them.
+The result is authoritative negative evidence, not a positive protocol-aware
+state claim.
+
+## Consequence after the completed v4 evaluation
 
 The implemented all-outcome linear--Gaussian state proves the engineering
 principle that every legal outcome can update fixed-dimensional natural
 parameters, and the persistent/replay gate verifies the exact implementation.
-It does **not** yet implement a Certified Hull-Decision State theorem or a
-distribution-free use of the conformal radius. In particular, treating a
-transport radius as a Gaussian working-likelihood scale is an experimental
-modeling choice, not a calibration guarantee. No paper claim is authorized
-until a new, independently calibrated protocol model passes before evaluation
-and its hull decisions, abstentions, violations, and end-to-end costs are
-measured on fresh systems.
+V4 also implements the robust Certified Hull-Decision State theorem and uses
+the conformal interval only as a simultaneous uncertainty set. This closes the
+implementation gap but not the scientific claim: the frozen evaluation fails
+coverage by one supported system and is dominated by simpler source reuse. A
+future positive method would require scientifically different protocol
+metadata or paired supervision and a new untouched system split, not threshold
+or representation tuning on v4.

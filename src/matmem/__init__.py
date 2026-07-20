@@ -50,6 +50,23 @@ from .coreset import (
     StreamingPosteriorProjectionCoreset,
     compare_facility_and_joint_objectives,
 )
+from .environment_transport import (
+    EnvironmentConditionalProtocolTransportMap,
+    EnvironmentTransportPrediction,
+    EnvironmentTransportStatus,
+    MatchedEnvironmentEnergyPair,
+)
+from .hull_certificate import (
+    ActionValueInterval,
+    CertifiedActionSet,
+    ClusteredConformalCalibration,
+    PhaseEnergyInterval,
+    RobustHullDecision,
+    RobustHullDecisionCertifier,
+    RobustHullDecisionKind,
+    certify_epsilon_optimal_actions,
+    clustered_conformal_quantile,
+)
 from .hull_engine import CausalHullEngine
 from .identity import (
     CanonicalGroupSplit,
@@ -76,7 +93,11 @@ from .residual_posterior import (
     ResidualPrediction,
 )
 from .risk import ConformalCalibration, ProtocolRiskController, RiskDecision, ScreeningDecision
-from .sufficient_state import AllOutcomeLinearGaussianState, SufficientStateUpdate
+from .sufficient_state import (
+    AllOutcomeLinearGaussianState,
+    AllOutcomeTargetCorrectionState,
+    SufficientStateUpdate,
+)
 from .wbm import (
     DataAuditFinding,
     DataLicenseAuditReport,
@@ -151,11 +172,15 @@ from .wbm_secure import (
 __all__ = [
     "AcquisitionScore",
     "AllOutcomeLinearGaussianState",
+    "AllOutcomeTargetCorrectionState",
     "AppendOnlyWBMEventLog",
+    "ActionValueInterval",
     "BudgetPrefixParityRecord",
     "CalibrationUtilityBuilder",
     "CalibrationUtilityMatrix",
     "CausalHullEngine",
+    "CertifiedActionSet",
+    "ClusteredConformalCalibration",
     "CompatibilityKind",
     "CompositionAwareProtocolTransportMap",
     "CompositionHullState",
@@ -164,6 +189,9 @@ __all__ = [
     "ConformalCalibration",
     "CoresetSelection",
     "ExactArchivePosteriorProjectionPlanner",
+    "EnvironmentConditionalProtocolTransportMap",
+    "EnvironmentTransportPrediction",
+    "EnvironmentTransportStatus",
     "DataAuditFinding",
     "DataLicenseAuditReport",
     "DataLicenseDecision",
@@ -179,10 +207,12 @@ __all__ = [
     "FrozenPredictionSOAPCache",
     "FrozenPredictionSOAPRecord",
     "HullSnapshot",
+    "PhaseEnergyInterval",
     "JointPosteriorRiskOneSwapPlanner",
     "JointPosteriorRiskSelection",
     "MatchedResidualPair",
     "MatchedEnergyPair",
+    "MatchedEnvironmentEnergyPair",
     "MaterialMemoryCard",
     "MaterialIdentity",
     "StructureArtifactIdentity",
@@ -225,6 +255,9 @@ __all__ = [
     "ResidualPrediction",
     "ReferencePosteriorSnapshot",
     "RiskDecision",
+    "RobustHullDecision",
+    "RobustHullDecisionCertifier",
+    "RobustHullDecisionKind",
     "ScreeningDecision",
     "SelectionEffectRecord",
     "SeededRandomAcquisition",
@@ -260,6 +293,8 @@ __all__ = [
     "bernoulli_brier_divergence",
     "bernoulli_log_divergence",
     "compare_facility_and_joint_objectives",
+    "certify_epsilon_optimal_actions",
+    "clustered_conformal_quantile",
     "replay_wbm_event_log",
     "raw_wbm_records_from_payload",
     "validate_raw_wbm_release",

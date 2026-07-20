@@ -1,6 +1,6 @@
 # Authoritative experiment and decision ledger
 
-**Status: paper-level NO-GO (2026-07-20).** This is the first file a future
+**Status: paper-level NO-GO after completed v4 evaluation (2026-07-20).** This is the first file a future
 maintainer or coding agent should read before changing the method or launching
 another experiment. It records why the research moved from CAW-Joint to DACC,
 from DACC to P3C, why P3C exposed outcome-contribution deletion and reference
@@ -82,11 +82,12 @@ within a frozen distortion tolerance of the complete archive. WBM is retained
 as the homogeneous, low-compute-cost null regime, where the correct behavior is
 full history. A positive next experiment requires independently measured
 protocol incompatibility, shift, access/compute cost, or another explicit
-constraint. The all-outcome fixed-rank predictive layer and fail-closed
-activation path now exist and pass exact replay/null/no-deletion tests.
-Certified Hull-Decision State remains incomplete: there is no hull-certificate
-algorithm, no decision-preservation theorem, and no positive result in this
-ledger.
+constraint. The all-outcome predictive layer, fail-closed activation path and
+robust hull-decision certificate now exist and pass exact replay, null,
+no-deletion, self-removal and interval-soundness tests. The v4 evaluation
+nevertheless fails the frozen simultaneous-coverage gate and is dominated by
+simpler source reuse. Thus the certificate is a validated selective mechanism,
+not a positive state-compression result.
 
 ## Terminology that must not be blurred
 
@@ -111,7 +112,7 @@ ledger.
 
 ## Evidence-adjudication matrix
 
-This table is the compact judgment layer over experiments E0--E14. Detailed
+This table is the compact judgment layer over experiments E0--E15. Detailed
 paths and hashes appear in the numbered entries below.
 
 | Stage | Evidence disposition | What is established | What is not established | Rerun/continuation rule |
@@ -129,7 +130,7 @@ paths and hashes appear in the numbered entries below.
 | B40 compute gate | Authoritative systems NO-GO | GP numerical work is not a WBM end-to-end bottleneck | That representation compression is useless in all workloads | Reconsider only after a new workload independently passes the Amdahl gate |
 | JARVIS--MP v1 | Authoritative negative mechanism result | Real paired signal exists; hard implementation gates pass; global transport and rank-16 state fail | Safe cross-system reuse or a positive compressed-state result | Opened systems are development-closed and cannot calibrate v2+ |
 | JARVIS--MP v3 | Sealed calibration-stage NO-GO | Element offsets reduce but do not certify protocol discrepancy | Any v3 evaluation performance | Keep all 12 evaluation systems sealed; never relax 0.15 retrospectively |
-| Environment-conditional transport + robust hull certificate | Proposal only | A falsifiable next architecture and decision-level gate are defined | Accuracy, coverage, hull preservation, compute benefit or paper-level GO | Requires new calibration systems, a frozen decision certificate and a measured systems constraint |
+| Environment-conditional transport + robust hull certificate | Authoritative fresh-system NO-GO | All-outcome correction and robust hull decisions work; inlier certificate soundness holds | Superiority over naive/global source reuse or the frozen 90% interval gate | Evaluation systems are opened and development-closed; do not tune this method on them |
 
 ## Cross-iteration cause judgments
 
@@ -156,19 +157,22 @@ tested rather than inferred from a negative headline.
 
 The current paper-facing story and the complete audit record serve different
 purposes. The main paper should not present two mutually exclusive methods.
-The live positive principle is all-outcome representation compression; the old
+The live non-deletion control is all-outcome representation compression; the old
 definition `M_t subset A_t, |M_t| <= K`, the fixed-card figures, DACC and P3C
 retention formulas belong to a historical appendix or negative-results
 analysis. Moving them out of the main narrative does **not** authorize deleting
 them from this ledger.
 
-Until a robust hull certificate and positive decision--cost frontier exist,
-the paper has two honest identities:
+After implementing the robust hull certificate without obtaining a positive
+decision--cost frontier, the paper has one currently supportable identity and
+one explicitly future possibility:
 
-1. a negative-results paper on Decision--Inference--Systems Alignment, with
-   all-outcome state as a control that excludes outcome deletion; or
-2. a future positive method paper whose current title and claims remain
-   provisional until transport, hull decision and systems gates pass.
+1. the current negative-results paper on Decision--Inference--Systems
+   Alignment, with all-outcome state as a control that excludes outcome
+   deletion; or
+2. a future positive method paper only after a scientifically different
+   transport or constraint passes fresh transport, hull-decision and systems
+   gates.
 
 The hybrid claim "a positive certified method has been introduced" is not
 supported. The exact linear--Gaussian sufficiency result is a necessary
@@ -207,10 +211,10 @@ itself the paper's theory contribution.
    caused by an arbitrary rank restriction is not evidence of a useful
    compression frontier.
 
-## Next authorized hypothesis, preserved as a proposal rather than a result
+## V4 hypothesis and completed disposition
 
-The latest review narrows the only scientifically distinct continuation to
-three layers:
+The latest review narrowed the continuation to three layers, all now
+implemented:
 
 1. **Environment-conditional directed transport.** Predict target--source
    discrepancy from observable source structure, local coordination,
@@ -228,14 +232,15 @@ three layers:
    bound the epsilon-optimal action set. Do not convert an interval certificate
    into an unproved Gaussian probability.
 
-This proposal changes the failed assumption from global/composition-only
+This method changed the failed assumption from global/composition-only
 transport to environment-conditional transport and changes the gate from a
 global energy radius to decision-level selective coverage. It still requires
 new system-level calibration, fresh evaluation, a simultaneous-coverage or
 risk-control argument, strong target-only/naive-pooling/paired-delta/full-replay
 baselines, and at least one measured access, certification, communication or
-compute constraint. Until those prerequisites pass, it remains **proposal
-only**.
+compute constraint. The calibration prerequisites passed, but the one-time
+72-system evaluation did not. The method is therefore **stopped/NO-GO**, not
+proposal-only. See E15.
 
 ## Research iteration chain
 
@@ -253,6 +258,7 @@ only**.
 | Fixed-GP and B40 gates | Measured reference dispersion, effective dimension and real end-to-end GP share | A representation-compression method needs a credible target and material compute bottleneck | Both gates fail for current WBM; AKSC not authorized here |
 | JARVIS--MP v1 | Built a real structure-matched OptB88vdW--MP/GGA task and tested global affine transport plus an all-outcome rank-16 state | Moved from homogeneous WBM to genuine protocol heterogeneity | Implementation gates pass; transport and state decision gates fail |
 | JARVIS--MP v3 | Added element-fraction reference offsets and exact-system-clustered conformal calibration on fresh systems | Tested whether composition-dependent reference shift explains v1 failure | Radius 0.177264 exceeds frozen 0.15 ceiling; fresh evaluation remains unopened |
+| JARVIS--MP v4 | Frozen CHGNet source features, leverage-scaled exact-system intervals, all-target-outcome correction and robust hull LP | Tested environment-conditional reuse against direct decision preservation | Certificate mechanism is sound on interval inliers, but 90% coverage and superiority gates fail; method stopped |
 
 ## Experiment ledger
 
@@ -486,6 +492,35 @@ only**.
 - Claim status: calibration-stage NO-GO. Do not relax the ceiling to 0.18 or
   use the unopened systems to develop a richer transport.
 
+### E15. Environment-conditional transport and robust hull decision
+
+- External directory:
+  `E:\DATA\EviMem-RL\multifidelity\jarvis-mp-v4-natural`.
+- Task manifest SHA256:
+  `ba5bfc139364ecb1b97248e8f72fd646e12ffaa9277a6494f4ebbb265eee5cff`.
+- Final calibration freeze SHA256:
+  `954acb310a156299c25aaa4b5415a3d6cf0e4118286f73c8d6c03e0a2380279c`.
+- Fresh evaluation SHA256:
+  `644fd0b547284034314c3c105a9b040363c1bd4b1ec3dc54df1ef191e4242f94`.
+- All 45 v1/v3 systems were excluded. The task used all remaining eligible
+  exact systems: 210 calibration systems/2,056 pairs and 72 evaluation
+  systems/717 pairs. CHGNet-0.3.0 source features are bound to checkpoint
+  SHA256 `d14ab7c0f093efe64b60a7bcd540bca10e74fb7f46c86108a079af60524659d1`.
+- Calibration passed: 48 conformal-inlier systems had zero certified errors;
+  macro certified coverage was 17.32% with bootstrap lower bound 12.42%.
+- Evaluation opened once. Fifty of 56 supported systems met the simultaneous
+  interval event (89.29%, below the frozen 90% gate). Inlier certified errors
+  remained zero and the certified-coverage lower bound was 8.08%.
+- The method strongly improved on target-only but was significantly worse than
+  naive source-as-target: hull-error difference `+0.07410`, 95% interval
+  `[+0.02387,+0.12954]`; regret difference `+0.01200`, interval
+  `[+0.00422,+0.02031]`. Global paired delta also had lower MAE and regret.
+- Online all-outcome correction improves its environment-only base in MAE and
+  hull error, proving non-degenerate operation, but not in action regret.
+- Claim status: authoritative method-level NO-GO. Preserve the certificate
+  theorem/implementation as a valid mechanism and the result as evidence that
+  richer representation alone does not beat simple low-fidelity reuse.
+
 ## Superseded, invalid and incomplete evidence
 
 | Evidence | Required treatment |
@@ -501,6 +536,7 @@ only**.
 | AKSC formulas or microbenchmarks | Proposal/diagnostic only; no WBM method claim |
 | JARVIS--MP v1 global affine evaluation | Valid negative result; never reuse its opened evaluation systems for transport development |
 | JARVIS--MP v3 fresh evaluation partition | Unopened; remain sealed because the calibration certificate failed |
+| JARVIS--MP v4 evaluation | Opened exactly once after calibration passed; development-closed and citable only as the registered NO-GO |
 
 ## Recovery points and live-code boundary
 
@@ -528,6 +564,7 @@ allowed use are governed by this ledger.
 | `WBM_LONG_ARCHIVE_COMPUTE_GATE_2026-07-20.md` | Checkpointed B40 timing and Amdahl decision | Technical support for E12 |
 | `WBM_DATA_LICENSE_AND_INFRASTRUCTURE_AUDIT.md` | WBM/MP/CHGNet license, artifact, parity and oracle-boundary provenance | Infrastructure evidence only |
 | `JARVIS_MP_MULTIFIDELITY_PREREGISTRATION.md` | Real pair construction, v1 result, v3 calibration and immutable hashes | Technical support for E13--E14 |
+| `ENVIRONMENT_HULL_CERTIFICATE_2026-07-20.md` | Natural v4 method, theorem, fresh split, calibration/evaluation hashes and validation report | Technical support for E15 |
 | `DECISION_SUFFICIENT_SCIENTIFIC_STATE.md` | Current formal problem, alignment gates and paper-facing method boundary | Live specification; not a positive result |
 
 If an annex is later removed from the active branch, its last commit/tag and

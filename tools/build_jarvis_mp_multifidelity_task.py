@@ -328,6 +328,7 @@ def _match_pairs(
                 ),
                 "source_structure_sha256": _structure_hash(source_row),
                 "source_descriptor": _descriptor(source_structure),
+                "_source_structure": source_structure.as_dict(),
                 "structure_match_rms": float(rms[0]) if rms is not None else None,
                 "structure_match_max_distance": float(rms[1]) if rms is not None else None,
                 "target_composition": target.composition,
@@ -342,24 +343,81 @@ def _match_pairs(
     }
 
 
+CHGNET_MODEL_NAME = "0.3.0"
+CHGNET_MODEL_SHA256 = "d14ab7c0f093efe64b60a7bcd540bca10e74fb7f46c86108a079af60524659d1"
+
+
+def _attach_source_embeddings(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    """Attach frozen CHGNet crystal features from policy-visible source structures."""
+
+    import chgnet
+    import chgnet.model.model as chgnet_model_module
+    from chgnet.model.model import CHGNet
+
+    checkpoint = (
+        Path(chgnet_model_module.module_dir)
+        / "../pretrained/0.3.0/chgnet_0.3.0_e29f68s314m37.pth.tar"
+    ).resolve()
+    checkpoint_sha = _sha256(checkpoint)
+    if checkpoint_sha != CHGNET_MODEL_SHA256:
+        raise ValueError("frozen CHGNet representation checkpoint checksum mismatch")
+    structures = [Structure.from_dict(row["_source_structure"]) for row in rows]
+    model = CHGNet.load(model_name=CHGNET_MODEL_NAME, use_device="cpu", verbose=False)
+    predictions = model.predict_structure(
+        structures,
+        task="e",
+        return_crystal_feas=True,
+        batch_size=16,
+    )
+    if not isinstance(predictions, list) or len(predictions) != len(rows):
+        raise RuntimeError("CHGNet representation batch returned an unexpected shape")
+    dimensions: set[int] = set()
+    for row, prediction in zip(rows, predictions, strict=True):
+        embedding = tuple(float(value) for value in prediction["crystal_fea"])
+        if not embedding or not all(math.isfinite(value) for value in embedding):
+            raise ValueError("CHGNet source embedding contains invalid values")
+        dimensions.add(len(embedding))
+        row["source_environment_embedding"] = embedding
+    if len(dimensions) != 1:
+        raise ValueError("CHGNet source embedding dimension is not fixed")
+    return {
+        "encoder": "CHGNet frozen crystal_fea",
+        "model_name": CHGNET_MODEL_NAME,
+        "package_version": chgnet.__version__,
+        "checkpoint_path": str(checkpoint),
+        "checkpoint_sha256": checkpoint_sha,
+        "dimension": dimensions.pop(),
+        "device": "cpu",
+        "structure_source": "policy-visible JARVIS low-fidelity relaxed structure",
+        "target_structure_used": False,
+        "outcomes_used": False,
+    }
+
+
 def _choose_systems(
     system_counts: Counter[str],
     *,
     calibration_per_stratum: dict[str, int],
     evaluation_per_stratum: dict[str, int],
+    excluded_systems: set[str] | None = None,
+    selection_salt: str | None = None,
 ) -> tuple[dict[str, list[str]], dict[str, list[str]]]:
+    excluded = excluded_systems or set()
     by_stratum: dict[str, list[str]] = defaultdict(list)
     for system in system_counts:
+        if system in excluded:
+            continue
         stratum = _stratum(system)
         if stratum is not None:
             by_stratum[stratum].append(system)
     calibration: dict[str, list[str]] = {}
     evaluation: dict[str, list[str]] = {}
     for stratum in ("binary", "ternary", "quaternary_plus"):
-        ordered = sorted(
-            by_stratum[stratum],
-            key=lambda system: _stable_hash(RELEASE_ID, "system", system),
-        )
+        ordered = sorted(by_stratum[stratum], key=lambda system: (
+            _stable_hash(RELEASE_ID, "system", system)
+            if selection_salt is None
+            else _stable_hash(RELEASE_ID, selection_salt, "system", system)
+        ))
         n_cal = calibration_per_stratum[stratum]
         n_eval = evaluation_per_stratum[stratum]
         if len(ordered) < n_cal + n_eval:
@@ -369,6 +427,48 @@ def _choose_systems(
             )
         calibration[stratum] = ordered[:n_cal]
         evaluation[stratum] = ordered[n_cal : n_cal + n_eval]
+    return calibration, evaluation
+
+
+def _partition_all_eligible_systems(
+    system_counts: Counter[str],
+    *,
+    excluded_systems: set[str],
+    selection_salt: str,
+    evaluation_stride: int,
+    evaluation_offset: int,
+) -> tuple[dict[str, list[str]], dict[str, list[str]]]:
+    """Use every eligible fresh system with a deterministic hash-fold split."""
+
+    if evaluation_stride < 2 or not 0 <= evaluation_offset < evaluation_stride:
+        raise ValueError("evaluation hash fold requires stride >=2 and a valid offset")
+    by_stratum: dict[str, list[str]] = defaultdict(list)
+    for system in system_counts:
+        if system in excluded_systems:
+            continue
+        if (stratum := _stratum(system)) is not None:
+            by_stratum[stratum].append(system)
+    calibration: dict[str, list[str]] = {}
+    evaluation: dict[str, list[str]] = {}
+    for stratum in ("binary", "ternary", "quaternary_plus"):
+        ordered = sorted(
+            by_stratum[stratum],
+            key=lambda system: _stable_hash(
+                RELEASE_ID, selection_salt, "system", system
+            ),
+        )
+        evaluation[stratum] = [
+            system
+            for index, system in enumerate(ordered)
+            if index % evaluation_stride == evaluation_offset
+        ]
+        calibration[stratum] = [
+            system
+            for index, system in enumerate(ordered)
+            if index % evaluation_stride != evaluation_offset
+        ]
+    if not any(evaluation.values()) or not any(calibration.values()):
+        raise ValueError("fresh hash-fold split produced an empty task partition")
     return calibration, evaluation
 
 
@@ -533,6 +633,17 @@ def build(args: argparse.Namespace) -> None:
     matched_counts = Counter(
         {system: count for system, count in matched_counts.items() if count >= args.min_system_size}
     )
+    excluded_systems: set[str] = set()
+    if args.excluded_systems_file is not None:
+        exclusion_payload = json.loads(
+            args.excluded_systems_file.read_text(encoding="utf-8")
+        )
+        excluded_systems = {
+            str(system).strip()
+            for system in exclusion_payload["excluded_exact_systems"]
+        }
+        if not all(excluded_systems):
+            raise ValueError("excluded exact systems must be non-empty")
     calibration_per_stratum = {
         "binary": args.calibration_binary,
         "ternary": args.calibration_ternary,
@@ -543,11 +654,24 @@ def build(args: argparse.Namespace) -> None:
         "ternary": args.evaluation_ternary,
         "quaternary_plus": args.evaluation_quaternary_plus,
     }
-    calibration_systems, evaluation_systems = _choose_systems(
-        matched_counts,
-        calibration_per_stratum=calibration_per_stratum,
-        evaluation_per_stratum=evaluation_per_stratum,
-    )
+    if args.use_all_eligible_systems:
+        if args.selection_salt is None:
+            raise ValueError("all-system hash partition requires a selection salt")
+        calibration_systems, evaluation_systems = _partition_all_eligible_systems(
+            matched_counts,
+            excluded_systems=excluded_systems,
+            selection_salt=args.selection_salt,
+            evaluation_stride=args.evaluation_stride,
+            evaluation_offset=args.evaluation_offset,
+        )
+    else:
+        calibration_systems, evaluation_systems = _choose_systems(
+            matched_counts,
+            calibration_per_stratum=calibration_per_stratum,
+            evaluation_per_stratum=evaluation_per_stratum,
+            excluded_systems=excluded_systems,
+            selection_salt=args.selection_salt,
+        )
     calibration_rows = _select_pairs(
         matched,
         calibration_systems,
@@ -561,13 +685,19 @@ def build(args: argparse.Namespace) -> None:
     selected = calibration_rows + evaluation_rows
     if len({row["pair_id"] for row in selected}) != len(selected):
         raise ValueError("selected pair IDs are not unique")
+    representation_audit = _attach_source_embeddings(selected)
+    representation_manifest = {
+        key: value
+        for key, value in representation_audit.items()
+        if key != "checkpoint_path"
+    }
     calibration_system_set = {
         system for values in calibration_systems.values() for system in values
     }
     eval_system_set = {
         system for values in evaluation_systems.values() for system in values
     }
-    excluded_entry_ids = {row["mp_entry_id"] for row in evaluation_rows}
+    excluded_entry_ids = {row["mp_entry_id"] for row in selected}
     phase_rows = _phase_entries_for_systems(
         args.mp_cse,
         calibration_system_set | eval_system_set,
@@ -615,6 +745,15 @@ def build(args: argparse.Namespace) -> None:
             "system_order": "SHA256(release_id|system|exact_chemical_system)",
             "pair_order": "SHA256(release_id|pair|pair_id)",
             "outcome_independent": True,
+            "selection_salt": args.selection_salt,
+            "use_all_eligible_systems": args.use_all_eligible_systems,
+            "evaluation_stride": (
+                args.evaluation_stride if args.use_all_eligible_systems else None
+            ),
+            "evaluation_offset": (
+                args.evaluation_offset if args.use_all_eligible_systems else None
+            ),
+            "excluded_exact_systems": sorted(excluded_systems),
             "calibration_systems": calibration_systems,
             "evaluation_systems": evaluation_systems,
         },
@@ -623,6 +762,7 @@ def build(args: argparse.Namespace) -> None:
             "dimension": 124,
             "fields": "118 elemental fractions, log1p(volume/atom), log1p(density), lattice anisotropy, three normalized angles",
         },
+        "environment_representation": representation_manifest,
         "calibration_pairs": [
             _public_pair(row, "calibration") for row in calibration_rows
         ],
@@ -631,6 +771,9 @@ def build(args: argparse.Namespace) -> None:
         ],
         "evaluation_initial_phase_entries": {
             system: phase_rows[system] for system in sorted(eval_system_set)
+        },
+        "calibration_initial_phase_entries": {
+            system: phase_rows[system] for system in sorted(calibration_system_set)
         },
     }
     args.output_dir.mkdir(parents=True, exist_ok=False)
@@ -676,7 +819,9 @@ def build(args: argparse.Namespace) -> None:
         "mp_join": join_audit,
         "target_filter": target_audit,
         "structure_matching": match_audit,
+        "environment_representation": representation_audit,
         "matched_exact_systems_ge_minimum": len(matched_counts),
+        "excluded_exact_system_count": len(excluded_systems),
         "matched_system_count_by_stratum": dict(
             Counter(
                 stratum
@@ -727,6 +872,11 @@ def main() -> None:
     parser.add_argument("--ltol", type=float, default=0.2)
     parser.add_argument("--stol", type=float, default=0.3)
     parser.add_argument("--angle-tol", type=float, default=5.0)
+    parser.add_argument("--excluded-systems-file", type=Path)
+    parser.add_argument("--selection-salt")
+    parser.add_argument("--use-all-eligible-systems", action="store_true")
+    parser.add_argument("--evaluation-stride", type=int, default=4)
+    parser.add_argument("--evaluation-offset", type=int, default=0)
     args = parser.parse_args()
     if args.min_system_size < 4 or args.max_pairs_per_system < args.min_system_size:
         raise ValueError("task sizes require max_pairs_per_system >= min_system_size >= 4")

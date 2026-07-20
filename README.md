@@ -7,8 +7,9 @@ the least costly observable, protocol-valid online state that preserves the
 scientific decisions available from the complete immutable archive? The next
 materials hypothesis is a Certified Hull-Decision State whose active evidence
 has a legal, uncertainty-aware influence under the target protocol. Its
-all-outcome fixed-rank predictive layer and fail-closed protocol activation are
-implemented; the hull-certificate algorithm and positive result are not.
+all-outcome state, source-environment transport and robust hull-certificate
+algorithm are implemented and tested. The fresh v4 evaluation is a
+method-level NO-GO rather than a positive result.
 
 The corrected CAW-Joint method remains a frozen method-level NO-GO. The current
 real-WBM diagnosis covers two disjoint initial-structure panels: 32 exact
@@ -23,12 +24,12 @@ checkpointed B40 compute-relevance gate now rejects it as this paper's WBM main
 method: full-history GP numerical work is at most 0.689% of real round-pipeline
 time, so perfect elimination would yield at most a 1.00694x ideal speedup. WBM
 is consequently the homogeneous, low-compute-cost null regime in which full
-history should remain active. See the
+history should remain active. The
 [authoritative experiment and evidence ledger](docs/EXPERIMENT_LEDGER.md) is the
 single required starting point before proposing another method, editing the
 paper's historical account or rerunning an old experiment. It preserves the
 complete CAW-Joint -> DACC -> P3C -> outcome-contribution
-deletion/reference-mismatch -> AKSC -> B40 -> JARVIS--MP v1/v3 chain, evidence
+deletion/reference-mismatch -> AKSC -> B40 -> JARVIS--MP v1/v3/v4 chain, evidence
 dispositions, external paths and hashes, invalidated/interrupted/sealed runs,
 recovery tags, statistical boundaries and future authorization rules. Detailed
 technical annexes remain available through its source map; they do not override
@@ -47,6 +48,16 @@ also stops before evaluation because its exact-system-clustered radius is
 remain unopened. See the
 [JARVIS--MP preregistration and frozen results](docs/JARVIS_MP_MULTIFIDELITY_PREREGISTRATION.md).
 
+The v4 continuation replaced hand-built transport rules with frozen
+CHGNet-0.3.0 source-structure features, exact-system conformal calibration,
+all-target-outcome natural parameters and a robust hull LP. It used 210 fresh
+calibration systems and opened 72 disjoint evaluation systems only after the
+decision-level gate passed. Certified decisions were sound whenever the
+simultaneous interval event held, but event coverage was 50/56 supported
+systems (89.29%, below the frozen 90% gate), and the method was significantly
+worse than naive source-as-target on hull error and regret. See the
+[v4 certificate audit](docs/ENVIRONMENT_HULL_CERTIFICATE_2026-07-20.md).
+
 ## Package overview
 
 `src/matmem/` provides:
@@ -55,6 +66,9 @@ remain unopened. See the
 - `activation`, `sufficient_state`: fail-closed protocol influence and
   fixed-rank linear--Gaussian natural parameters updated by every legal
   outcome; neither module exposes a capacity/similarity deletion path;
+- `environment_transport`, `hull_certificate`: frozen source-environment
+  directed transport, leverage-scaled clustered intervals, robust
+  stable/unstable/abstain hull LPs and certified action sets;
 - `residual`, `residual_posterior`: certificate-compatible residual retrieval and a fixed-kernel GP over SOAP embeddings;
 - `ceiling_diagnostics`: evaluator-only effective-dimension, residual--kernel
   alignment, LOO dispersion/coverage, and compute-ceiling checks;

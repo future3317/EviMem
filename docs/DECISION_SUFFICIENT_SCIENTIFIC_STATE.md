@@ -1,11 +1,13 @@
 # Decision-Sufficient Scientific State
 
-**Status (2026-07-20): partial implementation, no positive method result.** The
-all-outcome fixed-rank predictive state and fail-closed protocol activation are
-implemented and pass exact replay/null tests. A certified hull-decision state
-and its decision-preservation theorem are not implemented. The real JARVIS--MP
-v1 evaluation and v3 composition-aware calibration are both NO-GO. P3C remains
-stopped and AKSC remains unauthorized for the WBM workload.
+**Status (2026-07-20): complete v4 implementation, authoritative method-level
+NO-GO.** The all-outcome state, fail-closed protocol activation,
+source-environment transport and robust hull-decision certificate are
+implemented and pass replay, no-deletion, self-removal and interval-soundness
+tests. The real JARVIS--MP v1, v3 and fresh v4 gates are all NO-GO. V4's
+certificate is sound on simultaneous-interval inliers, but coverage is below
+its frozen evaluation gate and the method is dominated by simpler source
+baselines. P3C remains stopped and AKSC remains unauthorized for WBM.
 
 The organizing principle is **Decision--Inference--Systems Alignment**. A
 bounded scientific-state claim must simultaneously preserve the registered
@@ -167,7 +169,7 @@ radius is an error certificate, not automatically a Gaussian standard
 deviation; any working likelihood that uses it as such remains a modeling
 assumption and cannot inherit distribution-free coverage.
 
-The unfinished second layer is **Certified Hull-Decision State**. `active`
+The implemented second layer is **Certified Hull-Decision State**. `active`
 means that archived evidence has a certified, protocol-valid influence for the
 current target, possibly through a directed transport map with explicit
 uncertainty. The archive remains complete.
@@ -182,9 +184,11 @@ The state should preserve only what can change a registered hull decision:
 
 Two archive states are decision-equivalent at tolerance `epsilon` only if they
 induce the same registered stable/unstable/abstain decisions and compatible
-`epsilon`-optimal action sets. This is a proposed equivalence relation and
-research target; neither the fixed-rank predictor nor the v1/v3 pilot
-establishes that a small computable hull certificate exists.
+`epsilon`-optimal action sets. The robust LP now supplies a computable
+selective certificate for these decisions. The v4 evaluation does not
+establish that this state is superior: its point policy is worse than naive
+source reuse and its 90% simultaneous-system gate misses by one of 56
+supported systems.
 
 The required null behavior is exact:
 
@@ -239,6 +243,16 @@ The task exists; the currently tested certificates do not support safe reuse.
 The correct state is therefore target-only abstention for unsupported transport
 and full history in homogeneous WBM. A richer transport must be calibrated on
 new systems and pass its frozen gate before any fresh evaluation is opened.
+
+That authorized continuation has now been completed once. V4 excluded all 45
+v1/v3 systems, calibrated on 210 new exact systems and evaluated 72 further
+systems only after its decision-level gate passed. The robust certificate made
+zero errors on simultaneous-interval inliers, but the interval event held on
+only 50/56 supported evaluation systems versus the frozen 90% requirement.
+More importantly, environment transport plus all-outcome correction was
+significantly worse than naive source-as-target for both hull error and action
+regret. Those opened systems are development-closed. Another representation or
+threshold adjustment on the same task is not authorized.
 
 ## 7. Scope and literature boundary
 
