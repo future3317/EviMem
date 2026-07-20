@@ -51,7 +51,15 @@ class ResidualPosterior(Protocol):
 
 @dataclass(frozen=True)
 class FixedKernelGPConfig:
-    """Frozen GP settings; no optimizer or evaluation-pool fitting is allowed."""
+    """Frozen GP settings; no optimizer or evaluation-pool fitting is allowed.
+
+    ``noise_std_ev_per_atom`` is the frozen, independent per-candidate residual
+    discrepancy in the *predictive* distribution. It is represented by
+    ``WhiteKernel`` and remains in the variance at a new candidate. This is
+    distinct from protocol-transfer uncertainty: the latter belongs only to a
+    transported training observation and is added through ``alpha``. ``jitter``
+    is numerical regularization only.
+    """
 
     kernel: str = "matern52"
     length_scale: float = 1.0
@@ -143,6 +151,8 @@ class FixedKernelResidualGP:
         ) * base
 
     def _kernel(self):
+        # WhiteKernel is intentional predictive discrepancy, not a numerical
+        # nugget. Per-card transport uncertainty is supplied via ``alpha``.
         return self._signal_kernel() + WhiteKernel(
             noise_level=self.config.noise_std_ev_per_atom**2,
             noise_level_bounds="fixed",
@@ -244,56 +254,18 @@ class FixedKernelResidualGP:
         false_stable_cost: float,
         false_unstable_cost: float,
     ) -> dict[str, float]:
-        """Batch the exact one-observation GP risks used by ``G_t(u,m)``."""
+        """Evaluate legacy singleton risk through the general GP path."""
 
         if min(false_stable_cost, false_unstable_cost) <= 0:
             raise ValueError("decision-risk costs must be positive")
         items = tuple(queries)
         if not items:
             return {}
-        if any(len(query.embedding) != len(witness.embedding) for query in items):
-            raise ValueError("single-witness GP dimensions differ")
-        query_x = np.vstack(
-            [self._normalized_embedding(query.embedding) for query in items]
+        return self.clone_unfit().fit((witness,)).decision_risks(
+            items,
+            false_stable_cost=false_stable_cost,
+            false_unstable_cost=false_unstable_cost,
         )
-        witness_x = self._normalized_embedding(witness.embedding).reshape(1, -1)
-        signal = self._signal_kernel()
-        cross = np.asarray(signal(query_x, witness_x), dtype=float).reshape(-1)
-        query_variance = np.asarray(signal.diag(query_x), dtype=float) + (
-            self.config.noise_std_ev_per_atom**2
-        )
-        witness_variance = float(signal(witness_x, witness_x)[0, 0]) + (
-            self.config.noise_std_ev_per_atom**2
-        )
-        risks: dict[str, float] = {}
-        for index, query in enumerate(items):
-            resolution = self.resolver.resolve(witness.protocol, query.protocol)
-            residual = resolution.transfer_residual(
-                witness.oracle_residual_ev_per_atom
-            )
-            if residual is None:
-                prior_std = math.sqrt(query_variance[index])
-                mean = 0.0
-                std = prior_std
-            else:
-                denominator = (
-                    witness_variance
-                    + resolution.uncertainty_radius_ev_per_atom**2
-                    + self.config.jitter
-                )
-                mean = cross[index] * residual / denominator
-                variance = query_variance[index] - cross[index] ** 2 / denominator
-                std = math.sqrt(max(variance, self.config.jitter))
-            residual_threshold = (
-                query.stability_threshold_ev_per_atom
-                - query.base_hull_distance_ev_per_atom
-            )
-            probability = self._normal_cdf((residual_threshold - mean) / std)
-            risks[query.query_id] = min(
-                false_stable_cost * (1.0 - probability),
-                false_unstable_cost * probability,
-            )
-        return risks
 
     def decision_risks(
         self,

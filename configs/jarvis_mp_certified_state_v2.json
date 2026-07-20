@@ -1,0 +1,124 @@
+{
+  "schema_version": 1,
+  "status": "frozen_composition_transport_calibration_before_fresh_evaluation",
+  "task_release_id": "jarvis-dft-3d-2022-12-12__mp-cse-2023-02-07__v1",
+  "task_manifest_sha256": "4765bc82de2237ae6156b7a5642c27f62a3565e940876c13e250f8d8f0dd6872",
+  "evaluation_results_accessed_at_freeze": false,
+  "supersedes": "global affine v1 for a new fresh-system experiment; v1 results remain immutable",
+  "forbidden_prior_evaluation_exact_systems": [
+    "Cd-Mg",
+    "C-N",
+    "Mg-Si",
+    "Ca-Zn",
+    "C-Li-O",
+    "Ca-O-Si",
+    "Al-H-O",
+    "Mg-O-Si",
+    "S-Se-Te-W",
+    "Cu-Li-O-P"
+  ],
+  "composition_transport": {
+    "fit_exact_systems": [
+      "Cr-N",
+      "Mg-Sb",
+      "O-Zr",
+      "B-N",
+      "C-N",
+      "Ca-Zn",
+      "Hg-Mg",
+      "N-Pd",
+      "Ce-Se",
+      "In-Mg",
+      "Cd-I",
+      "Mg-Yb",
+      "Mg-Ti",
+      "Mg-Sr",
+      "S-Ti",
+      "O-Ti",
+      "Mo-Se-Te-W",
+      "S-Se-Te-W",
+      "Cu-Li-O-P",
+      "Ag-F-Li",
+      "Ca-S-Sn",
+      "Ca-O-Si",
+      "Al-H-O"
+    ],
+    "radius_exact_systems": [
+      "C-Li-O",
+      "Cd-Mg",
+      "Mg-Si",
+      "Ce-Mg",
+      "Mg-O-Si",
+      "Mo-S-Te-W",
+      "Cu-F-Li",
+      "Cu-Li-S",
+      "Cu-Li-O",
+      "O-Sn"
+    ],
+    "system_partition_rule": "deterministic SHA256 radius removal while preserving every calibration element in the fit vocabulary",
+    "model": "source_slope_plus_element_fraction_offsets",
+    "ridge_penalty": 0.001,
+    "clustered_conformal_alpha": 0.1,
+    "cluster_score": "maximum_absolute_error_within_exact_system",
+    "maximum_certifiable_radius_ev_per_atom": 0.15,
+    "unsupported_element_action": "protocol_rejection_and_exact_target_only_fallback"
+  },
+  "observable_basis": {
+    "descriptor_dimension": 124,
+    "standardization_fit": "all task observables without outcomes",
+    "pca_rank": 16,
+    "pca_solver": "full",
+    "append_constant_feature": true,
+    "outcome_independent": true
+  },
+  "all_outcome_target_residual_state": {
+    "prior_std_ev_per_atom": 0.1,
+    "observation_noise_std_ev_per_atom": 0.03,
+    "base_prediction": "composition-aware transported same-candidate source energy when certified; zero under rejection",
+    "target_outcomes_retained": "all",
+    "source_candidate_energy_role": "current low-fidelity observable, not a deletable target-outcome subset",
+    "outcome_subset_selection": "forbidden"
+  },
+  "evaluation": {
+    "oracle_budget": 8,
+    "reveal_order": "SHA256(task_release_id|reveal|pair_id)",
+    "matched_action": true,
+    "false_stable_cost": 5.0,
+    "false_unstable_cost": 1.0,
+    "abstention_cost": 0.1,
+    "certificate_level": 0.9,
+    "state_gaussian_z": 1.6448536269514722,
+    "discovery_margin_ev_per_atom": 0.05,
+    "epsilon_optimal_action_ev_per_atom": 0.01,
+    "stable_tolerance_ev_per_atom": 1e-08,
+    "bootstrap_seed": 20260721,
+    "bootstrap_replicates": 5000,
+    "statistical_unit": "exact chemical system"
+  },
+  "primary_methods": [
+    "target_only",
+    "protocol_rejection",
+    "naive_full_history_pooling",
+    "composition_transport_only",
+    "certified_all_outcome_state",
+    "certified_full_history_replay"
+  ],
+  "hard_gates": {
+    "fresh_evaluation": "no v1 evaluation exact system appears in v2 evaluation",
+    "cluster_certificate": "clustered conformal radius must be finite and <= 0.15 eV/atom before evaluation",
+    "unsupported_chemistry": "any unseen element must produce exact target-only fallback",
+    "null_replay": "persistent sufficient state and same-order full-history replay must be identical every round",
+    "no_outcome_deletion": "all revealed target outcomes update the sufficient statistics"
+  },
+  "pilot_go_rule": {
+    "scope": "fresh-system mechanism gate only, not paper-level superiority",
+    "requirements": [
+      "all hard gates pass",
+      "supported-system transport violation rate is <= 0.15",
+      "unsupported-system proposed trajectory is exactly target-only",
+      "certified_all_outcome_state improves system-macro certified hull-decision cost and one-step regret over target-only and naive pooling",
+      "certified_all_outcome_state is non-inferior to composition_transport_only on hull-decision cost",
+      "the supported-system improvement spans at least two chemical-complexity strata"
+    ]
+  }
+}

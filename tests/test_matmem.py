@@ -26,6 +26,7 @@ from matmem import (
     ScreeningDecision,
     SourceProvenance,
     StreamingCalibrationCoreset,
+    StructureArtifactIdentity,
 )
 
 
@@ -82,6 +83,9 @@ def _query(
     return MaterialQuery(
         query_id=query_id,
         structure_hash=f"structure-{query_id}",
+        structure_identity=StructureArtifactIdentity.initial(
+            query_id, f"structure-{query_id}"
+        ),
         identity=MaterialIdentity(
             exact_calculation_id=f"calculation-{query_id}",
             canonical_structure_id=f"canonical-{query_id}",
@@ -108,6 +112,9 @@ def _card(
         card_id=card_id,
         material_id=f"mp-{card_id}",
         structure_hash=f"structure-{card_id}",
+        structure_identity=StructureArtifactIdentity.initial(
+            f"mp-{card_id}", f"structure-{card_id}"
+        ),
         identity=MaterialIdentity(
             exact_calculation_id=f"calculation-{card_id}",
             canonical_structure_id=f"canonical-{card_id}",
@@ -266,6 +273,51 @@ def test_transport_fit_rejects_a_held_out_canonical_structure() -> None:
         )
 
 
+def test_split_transport_uses_disjoint_fit_radius_and_evaluation_groups() -> None:
+    source = _protocol("PBE")
+    target = _protocol("PBE+U")
+    fit_pairs = [
+        MatchedResidualPair(
+            exact_calculation_id=f"fit-{index}",
+            canonical_structure_id=f"fit-canonical-{index}",
+            source_residual_ev_per_atom=float(index),
+            target_residual_ev_per_atom=2.0 * index + 0.1,
+        )
+        for index in range(4)
+    ]
+    radius_pairs = [
+        MatchedResidualPair(
+            exact_calculation_id=f"radius-{index}",
+            canonical_structure_id=f"radius-canonical-{index}",
+            source_residual_ev_per_atom=float(index) + 0.5,
+            target_residual_ev_per_atom=2.0 * (index + 0.5) + 0.11,
+        )
+        for index in range(10)
+    ]
+    transport = ProtocolTransportMap.fit_same_structure_split(
+        source,
+        target,
+        fit_pairs,
+        radius_pairs,
+        calibration_id="three-way-disjoint-v1",
+        held_out_canonical_structure_ids=("evaluation-canonical",),
+    )
+    assert transport.slope == pytest.approx(2.0)
+    assert transport.intercept_ev_per_atom == pytest.approx(0.1)
+    assert transport.error_radius_ev_per_atom == pytest.approx(0.01)
+    assert transport.fit_structure_count == 4
+    assert transport.radius_calibration_structure_count == 10
+    with pytest.raises(ValueError, match="overlap"):
+        ProtocolTransportMap.fit_same_structure_split(
+            source,
+            target,
+            fit_pairs,
+            radius_pairs + [fit_pairs[0]],
+            calibration_id="invalid-overlap",
+            held_out_canonical_structure_ids=("evaluation-canonical",),
+        )
+
+
 def test_coreset_selects_a_costly_false_stable_near_miss_not_a_redundant_card() -> None:
     resolver = ProtocolCompatibilityResolver()
     policy = _coreset(1, resolver, false_stable_cost=10.0)
@@ -277,7 +329,7 @@ def test_coreset_selects_a_costly_false_stable_near_miss_not_a_redundant_card() 
     )
     assert selection.selected_card_ids == ("near-miss",)
     assert selection.objective_value > 0
-    assert selection.selected_decision_risk < selection.baseline_decision_risk
+    assert selection.facility_proxy_risk < selection.baseline_decision_risk
 
 
 def test_redundant_failure_kill_test_preserves_distinct_risk_coverage() -> None:

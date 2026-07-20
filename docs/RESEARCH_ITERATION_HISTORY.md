@@ -1,9 +1,18 @@
 # Materials-memory research iteration history
 
-This file records conclusions from retired experiments without keeping their
-runners, duplicated evaluators, or frozen preregistration machinery on the live
-branch. Git tags preserve exact code and documents; datasets and run outputs
-remain outside Git.
+This file is a preserved technical annex. Its unique chronology and evidence
+judgments are consolidated in `docs/EXPERIMENT_LEDGER.md`, the single canonical
+audit trail. Do not delete this annex merely to shorten the active project; it
+may be reduced only after verifying that every unique experiment identity,
+correction, result, validity label and recovery point remains in the ledger.
+Git tags preserve exact code and documents; datasets and run outputs remain
+outside Git.
+
+**Current status must be read first:** P3C is stopped, AKSC is not authorized as
+the WBM paper's next main method, and the paper remains NO-GO. The complete
+artifact-level chronology, including invalid and interrupted runs, is in
+[`EXPERIMENT_LEDGER.md`](EXPERIMENT_LEDGER.md). The sections below are history,
+not a menu of currently active hypotheses.
 
 ## Recovery points
 
@@ -65,9 +74,9 @@ synthetic hull is not a valid phase diagram and has been removed. The secure
 oracle vault, append-only event log, replay audit and exact persistent versus
 same-FIFO reconstruction parity tests remain live.
 
-### DACC and survival acquisition
+### Retired DACC and survival acquisition
 
-The current primary hypothesis compresses residual calibration with the
+At that iteration, the primary hypothesis compressed residual calibration with the
 facility-location objective
 
 ```text
@@ -86,9 +95,8 @@ full history. The smoke runner was removed because it is neither claim-grade nor
 used by the current paper.
 
 Survival-conditioned acquisition was worse in both early engineering cells and
-is paused. The implementation remains because it is the explicitly defined
-secondary hypothesis and its zero-weight/redundant-fantasy failure tests remain
-useful; it must not be tuned on evaluation pools.
+was paused. Its zero-weight/redundant-fantasy failure tests remain useful, but
+it is not a current contribution and must not be tuned on evaluation pools.
 
 ## Current real-data evidence
 
@@ -133,3 +141,103 @@ active evaluator and economics ledger, exact binary DP, scalar synthetic hull,
 legacy acquisition heuristics, six iteration-only runners and their dedicated
 tests. Those paths must be recovered from the frozen tags if a historical audit
 is needed; they should not be copied back as compatibility adapters.
+
+## 2026-07-20 closure: P3C and WBM posterior compression
+
+The DACC paragraph above records an earlier iteration and is not the current
+method status. DACC was replaced by P3C proper posterior projection, then P3C
+was stopped after two structure-correct, disjoint panels totaling 32 exact
+systems failed to reproduce the original probability-metric signal. Historical
+parity-energy drift and relaxed-structure SOAP leakage are now type-level
+provenance failures rather than accepted data variants.
+
+The fixed-GP ceiling has some mean and boundary-probability signal but is badly
+underdispersed: mean LOO squared standardized residual is 16.90 and nominal 90%
+coverage is 62.4%. Effective dimension averages 12.42, so K=2 is also far below
+the kernel spectrum's characteristic scale.
+
+A separate, checkpointed compute-relevance panel used the three longest
+eligible exact systems and complete B40 full-history traces. The largest GP
+numerical share of round-pipeline time was 0.689%, versus a preregistered 9.09%
+Amdahl threshold for a possible 10% ideal speedup. Consequently:
+
+- P3C is terminated as a main method;
+- AKSC/all-outcome kernel sketching is not authorized as this WBM paper's main
+  direction;
+- WBM remains useful for correctness and calibration diagnostics, not evidence
+  of a posterior-compression compute frontier;
+- the paper remains NO-GO.
+
+The authoritative record is
+`docs/WBM_LONG_ARCHIVE_COMPUTE_GATE_2026-07-20.md`.
+
+The full transition must be stated precisely. DACC's singleton
+facility-location objective did not match the joint GP used for prediction.
+P3C repaired that local reference mismatch by projecting a fixed temporary
+union posterior, but it still omitted evicted archive outcomes from the
+deployed GP and selected those omissions using observed residuals. This is
+outcome-*contribution* deletion, not deletion of the immutable scientific
+archive. Proper scoring guaranteed fidelity only to the frozen GP reference;
+the direct dispersion audit then showed that reference to be severely
+underdispersed. AKSC was proposed to keep all outcome contributions in
+low-dimensional posterior sufficient statistics while compressing only an
+outcome-independent representation. The B40 Amdahl gate failed before AKSC
+implementation, so that proposal is not evidence and is not the WBM paper's
+next method. See `docs/EXPERIMENT_LEDGER.md` for every experiment, path, hash,
+validity label and recovery point.
+
+## 2026-07-20 problem redefinition: decision-sufficient scientific state
+
+The closure above changes the research question, not the P3C implementation.
+The project no longer asks which paid residual outcomes should continue to
+count in a bounded GP. It asks for the least costly observable and
+protocol-valid state that preserves registered scientific decisions relative
+to the complete immutable archive.
+
+This reframing has three conditional results: complete information weakly
+dominates any deterministic compression when decisions may ignore information
+and state cost is absent; uniform `epsilon` action-value approximation gives at
+most `2 epsilon` one-step regret; and a component occupying fraction `f` of
+end-to-end time permits at most `1/(1-f)` ideal speedup if eliminated. The B40
+gate places current WBM in the no-forgetting null regime.
+
+The next material hypothesis was Certified Hull-Decision State:
+protocol-valid evidence influence, directed transport uncertainty,
+hull-support/facet state, stable/unstable/abstain decisions, and an
+`epsilon`-optimal action set. It was subsequently implemented in the natural
+v4 JARVIS--MP experiment and still reduces to full history for homogeneous
+zero-transport-error evidence. The implementation closes the mechanism gap;
+the fresh evaluation does not support superiority. See
+`docs/DECISION_SUFFICIENT_SCIENTIFIC_STATE.md` and
+`docs/ENVIRONMENT_HULL_CERTIFICATE_2026-07-20.md`.
+
+## 2026-07-20 natural v4 closure: certificate soundness without superiority
+
+V4 deliberately removed the hard-coded research artifacts exposed by prior
+iterations. It uses the frozen CHGNet-0.3.0 source-structure embedding,
+same-candidate ridge delta learning, leave-one-exact-system-out ridge
+selection, leverage-scaled exact-system conformal intervals, all-target-outcome
+Bayesian-ridge natural parameters, and robust competing-hull linear programs.
+There is no manually selected local descriptor, fixed rank, outcome capacity,
+eviction rule, OOD multiplier or global energy ceiling. Fixed hashes,
+exclusion lists, alpha and decision tolerance are preregistration contracts,
+not candidate-specific method branches.
+
+All 45 systems used by v1/v3 were excluded. Calibration used 210 new exact
+systems and passed its frozen mechanism gates. Evaluation then opened 72
+further exact systems once. The robust certificate made zero errors whenever
+the registered simultaneous interval event held, and all-outcome correction
+improved its frozen environment-only base. However simultaneous coverage was
+50/56 supported systems (`89.2857%`) versus the frozen 90% requirement, and
+the proposed point method was significantly worse than naive source-as-target
+reuse in both hull error and one-step regret. The final result is therefore a
+non-degenerate, authoritative NO-GO.
+
+This closes the sequence rather than restarting it. DACC failed because its
+singleton objective did not match joint inference; P3C repaired that local
+objective but deleted outcome contributions and preserved a misspecified
+reference; AKSC avoided deletion but failed the WBM systems-relevance gate;
+JARVIS v1/v3 rejected global and composition-only transport; and v4 shows that
+a richer natural representation plus a sound selective certificate still does
+not beat the simplest source baseline. Future work must add genuinely new
+protocol information or a measured constraint and must use untouched systems.

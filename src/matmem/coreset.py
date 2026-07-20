@@ -2,14 +2,24 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+import time
+from collections.abc import Iterable, Mapping
+from itertools import combinations
 
 import numpy as np
 from pydantic import BaseModel, ConfigDict, Field
 from scipy.stats import spearmanr
 
-from .calibration_utility import CalibrationUtilityBuilder, CalibrationUtilityMatrix
+from .calibration_utility import (
+    CalibrationUtilityBuilder,
+    CalibrationUtilityMatrix,
+    ProperPosteriorDivergence,
+    ReferencePosteriorSnapshot,
+    bernoulli_log_divergence,
+    reference_decision_regret,
+)
 from .cards import MaterialMemoryCard, MaterialQuery
+from .residual_posterior import FixedKernelResidualGP
 
 
 class CoresetSelection(BaseModel):
@@ -18,7 +28,7 @@ class CoresetSelection(BaseModel):
     selected_card_ids: tuple[str, ...]
     objective_value: float = Field(ge=0)
     baseline_decision_risk: float = Field(ge=0)
-    selected_decision_risk: float = Field(ge=0)
+    facility_proxy_risk: float = Field(ge=0)
     marginal_gains: dict[str, float]
     rejected_card_ids: tuple[str, ...] = ()
     admitted_new_card: bool = False
@@ -58,9 +68,7 @@ class ObjectiveFidelityDiagnostic(BaseModel):
     facility_selected_card_ids: tuple[str, ...]
     joint_risk_selected_card_ids: tuple[str, ...]
     selections_agree: bool
-    spearman_facility_vs_negative_joint_risk: float | None = Field(
-        default=None, ge=-1, le=1
-    )
+    spearman_facility_vs_negative_joint_risk: float | None = Field(default=None, ge=-1, le=1)
     facility_joint_risk_regret: float = Field(ge=0)
 
 
@@ -116,13 +124,9 @@ class FacilityLocationCoresetPlanner:
             selected_card_ids=selected_ids,
             objective_value=value,
             baseline_decision_risk=baseline_risk,
-            selected_decision_risk=max(0.0, baseline_risk - value),
-            marginal_gains=FacilityLocationCoresetPlanner._marginal_gains(
-                matrix, selected_ids
-            ),
-            rejected_card_ids=tuple(
-                sorted(set(matrix.witness_ids) - set(selected_ids))
-            ),
+            facility_proxy_risk=max(0.0, baseline_risk - value),
+            marginal_gains=FacilityLocationCoresetPlanner._marginal_gains(matrix, selected_ids),
+            rejected_card_ids=tuple(sorted(set(matrix.witness_ids) - set(selected_ids))),
             admitted_new_card=admitted_new_card,
             evicted_card_ids=evicted_card_ids,
             objective_improvement=objective_improvement,
@@ -225,15 +229,10 @@ class StreamingCalibrationCoreset:
         card: MaterialMemoryCard,
         query_pool: Iterable[MaterialQuery],
     ) -> CoresetSelection:
-        selection = self.planner.preview_admit(
-            self.cards(), card, tuple(query_pool)
-        )
+        selection = self.planner.preview_admit(self.cards(), card, tuple(query_pool))
         if selection.admitted_new_card:
             candidates = {**self._cards, card.card_id: card}
-            self._cards = {
-                card_id: candidates[card_id]
-                for card_id in selection.selected_card_ids
-            }
+            self._cards = {card_id: candidates[card_id] for card_id in selection.selected_card_ids}
         return selection
 
 
@@ -252,8 +251,7 @@ def _candidate_subsets(
     else:
         candidates.extend(
             tuple(
-                new_id if index == evicted else card_id
-                for index, card_id in enumerate(current_ids)
+                new_id if index == evicted else card_id for index, card_id in enumerate(current_ids)
             )
             for evicted in range(len(current_ids))
         )
@@ -348,9 +346,7 @@ def compare_facility_and_joint_objectives(
     current = tuple(current_cards)
     queries = tuple(query_pool)
     current_ids = tuple(card.card_id for card in current)
-    candidates = _candidate_subsets(
-        current_ids, new_card.card_id, facility_planner.capacity
-    )
+    candidates = _candidate_subsets(current_ids, new_card.card_id, facility_planner.capacity)
     cards_by_id = {card.card_id: card for card in (*current, new_card)}
     matrix, _ = facility_planner.build_utility_matrix(queries, cards_by_id.values())
     rows = tuple(
@@ -386,8 +382,7 @@ def compare_facility_and_joint_objectives(
         ):
             joint_row = row
     if (
-        facility_row.facility_location_value
-        - current_row.facility_location_value
+        facility_row.facility_location_value - current_row.facility_location_value
         <= facility_planner.min_admission_gain
     ):
         facility_row = current_row
@@ -407,8 +402,7 @@ def compare_facility_and_joint_objectives(
         candidates=rows,
         facility_selected_card_ids=facility_row.selected_card_ids,
         joint_risk_selected_card_ids=joint_row.selected_card_ids,
-        selections_agree=set(facility_row.selected_card_ids)
-        == set(joint_row.selected_card_ids),
+        selections_agree=set(facility_row.selected_card_ids) == set(joint_row.selected_card_ids),
         spearman_facility_vs_negative_joint_risk=correlation,
         facility_joint_risk_regret=max(
             0.0,
@@ -436,8 +430,350 @@ class StreamingJointPosteriorRiskCoreset:
         selection = self.planner.preview_admit(self.cards(), card, tuple(query_pool))
         if selection.admitted_new_card:
             candidates = {**self._cards, card.card_id: card}
-            self._cards = {
-                card_id: candidates[card_id]
-                for card_id in selection.selected_card_ids
+            self._cards = {card_id: candidates[card_id] for card_id in selection.selected_card_ids}
+        return selection
+
+
+class PosteriorProjectionCandidate(BaseModel):
+    """One candidate projection of a fixed full-evidence posterior."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    candidate_key: str
+    selected_card_ids: tuple[str, ...]
+    proper_divergence: float = Field(ge=0)
+    reference_decision_regret: float = Field(ge=0)
+    reference_log_divergence: float = Field(ge=0)
+    reactivation_cost: float = Field(default=0.0, ge=0)
+    feasible: bool
+    normalized_constraint_violation: float = Field(ge=0)
+
+
+class PosteriorProjectionSelection(BaseModel):
+    """Exact optimum for one explicit posterior-projection candidate space."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    divergence_kind: str
+    reference_card_ids: tuple[str, ...]
+    selected_card_ids: tuple[str, ...]
+    candidates: tuple[PosteriorProjectionCandidate, ...]
+    selected_proper_divergence: float = Field(ge=0)
+    selected_decision_regret: float = Field(ge=0)
+    selected_log_divergence: float = Field(ge=0)
+    admitted_new_card: bool = False
+    evicted_card_ids: tuple[str, ...] = ()
+    used_constraint_fallback: bool = False
+    reference_fit_seconds: float = Field(default=0.0, ge=0)
+    reference_prediction_seconds: float = Field(default=0.0, ge=0)
+    candidate_projection_seconds: float = Field(default=0.0, ge=0)
+    candidate_enumeration_seconds: float = Field(default=0.0, ge=0)
+
+
+class PosteriorProjectionScorer:
+    """Score explicit candidate subsets against an independently chosen reference.
+
+    This public diagnostic surface is the single implementation used by both
+    online one-swap and archive-exact P3C.  It permits factorial reference and
+    search-space audits without copying posterior or divergence formulas.
+    """
+
+    def __init__(
+        self,
+        posterior_template: FixedKernelResidualGP,
+        divergence: ProperPosteriorDivergence,
+        *,
+        false_stable_cost: float,
+        false_unstable_cost: float,
+        max_decision_regret: float | None,
+        max_log_divergence: float | None,
+        reactivation_weight: float,
+    ) -> None:
+        if min(false_stable_cost, false_unstable_cost) <= 0:
+            raise ValueError("posterior-projection decision costs must be positive")
+        if max_decision_regret is not None and max_decision_regret < 0:
+            raise ValueError("decision-regret constraint must be nonnegative")
+        if max_log_divergence is not None and max_log_divergence < 0:
+            raise ValueError("log-divergence constraint must be nonnegative")
+        if reactivation_weight < 0:
+            raise ValueError("reactivation weight must be nonnegative")
+        self.posterior_template = posterior_template
+        self.divergence = divergence
+        self.false_stable_cost = false_stable_cost
+        self.false_unstable_cost = false_unstable_cost
+        self.max_decision_regret = max_decision_regret
+        self.max_log_divergence = max_log_divergence
+        self.reactivation_weight = reactivation_weight
+
+    @staticmethod
+    def _violation(value: float, limit: float | None) -> float:
+        if limit is None or value <= limit:
+            return 0.0
+        return (value - limit) / limit if limit > 0 else value
+
+    def score(
+        self,
+        *,
+        reference_cards: tuple[MaterialMemoryCard, ...],
+        candidate_sets: tuple[tuple[str, ...], ...],
+        cards_by_id: Mapping[str, MaterialMemoryCard],
+        queries: tuple[MaterialQuery, ...],
+        current_ids: tuple[str, ...],
+        reactivation_cost_by_card: Mapping[str, float] | None = None,
+    ) -> PosteriorProjectionSelection:
+        if not candidate_sets:
+            raise ValueError("posterior projection requires at least one candidate set")
+        reference_fit_started = time.perf_counter()
+        reference_posterior = self.posterior_template.clone_unfit().fit(reference_cards)
+        reference_fit_seconds = time.perf_counter() - reference_fit_started
+        reference_prediction_started = time.perf_counter()
+        reference_prediction = reference_posterior.predict(queries)
+        reference_prediction_seconds = time.perf_counter() - reference_prediction_started
+        reference = ReferencePosteriorSnapshot.from_prediction(queries, reference_prediction)
+        weights = self.divergence.reference_weights(
+            reference,
+            false_stable_cost=self.false_stable_cost,
+            false_unstable_cost=self.false_unstable_cost,
+        )
+        cost_by_card = reactivation_cost_by_card or {}
+        current = set(current_ids)
+        candidates: list[PosteriorProjectionCandidate] = []
+        candidate_projection_started = time.perf_counter()
+        for card_ids in candidate_sets:
+            if len(set(card_ids)) != len(card_ids):
+                raise ValueError("posterior projection candidate IDs must be unique")
+            missing = set(card_ids) - cards_by_id.keys()
+            if missing:
+                raise ValueError(
+                    f"posterior projection candidate IDs are missing: {sorted(missing)}"
+                )
+            prediction = (
+                self.posterior_template.clone_unfit()
+                .fit(tuple(cards_by_id[card_id] for card_id in card_ids))
+                .predict(queries)
+            )
+            per_query = self.divergence.per_query(reference, prediction)
+            candidate_probability = np.asarray(prediction.stable_probability, dtype=float)
+            proper = float(np.sum(weights * per_query))
+            log_divergence = float(
+                np.sum(
+                    [
+                        weights[index]
+                        * bernoulli_log_divergence(
+                            float(reference.stable_probability[index]),
+                            float(candidate_probability[index]),
+                        )
+                        for index in range(len(queries))
+                    ]
+                )
+            )
+            decision_regret = float(
+                np.sum(
+                    [
+                        weights[index]
+                        * reference_decision_regret(
+                            float(reference.stable_probability[index]),
+                            float(candidate_probability[index]),
+                            false_stable_cost=self.false_stable_cost,
+                            false_unstable_cost=self.false_unstable_cost,
+                        )
+                        for index in range(len(queries))
+                    ]
+                )
+            )
+            violation = self._violation(
+                decision_regret, self.max_decision_regret
+            ) + self._violation(log_divergence, self.max_log_divergence)
+            reactivation_cost = self.reactivation_weight * sum(
+                float(cost_by_card.get(card_id, 0.0)) for card_id in set(card_ids) - current
+            )
+            candidates.append(
+                PosteriorProjectionCandidate(
+                    candidate_key=_candidate_key(card_ids),
+                    selected_card_ids=card_ids,
+                    proper_divergence=proper,
+                    reference_decision_regret=decision_regret,
+                    reference_log_divergence=log_divergence,
+                    reactivation_cost=reactivation_cost,
+                    feasible=violation <= 1e-15,
+                    normalized_constraint_violation=max(0.0, violation),
+                )
+            )
+        candidate_projection_seconds = time.perf_counter() - candidate_projection_started
+        feasible = [item for item in candidates if item.feasible]
+        used_fallback = not feasible
+        eligible = feasible or candidates
+        if used_fallback:
+            selected = min(
+                eligible,
+                key=lambda item: (
+                    item.normalized_constraint_violation,
+                    item.proper_divergence + item.reactivation_cost,
+                    tuple(sorted(item.selected_card_ids)),
+                ),
+            )
+        else:
+            selected = min(
+                eligible,
+                key=lambda item: (
+                    item.proper_divergence + item.reactivation_cost,
+                    tuple(sorted(item.selected_card_ids)),
+                ),
+            )
+        return PosteriorProjectionSelection(
+            divergence_kind=self.divergence.kind,
+            reference_card_ids=tuple(card.card_id for card in reference_cards),
+            selected_card_ids=selected.selected_card_ids,
+            candidates=tuple(candidates),
+            selected_proper_divergence=selected.proper_divergence,
+            selected_decision_regret=selected.reference_decision_regret,
+            selected_log_divergence=selected.reference_log_divergence,
+            admitted_new_card=False,
+            evicted_card_ids=tuple(sorted(current - set(selected.selected_card_ids))),
+            used_constraint_fallback=used_fallback,
+            reference_fit_seconds=reference_fit_seconds,
+            reference_prediction_seconds=reference_prediction_seconds,
+            candidate_projection_seconds=candidate_projection_seconds,
+        )
+
+
+class PosteriorProjectionOneSwapPlanner:
+    """Exactly project the current K+1 posterior onto its drop-one subsets."""
+
+    def __init__(
+        self,
+        capacity: int,
+        posterior_template: FixedKernelResidualGP,
+        divergence: ProperPosteriorDivergence,
+        *,
+        false_stable_cost: float = 5.0,
+        false_unstable_cost: float = 1.0,
+        max_decision_regret: float | None = None,
+        max_log_divergence: float | None = None,
+    ) -> None:
+        if capacity < 0:
+            raise ValueError("posterior-projection capacity cannot be negative")
+        self.capacity = capacity
+        self.scorer = PosteriorProjectionScorer(
+            posterior_template,
+            divergence,
+            false_stable_cost=false_stable_cost,
+            false_unstable_cost=false_unstable_cost,
+            max_decision_regret=max_decision_regret,
+            max_log_divergence=max_log_divergence,
+            reactivation_weight=0.0,
+        )
+
+    def preview_admit(
+        self,
+        current_cards: Iterable[MaterialMemoryCard],
+        new_card: MaterialMemoryCard,
+        query_pool: Iterable[MaterialQuery],
+    ) -> PosteriorProjectionSelection:
+        current = tuple(current_cards)
+        current_ids = tuple(card.card_id for card in current)
+        if len(set(current_ids)) != len(current_ids) or len(current) > self.capacity:
+            raise ValueError("invalid current posterior-projection working set")
+        if new_card.card_id in set(current_ids):
+            raise ValueError("new posterior-projection card is already active")
+        reference_cards = (*current, new_card)
+        cards_by_id = {card.card_id: card for card in reference_cards}
+        enumeration_started = time.perf_counter()
+        candidate_sets = _candidate_subsets(current_ids, new_card.card_id, self.capacity)
+        enumeration_seconds = time.perf_counter() - enumeration_started
+        selection = self.scorer.score(
+            reference_cards=reference_cards,
+            candidate_sets=candidate_sets,
+            cards_by_id=cards_by_id,
+            queries=tuple(query_pool),
+            current_ids=current_ids,
+        )
+        return selection.model_copy(
+            update={
+                "admitted_new_card": new_card.card_id in selection.selected_card_ids,
+                "candidate_enumeration_seconds": enumeration_seconds,
             }
+        )
+
+
+class ExactArchivePosteriorProjectionPlanner:
+    """Exact archive projection diagnostic for the small frozen B/K regime."""
+
+    def __init__(
+        self,
+        capacity: int,
+        posterior_template: FixedKernelResidualGP,
+        divergence: ProperPosteriorDivergence,
+        *,
+        false_stable_cost: float = 5.0,
+        false_unstable_cost: float = 1.0,
+        max_decision_regret: float | None = None,
+        max_log_divergence: float | None = None,
+        reactivation_weight: float = 0.0,
+    ) -> None:
+        if capacity < 0:
+            raise ValueError("archive posterior-projection capacity cannot be negative")
+        self.capacity = capacity
+        self.scorer = PosteriorProjectionScorer(
+            posterior_template,
+            divergence,
+            false_stable_cost=false_stable_cost,
+            false_unstable_cost=false_unstable_cost,
+            max_decision_regret=max_decision_regret,
+            max_log_divergence=max_log_divergence,
+            reactivation_weight=reactivation_weight,
+        )
+
+    def select(
+        self,
+        archive: Iterable[MaterialMemoryCard],
+        query_pool: Iterable[MaterialQuery],
+        *,
+        current_cards: Iterable[MaterialMemoryCard] = (),
+        reactivation_cost_by_card: Mapping[str, float] | None = None,
+    ) -> PosteriorProjectionSelection:
+        cards = tuple(archive)
+        card_ids = tuple(card.card_id for card in cards)
+        if len(set(card_ids)) != len(card_ids):
+            raise ValueError("archive posterior-projection cards must be unique")
+        current_ids = tuple(card.card_id for card in current_cards)
+        if not set(current_ids).issubset(card_ids):
+            raise ValueError("active cards must be contained in the archive")
+        enumeration_started = time.perf_counter()
+        candidate_sets = tuple(
+            subset
+            for size in range(min(self.capacity, len(cards)) + 1)
+            for subset in combinations(card_ids, size)
+        )
+        enumeration_seconds = time.perf_counter() - enumeration_started
+        selection = self.scorer.score(
+            reference_cards=cards,
+            candidate_sets=candidate_sets,
+            cards_by_id={card.card_id: card for card in cards},
+            queries=tuple(query_pool),
+            current_ids=current_ids,
+            reactivation_cost_by_card=reactivation_cost_by_card,
+        )
+        return selection.model_copy(update={"candidate_enumeration_seconds": enumeration_seconds})
+
+
+class StreamingPosteriorProjectionCoreset:
+    """Bounded active state selected by proper posterior projection."""
+
+    def __init__(self, planner: PosteriorProjectionOneSwapPlanner) -> None:
+        self.planner = planner
+        self.capacity = planner.capacity
+        self._cards: dict[str, MaterialMemoryCard] = {}
+
+    def cards(self) -> tuple[MaterialMemoryCard, ...]:
+        return tuple(self._cards.values())
+
+    def admit(
+        self,
+        card: MaterialMemoryCard,
+        query_pool: Iterable[MaterialQuery],
+    ) -> PosteriorProjectionSelection:
+        selection = self.planner.preview_admit(self.cards(), card, tuple(query_pool))
+        candidates = {**self._cards, card.card_id: card}
+        self._cards = {card_id: candidates[card_id] for card_id in selection.selected_card_ids}
         return selection

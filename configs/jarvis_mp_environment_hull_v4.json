@@ -1,0 +1,101 @@
+{
+  "schema_version": 1,
+  "status": "frozen_before_calibration_outcomes_are_used_and_before_evaluation_is_opened",
+  "task_release_id": "jarvis-dft-3d-2022-12-12__mp-cse-2023-02-07__v1",
+  "task_manifest_sha256": "ba5bfc139364ecb1b97248e8f72fd646e12ffaa9277a6494f4ebbb265eee5cff",
+  "oracle_vault_sha256": "0f5cb09afb47b4da27bdc726b1a561aa52c29e9f6ed6f1e5e452c2cad0d30d4d",
+  "calibration_only_vault_sha256": "288483a5e035a081bc988b56b2d29bd9fd911e019e26023f7a5bf9747a5e6f83",
+  "sealed_evaluation_vault_sha256": "cfabf766990b1acde0b16b98c9bc3c39d73aba40f967be8c4bd6572471f338b6",
+  "task_selection_config_sha256": "4c9e82579aaa65b985ebe8d4c6a4be0a9bc4224b57906ee772b5e733d8d0e5f7",
+  "evaluation_results_accessed_at_freeze": false,
+  "changed_failed_assumption": "Global and composition-only transport are replaced by a source-environment-conditional same-candidate transport; inference is judged by simultaneous hull-decision certificates rather than a global energy-radius ceiling.",
+  "observable_representation": {
+    "encoder": "CHGNet crystal_fea",
+    "model_name": "0.3.0",
+    "checkpoint_sha256": "d14ab7c0f093efe64b60a7bcd540bca10e74fb7f46c86108a079af60524659d1",
+    "dimension": 64,
+    "input": "policy-visible JARVIS low-fidelity relaxed structure only",
+    "target_structure_used": false,
+    "outcomes_used": false
+  },
+  "calibration_partition": {
+    "unit": "exact chemical system",
+    "rule": "SHA256(task_release_id || environment-hull-v4 || exact_system) modulo 3",
+    "transport_fit_residue": 0,
+    "transport_radius_residue": 1,
+    "decision_trajectory_calibration_residue": 2,
+    "evaluation_systems": "the sealed task evaluation partition; never used by any fit or calibration rule"
+  },
+  "environment_transport": {
+    "form": "target_energy = source_energy + ridge_delta(CHGNet(source_structure), source_energy)",
+    "ridge_penalty": "selected by leave-one-exact-system-out prediction error on transport-fit systems",
+    "uncertainty_scale": "Bayesian-ridge leverage",
+    "interval_calibration": "split conformal maximum normalized absolute error within each transport-radius exact system",
+    "alpha": 0.1,
+    "unsupported_element_action": "target-only fallback and hull-decision abstention"
+  },
+  "all_target_outcome_correction": {
+    "representation": "the same frozen 64-dimensional CHGNet crystal feature",
+    "state": "Bayesian-ridge natural parameters with an intercept",
+    "ridge_penalty": "reuse the independently selected transport ridge penalty",
+    "residual_variance": "transport-fit residual mean square",
+    "accepted_target_outcomes": "all",
+    "capacity_or_eviction": "forbidden"
+  },
+  "simultaneous_decision_interval": {
+    "trajectory": "deterministic SHA256 pair order with floor(system_size/2) target reveals",
+    "score": "maximum over every pre-reveal round and remaining supported candidate of absolute target-energy error divided by combined transport-and-correction leverage",
+    "clustered_conformal_alpha": 0.1,
+    "global_energy_ceiling": null,
+    "interpretation": "distribution-free system-level simultaneous interval under the registered exchangeability unit; never a Gaussian standard deviation"
+  },
+  "robust_hull_certificate": {
+    "candidate_self_removal": true,
+    "stable": "candidate upper energy <= lower feasible competing hull energy",
+    "unstable": "candidate lower energy > upper feasible competing hull energy",
+    "otherwise": "abstain",
+    "stability_tolerance_ev_per_atom": 0.0,
+    "action_epsilon": 0.0
+  },
+  "calibration_gate_before_evaluation": {
+    "requirements": [
+      "all three calibration partitions are non-empty, exact-system disjoint, and collectively exhaust task calibration systems",
+      "the finite-sample clustered conformal quantile exists",
+      "same-order streaming and full replay natural parameters, predictions, and metric inputs are bitwise identical",
+      "every revealed target outcome contributes exactly once and no capacity or eviction interface exists",
+      "certified stable/unstable decisions have zero error on calibration systems whose simultaneous interval event holds",
+      "the deterministic system-bootstrap lower 95% bound for macro certified decision coverage is strictly positive"
+    ],
+    "failure_action": "seal every evaluation outcome and record calibration-stage NO-GO"
+  },
+  "evaluation_estimands_if_authorized": {
+    "primary": [
+      "system-macro certified coverage",
+      "system-macro selective hull-decision error",
+      "full-pool hull-decision cost with abstention",
+      "zero-optimal action-set coverage",
+      "one-step action regret"
+    ],
+    "baselines": [
+      "target-only CHGNet ridge plus all-target-outcome correction",
+      "naive source-as-target pooling",
+      "global paired delta",
+      "environment transport without online target correction",
+      "environment transport plus all-target-outcome correction",
+      "same-order full-history replay"
+    ],
+    "statistical_unit": "exact chemical system"
+  },
+  "paper_go_rule": {
+    "requirements": [
+      "all evaluation isolation, no-deletion, replay, and homogeneous-null gates pass",
+      "the evaluation system-level simultaneous interval-event rate is at least the registered 0.9 coverage level",
+      "the system-bootstrap lower 95% bound for certified decision coverage is strictly positive",
+      "certified selective hull-decision error is zero on every evaluation system whose simultaneous interval event holds",
+      "environment transport plus all-target-outcome correction has a paired exact-system bootstrap 95% upper bound below zero for both hull misclassification and one-step regret relative to target-only and naive source-as-target pooling",
+      "the improvement appears in at least two chemical-complexity strata",
+      "same-order numerical replay is exact; no runtime or compression claim is made without a separately measured bottleneck"
+    ],
+    "failure_action": "retain the implementation and negative result, keep paper-level status NO-GO, and do not tune representation, ridge penalty, conformal level, or decision tolerance on evaluation systems"
+  }
+}

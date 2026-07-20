@@ -1,0 +1,94 @@
+{
+  "schema_version": 1,
+  "status": "frozen_before_evaluation_pilot_v1",
+  "task_release_id": "jarvis-dft-3d-2022-12-12__mp-cse-2023-02-07__v1",
+  "task_manifest_sha256": "d98e87545198c47d318dab67802a95dc87049ff2ab159ad296916ef92359b281",
+  "evaluation_results_accessed_at_freeze": false,
+  "scientific_estimand": "protocol-certified all-outcome state versus target-only, rejection, naive pooling, and paired affine multi-fidelity under matched deterministic reveals",
+  "calibration_partition": {
+    "base_fit_exact_systems": [
+      "Cr-N",
+      "Mg-Sb",
+      "Ag-F-Li",
+      "Cu-F-Li"
+    ],
+    "transport_fit_exact_systems": [
+      "O-Zr",
+      "Cu-Li-S",
+      "Mo-Se-Te-W"
+    ],
+    "transport_radius_exact_systems": [
+      "B-N",
+      "Ca-S-Sn",
+      "Mo-S-Te-W"
+    ]
+  },
+  "observable_basis": {
+    "descriptor_dimension": 124,
+    "standardization_fit": "all task observables without outcomes",
+    "pca_rank": 16,
+    "pca_solver": "full",
+    "append_constant_feature": true,
+    "outcome_independent": true
+  },
+  "frozen_base_predictor": {
+    "model": "ridge",
+    "alpha": 1.0,
+    "fit_intercept": true,
+    "outcomes": "base_fit_exact_systems_only"
+  },
+  "transport": {
+    "direction": "JARVIS_OptB88vdW_to_MP_PBE_GGA_MP2020",
+    "model": "affine_residual_transport",
+    "radius": "split_conformal_absolute_error",
+    "alpha": 0.1,
+    "maximum_certifiable_radius_ev_per_atom": 0.15,
+    "failure_action": "reject_all_source_protocol_influence"
+  },
+  "all_outcome_state": {
+    "prior_std_ev_per_atom": 0.2,
+    "observation_noise_std_ev_per_atom": 0.03,
+    "direct_target_outcomes_retained": "all",
+    "certified_transported_outcomes_retained": "all",
+    "outcome_subset_selection": "forbidden"
+  },
+  "evaluation": {
+    "oracle_budget": 8,
+    "reveal_order": "SHA256(task_release_id|reveal|pair_id)",
+    "matched_action": true,
+    "false_stable_cost": 5.0,
+    "false_unstable_cost": 1.0,
+    "discovery_margin_ev_per_atom": 0.05,
+    "epsilon_optimal_action_ev_per_atom": 0.01,
+    "stable_tolerance_ev_per_atom": 1e-08,
+    "bootstrap_seed": 20260720,
+    "bootstrap_replicates": 5000,
+    "statistical_unit": "exact chemical system"
+  },
+  "primary_methods": [
+    "target_only",
+    "protocol_rejection",
+    "naive_full_history_pooling",
+    "paired_affine_multifidelity",
+    "certified_all_outcome_state",
+    "certified_full_history_replay"
+  ],
+  "hard_gates": {
+    "homogeneous_null": "persistent sufficient state and same-order full-history replay must have identical natural-parameter checksums, predictions, actions, and metric inputs every round",
+    "rejection_parity": "target_only and protocol_rejection must be exactly identical every round",
+    "transport_certificate": "split-conformal radius must be finite and <= 0.15 eV/atom before evaluation",
+    "oracle_isolation": "evaluation target outcomes may enter only reveal updates and evaluator metrics",
+    "no_outcome_deletion": "accepted outcome count must equal all direct plus all certificate-compatible transported observations"
+  },
+  "pilot_go_rule": {
+    "scope": "mechanism continuation only, not paper-level superiority",
+    "requirements": [
+      "all hard gates pass",
+      "certified_all_outcome_state has lower system-macro hull decision cost than both target_only and naive_full_history_pooling",
+      "certified_all_outcome_state has lower system-macro one-step decision regret than both target_only and naive_full_history_pooling",
+      "evaluation transport certificate violation rate is <= 0.15",
+      "improvement is not confined to one chemical-complexity stratum"
+    ],
+    "paired_only_warning": "if paired_affine_multifidelity explains all improvement, the result supports ordinary delta learning but not a broader decision-state claim"
+  }
+}

@@ -4,8 +4,102 @@ from __future__ import annotations
 
 import hashlib
 from collections.abc import Iterable
+from enum import StrEnum
 
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, field_validator, model_validator
+
+
+class StructureStage(StrEnum):
+    """Causal stage of a structure artifact."""
+
+    INITIAL = "initial"
+    LOW_FIDELITY_RELAXED = "low_fidelity_relaxed"
+    RELAXED = "relaxed"
+
+
+class WBMStructureSourceField(StrEnum):
+    """Typed structure sources; never pass an unclassified geometry field."""
+
+    ORIGINAL = "org"
+    LOW_FIDELITY = "external_low_fidelity"
+    OPTIMIZED = "opt"
+
+
+class StructureArtifactIdentity(BaseModel):
+    """Strong provenance contract for policy-facing structure bytes."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    query_id: str
+    structure_hash: str
+    stage: StructureStage
+    source_field: WBMStructureSourceField
+    causal_available_before_query: bool
+
+    @classmethod
+    def initial(cls, query_id: str, structure_hash: str) -> StructureArtifactIdentity:
+        return cls(
+            query_id=query_id,
+            structure_hash=structure_hash,
+            stage=StructureStage.INITIAL,
+            source_field=WBMStructureSourceField.ORIGINAL,
+            causal_available_before_query=True,
+        )
+
+    @classmethod
+    def relaxed(cls, query_id: str, structure_hash: str) -> StructureArtifactIdentity:
+        return cls(
+            query_id=query_id,
+            structure_hash=structure_hash,
+            stage=StructureStage.RELAXED,
+            source_field=WBMStructureSourceField.OPTIMIZED,
+            causal_available_before_query=False,
+        )
+
+    @classmethod
+    def low_fidelity_relaxed(
+        cls, query_id: str, structure_hash: str
+    ) -> StructureArtifactIdentity:
+        """A cheap-protocol relaxed structure available before a costly query.
+
+        This is deliberately distinct from a target-protocol relaxed structure,
+        which remains post-outcome and cannot become a policy feature.
+        """
+
+        return cls(
+            query_id=query_id,
+            structure_hash=structure_hash,
+            stage=StructureStage.LOW_FIDELITY_RELAXED,
+            source_field=WBMStructureSourceField.LOW_FIDELITY,
+            causal_available_before_query=True,
+        )
+
+    @field_validator("query_id", "structure_hash")
+    @classmethod
+    def _nonempty(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("structure artifact identity must be non-empty")
+        return value.strip()
+
+    @model_validator(mode="after")
+    def _causal_stage_matches_source(self) -> StructureArtifactIdentity:
+        expected = {
+            WBMStructureSourceField.ORIGINAL: StructureStage.INITIAL,
+            WBMStructureSourceField.LOW_FIDELITY: StructureStage.LOW_FIDELITY_RELAXED,
+            WBMStructureSourceField.OPTIMIZED: StructureStage.RELAXED,
+        }[self.source_field]
+        if self.stage is not expected:
+            raise ValueError("WBM structure field and causal stage disagree")
+        if self.stage is StructureStage.INITIAL and not self.causal_available_before_query:
+            raise ValueError("initial WBM structure must be available before query")
+        if (
+            self.stage is StructureStage.LOW_FIDELITY_RELAXED
+            and not self.causal_available_before_query
+        ):
+            raise ValueError("low-fidelity structure must be available before target query")
+        if self.stage is StructureStage.RELAXED and self.causal_available_before_query:
+            raise ValueError("relaxed WBM structure cannot be policy-visible before query")
+        return self
 
 
 class MaterialIdentity(BaseModel):

@@ -18,6 +18,7 @@ from matmem import (
     MPPhaseRecord,
     ProtocolCertificate,
     SOAPCacheConfig,
+    StructureArtifactIdentity,
     WBMObservableRecord,
     audit_external_data_artifacts,
 )
@@ -58,6 +59,9 @@ def _observable(query_id: str) -> WBMObservableRecord:
     return WBMObservableRecord(
         query_id=query_id,
         structure_hash=f"structure-{query_id}",
+        structure_identity=StructureArtifactIdentity.initial(
+            query_id, f"structure-{query_id}"
+        ),
         identity=MaterialIdentity(
             exact_calculation_id=f"calc-{query_id}",
             canonical_structure_id=f"canonical-{query_id}",
@@ -125,6 +129,9 @@ def _cache(query_ids: tuple[str, ...]) -> FrozenPredictionSOAPCache:
             FrozenPredictionSOAPRecord(
                 query_id=query_id,
                 structure_hash=f"structure-{query_id}",
+                structure_identity=StructureArtifactIdentity.initial(
+                    query_id, f"structure-{query_id}"
+                ),
                 predicted_formation_energy_ev_per_atom=predictions[query_id],
                 soap_vector=vectors[query_id],
             )
@@ -219,6 +226,23 @@ def test_frozen_prediction_soap_cache_is_order_invariant_and_identity_checked() 
         FrozenPredictionSOAPRecord(
             query_id="bad",
             structure_hash="bad",
+            structure_identity=StructureArtifactIdentity.initial("bad", "bad"),
             predicted_formation_energy_ev_per_atom=0.0,
             soap_vector=(1.0, 1.0),
+        )
+
+
+def test_relaxed_structure_cannot_become_policy_observable_or_soap() -> None:
+    relaxed = StructureArtifactIdentity.relaxed("a", "relaxed-a")
+    observable = _observable("a").model_dump()
+    observable.update(structure_hash="relaxed-a", structure_identity=relaxed)
+    with pytest.raises(ValidationError, match="initial structure identity"):
+        WBMObservableRecord.model_validate(observable)
+    with pytest.raises(ValidationError, match="pre-query initial structure"):
+        FrozenPredictionSOAPRecord(
+            query_id="a",
+            structure_hash="relaxed-a",
+            structure_identity=relaxed,
+            predicted_formation_energy_ev_per_atom=-1.0,
+            soap_vector=(1.0, 0.0),
         )

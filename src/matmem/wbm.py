@@ -13,13 +13,18 @@ import json
 import math
 from collections.abc import Iterable, Mapping
 from datetime import datetime
+from enum import StrEnum
 from pathlib import Path
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from .cards import HullSnapshot, MaterialQuery
-from .identity import MaterialIdentity
+from .identity import (
+    MaterialIdentity,
+    StructureArtifactIdentity,
+    StructureStage,
+)
 from .protocols import ProtocolCertificate
 
 
@@ -304,6 +309,7 @@ class WBMObservableRecord(BaseModel):
 
     query_id: str
     structure_hash: str
+    structure_identity: StructureArtifactIdentity
     identity: MaterialIdentity
     composition: str
     chemical_system: tuple[str, ...]
@@ -325,12 +331,24 @@ class WBMObservableRecord(BaseModel):
             raise ValueError("WBM observable requires a chemical system")
         return normalized
 
+    @model_validator(mode="after")
+    def _initial_structure_only(self) -> WBMObservableRecord:
+        if (
+            self.structure_identity.query_id != self.query_id
+            or self.structure_identity.structure_hash != self.structure_hash
+            or self.structure_identity.stage is not StructureStage.INITIAL
+            or not self.structure_identity.causal_available_before_query
+        ):
+            raise ValueError("observable WBM record requires its initial structure identity")
+        return self
+
 
 class FrozenPredictionSOAPRecord(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     query_id: str
     structure_hash: str
+    structure_identity: StructureArtifactIdentity
     predicted_formation_energy_ev_per_atom: float
     soap_vector: tuple[float, ...]
 
@@ -357,6 +375,17 @@ class FrozenPredictionSOAPRecord(BaseModel):
         if not math.isclose(norm, 1.0, abs_tol=1e-6):
             raise ValueError("SOAP vector must be normalized")
         return values
+
+    @model_validator(mode="after")
+    def _policy_visible_structure(self) -> FrozenPredictionSOAPRecord:
+        if (
+            self.structure_identity.query_id != self.query_id
+            or self.structure_identity.structure_hash != self.structure_hash
+            or self.structure_identity.stage is not StructureStage.INITIAL
+            or not self.structure_identity.causal_available_before_query
+        ):
+            raise ValueError("SOAP feature requires a pre-query initial structure identity")
+        return self
 
 
 class FrozenPredictionSOAPCache(BaseModel):
@@ -456,6 +485,7 @@ class FrozenPredictionSOAPCache(BaseModel):
         return MaterialQuery(
             query_id=observable.query_id,
             structure_hash=observable.structure_hash,
+            structure_identity=observable.structure_identity,
             identity=observable.identity,
             composition=observable.composition,
             embedding=record.soap_vector,
@@ -469,11 +499,18 @@ class FrozenPredictionSOAPCache(BaseModel):
         )
 
 
+class OracleEnergySource(StrEnum):
+    """Allow-listed source of policy-run WBM oracle energies."""
+
+    FROZEN_PARITY_CORRECTED = "frozen_parity_corrected"
+
+
 class WBMOracleRecord(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     query_id: str
     structure_hash: str
+    energy_source: OracleEnergySource
     corrected_total_energy_ev: float
     corrected_formation_energy_ev_per_atom: float
     source_record_locator: str

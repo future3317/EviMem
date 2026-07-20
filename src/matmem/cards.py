@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from .identity import MaterialIdentity
+from .identity import MaterialIdentity, StructureArtifactIdentity, StructureStage
 from .protocols import ProtocolCertificate
 
 
@@ -90,6 +90,7 @@ class MaterialQuery(BaseModel):
 
     query_id: str
     structure_hash: str
+    structure_identity: StructureArtifactIdentity
     identity: MaterialIdentity
     composition: str
     embedding: tuple[float, ...]
@@ -123,6 +124,17 @@ class MaterialQuery(BaseModel):
 
     @model_validator(mode="after")
     def _query_snapshot_is_causal(self) -> MaterialQuery:
+        if (
+            self.structure_identity.query_id != self.query_id
+            or self.structure_identity.structure_hash != self.structure_hash
+        ):
+            raise ValueError("query and structure artifact identities disagree")
+        if (
+            self.structure_identity.stage
+            not in {StructureStage.INITIAL, StructureStage.LOW_FIDELITY_RELAXED}
+            or not self.structure_identity.causal_available_before_query
+        ):
+            raise ValueError("material query requires a causally available pre-query structure")
         if self.hull_snapshot.built_at > self.as_of:
             raise ValueError("query cannot use a hull snapshot built in its future")
         return self
@@ -147,6 +159,7 @@ class MaterialMemoryCard(BaseModel):
     card_id: str
     material_id: str
     structure_hash: str
+    structure_identity: StructureArtifactIdentity
     identity: MaterialIdentity
     composition: str
     embedding: tuple[float, ...]
@@ -188,6 +201,13 @@ class MaterialMemoryCard(BaseModel):
 
     @model_validator(mode="after")
     def _validate_derived_values(self) -> MaterialMemoryCard:
+        if (
+            self.structure_identity.query_id != self.material_id
+            or self.structure_identity.structure_hash != self.structure_hash
+            or self.structure_identity.stage
+            not in {StructureStage.INITIAL, StructureStage.LOW_FIDELITY_RELAXED}
+        ):
+            raise ValueError("memory card and policy-visible structure identities disagree")
         residual = (
             self.formation_energy_ev_per_atom - self.base_predicted_formation_energy_ev_per_atom
         )
