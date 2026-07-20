@@ -13,13 +13,15 @@ class StructureStage(StrEnum):
     """Causal stage of a structure artifact."""
 
     INITIAL = "initial"
+    LOW_FIDELITY_RELAXED = "low_fidelity_relaxed"
     RELAXED = "relaxed"
 
 
 class WBMStructureSourceField(StrEnum):
-    """Typed upstream WBM structure fields; never pass bare ``org``/``opt``."""
+    """Typed structure sources; never pass an unclassified geometry field."""
 
     ORIGINAL = "org"
+    LOW_FIDELITY = "external_low_fidelity"
     OPTIMIZED = "opt"
 
 
@@ -54,6 +56,24 @@ class StructureArtifactIdentity(BaseModel):
             causal_available_before_query=False,
         )
 
+    @classmethod
+    def low_fidelity_relaxed(
+        cls, query_id: str, structure_hash: str
+    ) -> StructureArtifactIdentity:
+        """A cheap-protocol relaxed structure available before a costly query.
+
+        This is deliberately distinct from a target-protocol relaxed structure,
+        which remains post-outcome and cannot become a policy feature.
+        """
+
+        return cls(
+            query_id=query_id,
+            structure_hash=structure_hash,
+            stage=StructureStage.LOW_FIDELITY_RELAXED,
+            source_field=WBMStructureSourceField.LOW_FIDELITY,
+            causal_available_before_query=True,
+        )
+
     @field_validator("query_id", "structure_hash")
     @classmethod
     def _nonempty(cls, value: str) -> str:
@@ -65,12 +85,18 @@ class StructureArtifactIdentity(BaseModel):
     def _causal_stage_matches_source(self) -> StructureArtifactIdentity:
         expected = {
             WBMStructureSourceField.ORIGINAL: StructureStage.INITIAL,
+            WBMStructureSourceField.LOW_FIDELITY: StructureStage.LOW_FIDELITY_RELAXED,
             WBMStructureSourceField.OPTIMIZED: StructureStage.RELAXED,
         }[self.source_field]
         if self.stage is not expected:
             raise ValueError("WBM structure field and causal stage disagree")
         if self.stage is StructureStage.INITIAL and not self.causal_available_before_query:
             raise ValueError("initial WBM structure must be available before query")
+        if (
+            self.stage is StructureStage.LOW_FIDELITY_RELAXED
+            and not self.causal_available_before_query
+        ):
+            raise ValueError("low-fidelity structure must be available before target query")
         if self.stage is StructureStage.RELAXED and self.causal_available_before_query:
             raise ValueError("relaxed WBM structure cannot be policy-visible before query")
         return self

@@ -11,6 +11,11 @@ from .acquisition import (
     SeededRandomAcquisition,
     SurvivalConditionedAcquisition,
 )
+from .activation import (
+    ProtocolActivation,
+    ProtocolActivationAudit,
+    ProtocolAwareActivator,
+)
 from .baselines import (
     DiversityBoundedMemory,
     FIFOBoundedMemory,
@@ -55,6 +60,8 @@ from .identity import (
 )
 from .protocols import (
     CompatibilityKind,
+    CompositionAwareProtocolTransportMap,
+    MatchedEnergyPair,
     MatchedResidualPair,
     ProtocolCertificate,
     ProtocolCompatibility,
@@ -69,6 +76,7 @@ from .residual_posterior import (
     ResidualPrediction,
 )
 from .risk import ConformalCalibration, ProtocolRiskController, RiskDecision, ScreeningDecision
+from .sufficient_state import AllOutcomeLinearGaussianState, SufficientStateUpdate
 from .wbm import (
     DataAuditFinding,
     DataLicenseAuditReport,
@@ -142,12 +150,14 @@ from .wbm_secure import (
 
 __all__ = [
     "AcquisitionScore",
+    "AllOutcomeLinearGaussianState",
     "AppendOnlyWBMEventLog",
     "BudgetPrefixParityRecord",
     "CalibrationUtilityBuilder",
     "CalibrationUtilityMatrix",
     "CausalHullEngine",
     "CompatibilityKind",
+    "CompositionAwareProtocolTransportMap",
     "CompositionHullState",
     "CorrectedPhaseEntry",
     "CanonicalGroupSplit",
@@ -172,6 +182,7 @@ __all__ = [
     "JointPosteriorRiskOneSwapPlanner",
     "JointPosteriorRiskSelection",
     "MatchedResidualPair",
+    "MatchedEnergyPair",
     "MaterialMemoryCard",
     "MaterialIdentity",
     "StructureArtifactIdentity",
@@ -194,6 +205,9 @@ __all__ = [
     "PosteriorQueryEvaluation",
     "ProperPosteriorDivergence",
     "ProtocolCertificate",
+    "ProtocolActivation",
+    "ProtocolActivationAudit",
+    "ProtocolAwareActivator",
     "ProtocolCompatibility",
     "ProtocolCompatibilityResolver",
     "ProtocolRiskController",
@@ -220,6 +234,7 @@ __all__ = [
     "StreamingCoresetEvidence",
     "StreamingJointPosteriorRiskCoreset",
     "StreamingPosteriorProjectionCoreset",
+    "SufficientStateUpdate",
     "SurvivalConditionedAcquisition",
     "SOAPCacheConfig",
     "WBMObservableRecord",

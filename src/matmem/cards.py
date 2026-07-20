@@ -130,10 +130,11 @@ class MaterialQuery(BaseModel):
         ):
             raise ValueError("query and structure artifact identities disagree")
         if (
-            self.structure_identity.stage is not StructureStage.INITIAL
+            self.structure_identity.stage
+            not in {StructureStage.INITIAL, StructureStage.LOW_FIDELITY_RELAXED}
             or not self.structure_identity.causal_available_before_query
         ):
-            raise ValueError("material query requires a pre-query initial structure")
+            raise ValueError("material query requires a causally available pre-query structure")
         if self.hull_snapshot.built_at > self.as_of:
             raise ValueError("query cannot use a hull snapshot built in its future")
         return self
@@ -203,9 +204,10 @@ class MaterialMemoryCard(BaseModel):
         if (
             self.structure_identity.query_id != self.material_id
             or self.structure_identity.structure_hash != self.structure_hash
-            or self.structure_identity.stage is not StructureStage.INITIAL
+            or self.structure_identity.stage
+            not in {StructureStage.INITIAL, StructureStage.LOW_FIDELITY_RELAXED}
         ):
-            raise ValueError("memory card and initial structure identities disagree")
+            raise ValueError("memory card and policy-visible structure identities disagree")
         residual = (
             self.formation_energy_ev_per_atom - self.base_predicted_formation_energy_ev_per_atom
         )

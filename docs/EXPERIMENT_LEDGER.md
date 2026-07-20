@@ -4,8 +4,9 @@
 maintainer or coding agent should read before changing the method or launching
 another experiment. It records why the research moved from CAW-Joint to DACC,
 from DACC to P3C, why P3C exposed outcome-contribution deletion and reference
-mismatch, why AKSC was proposed, and why the WBM compute gate stopped AKSC as
-the paper's next main line.
+mismatch, why AKSC was proposed, why the WBM compute gate stopped AKSC as the
+paper's next main line, and why two real JARVIS--MP transport certificates did
+not authorize a positive protocol-aware state claim.
 
 Raw datasets, checkpoints and experiment outputs remain outside Git. Paths and
 hashes below are provenance pointers, not instructions to add those artifacts
@@ -30,8 +31,12 @@ compress an outcome-independent kernel representation while accumulating
 *all* revealed outcomes in posterior sufficient statistics. Before
 implementation, a checkpointed B40 gate showed that GP numerical work is only
 0.689% of the real WBM round pipeline, below the 9.09% Amdahl threshold; even
-perfect GP elimination permits only `1.00694x` ideal speedup. P3C is stopped,
-and AKSC is not authorized as this WBM paper's main direction.
+perfect GP elimination permits only `1.00694x` ideal speedup. The subsequent
+JARVIS--MP task confirmed strong same-candidate low-fidelity signal, but a
+global affine certificate violated its held-out radius on 45.32% of pairs and
+a composition-aware certificate exceeded its frozen calibration ceiling before
+fresh evaluation. P3C is stopped, AKSC is not authorized for WBM, and safe
+protocol-aware reuse remains NO-GO under the tested certificates.
 
 ## Current research decision (not an experiment)
 
@@ -43,8 +48,11 @@ within a frozen distortion tolerance of the complete archive. WBM is retained
 as the homogeneous, low-compute-cost null regime, where the correct behavior is
 full history. A positive next experiment requires independently measured
 protocol incompatibility, shift, access/compute cost, or another explicit
-constraint. Certified Hull-Decision State is a proposal only; it has no result
-status in this ledger.
+constraint. The all-outcome fixed-rank predictive layer and fail-closed
+activation path now exist and pass exact replay/null/no-deletion tests.
+Certified Hull-Decision State remains incomplete: there is no hull-certificate
+algorithm, no decision-preservation theorem, and no positive result in this
+ledger.
 
 ## Terminology that must not be blurred
 
@@ -81,6 +89,8 @@ status in this ledger.
 | Structure-correct replication | Ran two disjoint 16-system panels with initial structures and parity energies | Distinguished method failure from implementation/data failure | Early probability signal did not replicate; P3C stopped |
 | AKSC proposal | Outcome-independent kernel basis plus all-outcome natural parameters and a separate calibration layer | Avoided deleting paid outcome contributions and separated operator fidelity from calibration | Proposal only |
 | Fixed-GP and B40 gates | Measured reference dispersion, effective dimension and real end-to-end GP share | A representation-compression method needs a credible target and material compute bottleneck | Both gates fail for current WBM; AKSC not authorized here |
+| JARVIS--MP v1 | Built a real structure-matched OptB88vdW--MP/GGA task and tested global affine transport plus an all-outcome rank-16 state | Moved from homogeneous WBM to genuine protocol heterogeneity | Implementation gates pass; transport and state decision gates fail |
+| JARVIS--MP v3 | Added element-fraction reference offsets and exact-system-clustered conformal calibration on fresh systems | Tested whether composition-dependent reference shift explains v1 failure | Radius 0.177264 exceeds frozen 0.15 ceiling; fresh evaluation remains unopened |
 
 ## Experiment ledger
 
@@ -263,6 +273,57 @@ status in this ledger.
 - Claim status: authoritative FAIL. It closes WBM posterior compression as the
   next main research line.
 
+### E13. Real JARVIS--MP global-affine protocol pilot
+
+- External directory:
+  `E:\DATA\EviMem-RL\multifidelity\jarvis-mp-v1`.
+- Task manifest SHA256:
+  `d98e87545198c47d318dab67802a95dc87049ff2ab159ad296916ef92359b281`.
+- Calibration freeze SHA256:
+  `3b6c525eb0458f75ce7a17f36d50bd2fb379332d8b2c73a8e68f6cd0cc44ce4a`.
+- Pilot result SHA256:
+  `02fddb48f285eb0bd1102479c64ac028b8b33dc0a4c89cd72a599e6e6a904da6`.
+- Failure attribution SHA256:
+  `5461a223a18110ba0ded4f99d51bcfdae53905a87544886ce4d42e856a658d4e`.
+- The source audit found 75,993 unique JARVIS IDs; 49,905 carried an explicit
+  MP reference, 44,056 referenced the frozen MP snapshot, and 38,329 pure-GGA
+  records had composition agreement. Frozen `StructureMatcher` settings
+  retained 1,658 real matched pairs.
+- Ten calibration exact systems contain 212 pairs; ten disjoint evaluation
+  systems contain 203 pairs across four binary, four ternary and two
+  quaternary-or-higher systems.
+- Target-only/rejection, persistent/replay and homogeneous-null trajectories
+  are exact, and every legal outcome contributes to the numerical state.
+- The global affine map has slope 0.970174, intercept -0.189481 eV/atom and
+  radius 0.099940 eV/atom, but held-out violation is 45.3202%. Paired transport
+  has strong signal; the rank-16 state does not improve hull cost or regret.
+- 88.459% of formation-energy shift variance is between exact systems, while
+  rank-16 projection RMSE to transported residuals is 0.41698 eV/atom.
+- Claim status: authoritative mechanism NO-GO. It validates the task and hard
+  implementation gates, not safe transport or a positive compressed state.
+
+### E14. Composition-aware clustered-certificate gate
+
+- External directory:
+  `E:\DATA\EviMem-RL\multifidelity\jarvis-mp-v3`.
+- Task manifest SHA256:
+  `4765bc82de2237ae6156b7a5642c27f62a3565e940876c13e250f8d8f0dd6872`.
+- Composition calibration freeze SHA256:
+  `571fff2aa7cbd31a8d84c9034822bc74ae407f4d8a262349bac122c77f5722d7`.
+- Thirty-three calibration systems contain 677 pairs; 23 systems fit a source
+  slope plus element-fraction offsets and ten disjoint systems calibrate the
+  maximum within-system absolute error. Twelve fresh evaluation systems (261
+  pairs) have zero overlap with v1 evaluation systems.
+- The fitted source slope is 0.995984. The clustered radius is
+  0.177263735 eV/atom, above the frozen 0.15 ceiling, despite 100% empirical
+  cluster coverage. The four largest system errors include Cu--Li--O,
+  Cd--Mg, C--Li--O and Cu--Li--S.
+- `certificate_passed=false` and `evaluation_results_accessed=false`. Three
+  evaluation systems with unseen elements were already registered for exact
+  target-only fallback; none of the 12 evaluation systems was opened.
+- Claim status: calibration-stage NO-GO. Do not relax the ceiling to 0.18 or
+  use the unopened systems to develop a richer transport.
+
 ## Superseded, invalid and incomplete evidence
 
 | Evidence | Required treatment |
@@ -276,6 +337,8 @@ status in this ledger.
 | Any modern-recomputed oracle-energy run | Invalid where it disagrees with frozen parity energy |
 | Legacy ceiling Brier/log-loss | Approximate; explicit-threshold rerun is cleanup only |
 | AKSC formulas or microbenchmarks | Proposal/diagnostic only; no WBM method claim |
+| JARVIS--MP v1 global affine evaluation | Valid negative result; never reuse its opened evaluation systems for transport development |
+| JARVIS--MP v3 fresh evaluation partition | Unopened; remain sealed because the calibration certificate failed |
 
 ## Recovery points and live-code boundary
 
@@ -308,3 +371,6 @@ executors back into `src/matmem`.
    evaluation outcomes are opened.
 7. Preserve negative and interrupted artifacts; never overwrite, combine or
    silently relabel them.
+8. A conformal absolute-error radius is not a Gaussian standard deviation.
+   Any Gaussian working likelihood using that number is a modeling heuristic,
+   not a distribution-free calibration theorem.

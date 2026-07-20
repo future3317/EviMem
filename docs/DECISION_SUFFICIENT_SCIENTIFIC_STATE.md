@@ -1,9 +1,17 @@
 # Decision-Sufficient Scientific State
 
-**Status (2026-07-20): live research problem, not an implemented method or a
-positive WBM result.** P3C is stopped and AKSC is not authorized for the current
-WBM workload. This document states the higher-level hypothesis supported by
-those stopping results and the gates that any next implementation must pass.
+**Status (2026-07-20): partial implementation, no positive method result.** The
+all-outcome fixed-rank predictive state and fail-closed protocol activation are
+implemented and pass exact replay/null tests. A certified hull-decision state
+and its decision-preservation theorem are not implemented. The real JARVIS--MP
+v1 evaluation and v3 composition-aware calibration are both NO-GO. P3C remains
+stopped and AKSC remains unauthorized for the WBM workload.
+
+The organizing principle is **Decision--Inference--Systems Alignment**. A
+bounded scientific-state claim must simultaneously preserve the registered
+decision, justify its inference under shift and adaptive use, and reduce a
+measured end-to-end cost. Posterior similarity, predictive accuracy, and
+component-level compression are not substitutes for these three gates.
 
 ## 1. Problem correction
 
@@ -136,12 +144,33 @@ does exhibit item 4: the frozen GP is strongly underdispersed. That defect must
 be addressed as calibration or robust inference, not hidden inside an
 outcome-dependent retention policy.
 
-## 4. Material instantiation: Certified Hull-Decision State
+## 4. Material instantiation: all-outcome state and future hull certificates
 
-The next hypothesis is **Certified Hull-Decision State**, not another residual
-posterior coreset. `active` means that archived evidence has a certified,
-protocol-valid influence for the current target, possibly through a directed
-transport map with explicit uncertainty. The archive remains complete.
+The implemented first layer is not another residual posterior coreset. For a
+frozen outcome-independent feature map, every direct or certified transported
+outcome updates a fixed-dimensional linear--Gaussian state
+
+\[
+\Lambda_t=\Lambda_{t-1}+\phi_t\phi_t^\top/\sigma_t^2,
+\qquad
+\eta_t=\eta_{t-1}+\phi_t r_t/\sigma_t^2.
+\]
+
+No capacity, similarity or one-swap interface is allowed to remove an accepted
+outcome contribution. Incompatible or over-radius source observations remain
+in the immutable archive but abstain from influencing the target-protocol
+state. Same-order streaming and archive replay are exactly equal in tests.
+
+This establishes representation compression for the registered linear model,
+not decision sufficiency under model misspecification. A conformal transport
+radius is an error certificate, not automatically a Gaussian standard
+deviation; any working likelihood that uses it as such remains a modeling
+assumption and cannot inherit distribution-free coverage.
+
+The unfinished second layer is **Certified Hull-Decision State**. `active`
+means that archived evidence has a certified, protocol-valid influence for the
+current target, possibly through a directed transport map with explicit
+uncertainty. The archive remains complete.
 
 The state should preserve only what can change a registered hull decision:
 
@@ -154,8 +183,8 @@ The state should preserve only what can change a registered hull decision:
 Two archive states are decision-equivalent at tolerance `epsilon` only if they
 induce the same registered stable/unstable/abstain decisions and compatible
 `epsilon`-optimal action sets. This is a proposed equivalence relation and
-research target; no current experiment establishes that a small computable
-representative exists.
+research target; neither the fixed-rank predictor nor the v1/v3 pilot
+establishes that a small computable hull certificate exists.
 
 The required null behavior is exact:
 
@@ -177,12 +206,23 @@ These are not three incomplete attempts at the same selector. They eliminate
 three increasingly strong posterior-surrogate hypotheses and motivate direct
 decision sufficiency.
 
-## 6. Next falsifiable gate
+## 6. Real multi-protocol gate and current stopping result
 
-No new selector is authorized by this document. Before method implementation:
+The JARVIS--MP task now supplies real protocol heterogeneity: 1,658
+same-material, structure-matched OptB88vdW--MP/GGA pairs, split by exact
+chemical system with target outcomes behind an oracle vault. The v1 global
+affine certificate passed calibration but violated its radius on 45.3202% of
+evaluation pairs. Although paired transport was strongly predictive, the
+rank-16 all-outcome state did not improve hull cost or regret. A v3
+composition-aware transport fit on 23 systems produced a clustered radius of
+0.177264 eV/atom on ten disjoint radius systems, exceeding the frozen 0.15
+ceiling. Its 12 fresh evaluation systems were never opened.
 
-1. construct a genuinely multi-protocol or multi-fidelity materials task with
-   disjoint calibration and evaluation systems;
+Accordingly, no new selector and no threshold relaxation is authorized. Before
+another positive method evaluation:
+
+1. obtain richer public protocol metadata/calibration or predefine a
+   structure/environment-conditional transport on new systems;
 2. freeze protocol identity, directed transport, transport uncertainty and
    fail-closed compatibility rules without evaluation outcomes;
 3. define hull decisions, abstention, action values and `epsilon` before
@@ -195,10 +235,10 @@ No new selector is authorized by this document. Before method implementation:
 6. measure the access/certification/compute constraint that makes the state
    problem nontrivial.
 
-If no compatible public task supplies protocol heterogeneity or a binding
-constraint, the correct result is that full history remains the operational
-state. WBM may remain as the homogeneous null control, not as a dataset on
-which a positive memory advantage must be manufactured.
+The task exists; the currently tested certificates do not support safe reuse.
+The correct state is therefore target-only abstention for unsupported transport
+and full history in homogeneous WBM. A richer transport must be calibrated on
+new systems and pass its frozen gate before any fresh evaluation is opened.
 
 ## 7. Scope and literature boundary
 

@@ -6,8 +6,9 @@ The live research question is **Decision-Sufficient Scientific State**: what is
 the least costly observable, protocol-valid online state that preserves the
 scientific decisions available from the complete immutable archive? The next
 materials hypothesis is a Certified Hull-Decision State whose active evidence
-has a legal, uncertainty-aware influence under the target protocol. This is a
-formal research direction, not an implemented method or a positive WBM result.
+has a legal, uncertainty-aware influence under the target protocol. Its
+all-outcome fixed-rank predictive layer and fail-closed protocol activation are
+implemented; the hull-certificate algorithm and positive result are not.
 
 The corrected CAW-Joint method remains a frozen method-level NO-GO. The current
 real-WBM diagnosis covers two disjoint initial-structure panels: 32 exact
@@ -36,11 +37,24 @@ experiment. It records the complete DACC -> P3C -> outcome-contribution
 deletion/reference-mismatch -> AKSC -> B40 stopping chain, external artifact
 paths, hashes, invalidated runs and recovery tags.
 
+A real JARVIS--MP multi-protocol task has now been constructed from 1,658
+same-material structure-matched pairs. The v1 global-affine evaluation passes
+all oracle/null/replay/no-deletion implementation gates but is a scientific
+NO-GO: held-out transport violations are 45.32%, and the rank-16 state does not
+improve hull decision cost or regret. A fresh v3 composition-aware calibration
+also stops before evaluation because its exact-system-clustered radius is
+0.177264 eV/atom, above the frozen 0.15 ceiling. Its 12 fresh evaluation systems
+remain unopened. See the
+[JARVIS--MP preregistration and frozen results](docs/JARVIS_MP_MULTIFIDELITY_PREREGISTRATION.md).
+
 ## Package overview
 
 `src/matmem/` provides:
 
 - `cards`, `identity`, `protocols`: native material records, identity, and compatibility contracts;
+- `activation`, `sufficient_state`: fail-closed protocol influence and
+  fixed-rank linear--Gaussian natural parameters updated by every legal
+  outcome; neither module exposes a capacity/similarity deletion path;
 - `residual`, `residual_posterior`: certificate-compatible residual retrieval and a fixed-kernel GP over SOAP embeddings;
 - `ceiling_diagnostics`: evaluator-only effective-dimension, residual--kernel
   alignment, LOO dispersion/coverage, and compute-ceiling checks;
