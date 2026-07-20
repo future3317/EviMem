@@ -33,6 +33,19 @@ implementation, a checkpointed B40 gate showed that GP numerical work is only
 perfect GP elimination permits only `1.00694x` ideal speedup. P3C is stopped,
 and AKSC is not authorized as this WBM paper's main direction.
 
+## Current research decision (not an experiment)
+
+The stopping chain does not authorize a fourth posterior approximation. The
+live problem is now **Decision-Sufficient Scientific State**, specified in
+`docs/DECISION_SUFFICIENT_SCIENTIFIC_STATE.md`: preserve the least costly
+observable, protocol-valid state that keeps registered scientific decisions
+within a frozen distortion tolerance of the complete archive. WBM is retained
+as the homogeneous, low-compute-cost null regime, where the correct behavior is
+full history. A positive next experiment requires independently measured
+protocol incompatibility, shift, access/compute cost, or another explicit
+constraint. Certified Hull-Decision State is a proposal only; it has no result
+status in this ledger.
+
 ## Terminology that must not be blurred
 
 - **Scientific archive:** append-only record of every paid DFT reveal. No live

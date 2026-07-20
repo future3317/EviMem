@@ -1,13 +1,13 @@
 # matmem
 
-**Auditable sequential residual modeling for materials discovery.**
+**Auditable decision state for closed-loop materials discovery.**
 
-The most recently tested paper-facing hypothesis is **P3C (Proper Posterior-Projection Coreset)**
-for a frozen materials predictor. After one new result is legally revealed,
-P3C treats the posterior conditioned on the current active set plus that
-new witness as a fixed reference distribution. It exactly selects the allowed
-size-`K` drop-one subset that minimizes a proper-score divergence from that
-reference. Every revealed DFT result remains in an immutable audit archive.
+The live research question is **Decision-Sufficient Scientific State**: what is
+the least costly observable, protocol-valid online state that preserves the
+scientific decisions available from the complete immutable archive? The next
+materials hypothesis is a Certified Hull-Decision State whose active evidence
+has a legal, uncertainty-aware influence under the target protocol. This is a
+formal research direction, not an implemented method or a positive WBM result.
 
 The corrected CAW-Joint method remains a frozen method-level NO-GO. The current
 real-WBM diagnosis covers two disjoint initial-structure panels: 32 exact
@@ -16,11 +16,14 @@ bug and post-DFT relaxed-structure leakage in SOAP. On the corrected panels,
 P3C's pooled Brier difference from GP variance is essentially zero, while CRPS,
 log loss, RMSE, Gaussian NLL, and runtime are worse on average. The fresh
 next-16 panel does not reproduce the earlier weak probability-metric signal.
-P3C therefore remains a method-level NO-GO, not a superiority claim. AKSC was
+P3C is therefore a stopped method-level NO-GO, not a superiority claim. AKSC was
 considered as a separate all-outcome kernel-sketch architecture, but a
 checkpointed B40 compute-relevance gate now rejects it as this paper's WBM main
 method: full-history GP numerical work is at most 0.689% of real round-pipeline
-time, so perfect elimination would yield at most a 1.00694x ideal speedup. See the
+time, so perfect elimination would yield at most a 1.00694x ideal speedup. WBM
+is consequently the homogeneous, low-compute-cost null regime in which full
+history should remain active. See the
+[live decision-state specification](docs/DECISION_SUFFICIENT_SCIENTIFIC_STATE.md),
 [current P3C specification](docs/WBM_CALIBRATION_CORESET_AMENDMENT.md),
 [engineering WBM result](docs/WBM_ENGINEERING_P1_P15_AND_PILOT.md),
 [code/data/method/theory attribution](docs/P3C_FAILURE_ATTRIBUTION_2026-07-20.md),

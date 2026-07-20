@@ -182,3 +182,26 @@ outcome-independent representation. The B40 Amdahl gate failed before AKSC
 implementation, so that proposal is not evidence and is not the WBM paper's
 next method. See `docs/EXPERIMENT_LEDGER.md` for every experiment, path, hash,
 validity label and recovery point.
+
+## 2026-07-20 problem redefinition: decision-sufficient scientific state
+
+The closure above changes the research question, not the P3C implementation.
+The project no longer asks which paid residual outcomes should continue to
+count in a bounded GP. It asks for the least costly observable and
+protocol-valid state that preserves registered scientific decisions relative
+to the complete immutable archive.
+
+This reframing has three conditional results: complete information weakly
+dominates any deterministic compression when decisions may ignore information
+and state cost is absent; uniform `epsilon` action-value approximation gives at
+most `2 epsilon` one-step regret; and a component occupying fraction `f` of
+end-to-end time permits at most `1/(1-f)` ideal speedup if eliminated. The B40
+gate places current WBM in the no-forgetting null regime.
+
+The next material hypothesis is Certified Hull-Decision State: protocol-valid
+evidence influence, directed transport uncertainty, hull-support/facet state,
+stable/unstable/abstain decisions, and an `epsilon`-optimal action set. It is
+not implemented and must reduce exactly to full history for homogeneous
+zero-transport-error evidence. See
+`docs/DECISION_SUFFICIENT_SCIENTIFIC_STATE.md` for the formal definition and
+pre-implementation gates.
