@@ -124,10 +124,10 @@ ID-join gates.
 
 ## P0/P1 amendment (2026-07-16)
 
-P0 execution correctness now passes through the sole secure WBM runner. The
-retired gate document is summarized in `RESEARCH_ITERATION_HISTORY.md`; the
-full version remains at commit `e313499`. This does not by itself authorize a
-claim-grade policy comparison.
+P0 execution correctness passed through the secure WBM runner. The retired
+gate is summarized in `EXPERIMENT_LEDGER.md`; its full code and annex remain at
+commit `e313499` and tag `decision-state-v4-no-go-2026-07-20`. This does not by
+itself authorize a claim-grade policy comparison.
 
 The frozen 128 engineering candidates now have a versioned external audit at
 `E:\DATA\EviMem-RL\manifests\wbm-parity-128-merged-audit-v2.json`. The audit
@@ -146,13 +146,14 @@ human publication/redistribution review also remain pending. The engineering
 study is now explicitly scoped as a fixed historical-pipeline WBM replay; it
 does not make an official-energy reproduction claim. Under that scope,
 cross-environment P1 has zero numerical or label mismatches and full-system
-P1.5 has been executed. See `WBM_ENGINEERING_P1_P15_AND_PILOT.md`.
+P1.5 was executed. The counts and evidence disposition are retained in
+`EXPERIMENT_LEDGER.md`; the retired runner is recoverable from the tag above.
 
 ## Current authorization boundary
 
 The official artifacts, cleaned IDs, historical-pipeline parity, SOAP cache and
-small oracle-isolated engineering pools are available for DACC debugging. They
-do not establish claim-grade identity independence, redistribution permission,
-or paper-level superiority. Comparative claim-grade execution still requires
-the canonical/prototype overlap audit, calibration-only parameter freezing and
-the system-count/uncertainty plan listed in the current DACC specification.
+small oracle-isolated engineering pools remain available as data
+infrastructure. They do not establish claim-grade identity independence,
+redistribution permission or paper-level superiority. DACC/P3C runners and
+their frozen configs are no longer live; current CHIC exploration uses only
+calibration exact systems and the selected-action-only reveal boundary.

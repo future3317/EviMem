@@ -1,13 +1,17 @@
 # Decision-Sufficient Scientific State
 
-**Status (2026-07-20): complete v4 implementation, authoritative method-level
-NO-GO.** The all-outcome state, fail-closed protocol activation,
+**Status (2026-07-21): v4 and CHIC are negative; a composition-referenced
+hierarchical MatPES protocol posterior is under development with no paper-level
+positive result yet.** The all-outcome state, fail-closed protocol activation,
 source-environment transport and robust hull-decision certificate are
 implemented and pass replay, no-deletion, self-removal and interval-soundness
 tests. The real JARVIS--MP v1, v3 and fresh v4 gates are all NO-GO. V4's
 certificate is sound on simultaneous-interval inliers, but coverage is below
 its frozen evaluation gate and the method is dominated by simpler source
-baselines. P3C remains stopped and AKSC remains unauthorized for WBM.
+baselines. P3C remains stopped and AKSC remains unauthorized for WBM. CHIC did
+not delete archive contributions, but its JARVIS development task did not show
+a training-state or acquisition advantage. The active MatPES continuation
+changes the posterior and protocol task, not archive retention.
 
 The organizing principle is **Decision--Inference--Systems Alignment**. A
 bounded scientific-state claim must simultaneously preserve the registered
@@ -254,7 +258,120 @@ significantly worse than naive source-as-target for both hull error and action
 regret. Those opened systems are development-closed. Another representation or
 threshold adjustment on the same task is not authorized.
 
-## 7. Scope and literature boundary
+## 7. Active continuation: CHIC
+
+CHIC changes two assumptions that invalidated the previous development loop.
+First, the selected action is persisted and becomes the only legal oracle
+reveal; no fixed hash trajectory substitutes for deployment. Second, the
+capacity applies to an expensive gradient update, not to whether an observed
+outcome remains scientific evidence.
+
+For model parameters `theta`, candidate margin `m_x` and the legal competing
+hull LP weights `lambda*`, CHIC uses
+
+\[
+\nabla_\theta m_x=
+\nabla_\theta f_\theta(x)-
+\sum_j\lambda_j^*\nabla_\theta f_\theta(x_j).
+\]
+
+Joint non-negative gradient matching approximates the full-history update in a
+metric oriented by the pool hull-decision gradient. A smooth one-step bound
+then controls the downstream loss deviation by the update-direction error. The
+bound is conditional; it does not prove that the current data have informative
+hull gradients or that the selected update beats a strong source policy.
+
+The first fixed-trace diagnostic confirms non-degenerate selections but finds
+no advantage over diversity or hard-example selection. The first true
+eight-system closed loop finds that pure influence is nearly the same as ridge
+uncertainty. A causal two-step lookahead improves action regret from `0.182061`
+to `0.145319`, but the simple source-margin policy remains better at `0.107554`
+and wins six of eight systems. The current JARVIS--MP task therefore lacks a
+positive CHIC signal. The next valid change is a dataset/task change to a real
+paired PBE--r2SCAN workload with enough updates to make gradient selection
+nontrivial, not another weight on the same eight systems.
+
+## 8. Active continuation: hierarchical protocol discrepancy
+
+The MatPES PBE--r2SCAN task changes the failed JARVIS assumption in two ways.
+It supplies exact same-configuration pairs at much larger scale, and it uses a
+true action-driven reveal loop. A data audit identifies 385,890 exact pairs;
+84,532 have formation energies for both protocols. Upstream row splits are not
+independent, so exact chemical systems and original Materials Project parents
+remain the development units.
+
+Let (E_S(x)) and (E_T(x)) be source- and target-protocol formation energies
+for one shared configuration. The current working posterior is
+
+\[
+E_T(x)=E_S(x)+\phi(x)^\top\beta+b_s+g_s(\tilde\phi(x))+\epsilon_x,
+\]
+
+where (s) is the exact chemical system, (b_s\sim\mathcal N(0,\tau^2)),
+(g_s\sim\mathcal{GP}(0,\sigma_g^2 k_{5/2})), and
+(epsilon_x\sim\mathcal N(0,\sigma_n^2)). The global delta mean is fitted
+with equal total weight per fit system. Matérn length, signal and nugget scales
+maximize system-macro marginal likelihood on disjoint fit systems. The
+observable representation contains PBE quantities and normalized element
+fractions; it contains no r2SCAN outcome. Every revealed target outcome in the
+current system conditions the joint posterior.
+
+The live method is **Delta-Hull Active Search**. For one remaining equal-cost
+query and utility equal to oracle-final phase confirmation, its Bayes action is
+
+\[
+a_t\in\arg\max_{x\in U_t}
+\Pr\!\left[x\in H_T^\star(U_t\cup H_t)\mid D_t\right].
+\]
+
+This follows immediately by linearity of expectation: the conditional expected
+one-query reward for action `x` is its final-hull membership probability. It is
+not a weighted blend of uncertainty and margin. Unequal query costs require a
+separate knapsack or Lagrangian objective; dividing by cost is not silently
+claimed to solve the finite-budget problem. The implementation therefore fails
+closed on unequal costs. CAL instead values global hull-uncertainty reduction,
+and nonmyopic multifidelity active search values future budget allocation. A
+two-step diagnostic is retained, but it has not improved the earlier panel and
+is not the live contribution.
+
+The observation and label must remain distinct. Querying `x` reveals the
+continuous target energy `E_T(x)`, not its final-stability label. The latter is
+a delayed structured event determined by all target energies in the visible
+pool. Pointwise phase-field active learning, including BALPI's CALPHAD
+classification and level-set formulations, therefore does not implement this
+same estimand. For a query set `S`, the registered terminal utility is
+
+\[
+R(S,E_T)=\sum_{x\in S}\mathbf 1\{x\in H_T^\star(E_T)\}.
+\]
+
+The exact finite-horizon Bellman recursion is well-defined but not claimed
+tractable. The implemented acquisition is its `b=1` specialization; repeated
+greedy use at budget six is an empirical policy, not a horizon-optimality
+theorem.
+
+The expanded 24-system development panel at budget six shows a clearer but
+still non-confirmatory signal. With 1024 nested scrambled-Sobol draws,
+Delta-Hull obtains `3.7083` oracle-final confirmations per system versus
+`3.4583` for source margin. The paired exact-system difference is `+0.2500`
+with deterministic bootstrap 95% interval `[+0.0417,+0.5000]`: six systems
+win, seventeen tie and one loses. Source margin leaves 19 confirmations below
+the finite-pool oracle ceiling, of which Delta-Hull recovers six. Causal
+discoveries are tied at `4.3333`; invalidation against the oracle pool falls
+from `0.8750` to `0.6250`, while wall time rises from `1.99` to `22.13` seconds
+per system. Thus the mechanism is more precise final-hull targeting, not more
+transient causal discoveries or cheaper inference.
+
+The higher integration level resolves the effect-level concern without proving
+exact trace convergence. MC512 and MC1024 have the same `+0.2500` discovery
+difference, interval and win/tie/loss counts. They agree on the first action in
+23/24 systems, the complete six-step trace in 21/24 and 134/144 individual
+rounds. The remaining three trace changes do not alter any system's discovery
+difference. MC1024 is therefore frozen for a fresh-split replication; no more
+posterior or acquisition tuning is authorized on these 24 systems. Current
+evidence remains development-only until that replication succeeds.
+
+## 9. Scope and literature boundary
 
 Decision-sufficient representations motivate preserving downstream decisions
 rather than all predictive information. Information sufficiency can be more

@@ -26,6 +26,12 @@ from pymatgen.analysis.structure_matcher import StructureMatcher
 from pymatgen.core import Composition, Element, Lattice, Structure
 from pymatgen.entries.computed_entries import ComputedEntry
 
+from matmem.frozen_structure_encoder import (
+    CHGNET_MODEL_NAME,
+    CHGNET_MODEL_SHA256,
+    FrozenCHGNetCrystalEncoder,
+)
+
 JARVIS_JSONL_SHA256 = "4aab73e44140282757a1c083e6791f37080b3a4d4ed0bad2dc93ec2b8b2bd9c6"
 JARVIS_ZIP_SHA256 = "d4c64660e9e1fa45c82bd8868a96ec10162195eed69636445972c05550d8d0d6"
 MP_CSE_SHA256 = "553d6272f049a8f4ec26e503b89751e2616dd3af53d086545f6ea00f317a361f"
@@ -343,55 +349,25 @@ def _match_pairs(
     }
 
 
-CHGNET_MODEL_NAME = "0.3.0"
-CHGNET_MODEL_SHA256 = "d14ab7c0f093efe64b60a7bcd540bca10e74fb7f46c86108a079af60524659d1"
-
-
 def _attach_source_embeddings(rows: list[dict[str, Any]]) -> dict[str, Any]:
     """Attach frozen CHGNet crystal features from policy-visible source structures."""
 
-    import chgnet
-    import chgnet.model.model as chgnet_model_module
-    from chgnet.model.model import CHGNet
-
-    checkpoint = (
-        Path(chgnet_model_module.module_dir)
-        / "../pretrained/0.3.0/chgnet_0.3.0_e29f68s314m37.pth.tar"
-    ).resolve()
-    checkpoint_sha = _sha256(checkpoint)
-    if checkpoint_sha != CHGNET_MODEL_SHA256:
-        raise ValueError("frozen CHGNet representation checkpoint checksum mismatch")
     structures = [Structure.from_dict(row["_source_structure"]) for row in rows]
-    model = CHGNet.load(model_name=CHGNET_MODEL_NAME, use_device="cpu", verbose=False)
-    predictions = model.predict_structure(
-        structures,
-        task="e",
-        return_crystal_feas=True,
-        batch_size=16,
+    encoder = FrozenCHGNetCrystalEncoder(device="cpu")
+    embeddings = encoder.encode(structures, batch_size=16)
+    for row, embedding in zip(rows, embeddings, strict=True):
+        row["source_environment_embedding"] = tuple(float(value) for value in embedding)
+    metadata = dict(encoder.metadata)
+    metadata.update(
+        {
+            "dimension": embeddings.shape[1],
+            "model_name": CHGNET_MODEL_NAME,
+            "checkpoint_sha256": CHGNET_MODEL_SHA256,
+            "structure_source": "policy-visible JARVIS low-fidelity relaxed structure",
+            "outcomes_used": False,
+        }
     )
-    if not isinstance(predictions, list) or len(predictions) != len(rows):
-        raise RuntimeError("CHGNet representation batch returned an unexpected shape")
-    dimensions: set[int] = set()
-    for row, prediction in zip(rows, predictions, strict=True):
-        embedding = tuple(float(value) for value in prediction["crystal_fea"])
-        if not embedding or not all(math.isfinite(value) for value in embedding):
-            raise ValueError("CHGNet source embedding contains invalid values")
-        dimensions.add(len(embedding))
-        row["source_environment_embedding"] = embedding
-    if len(dimensions) != 1:
-        raise ValueError("CHGNet source embedding dimension is not fixed")
-    return {
-        "encoder": "CHGNet frozen crystal_fea",
-        "model_name": CHGNET_MODEL_NAME,
-        "package_version": chgnet.__version__,
-        "checkpoint_path": str(checkpoint),
-        "checkpoint_sha256": checkpoint_sha,
-        "dimension": dimensions.pop(),
-        "device": "cpu",
-        "structure_source": "policy-visible JARVIS low-fidelity relaxed structure",
-        "target_structure_used": False,
-        "outcomes_used": False,
-    }
+    return metadata
 
 
 def _choose_systems(

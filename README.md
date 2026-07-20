@@ -1,131 +1,119 @@
 # matmem
 
-**Auditable decision state for closed-loop materials discovery.**
+`matmem` studies oracle-isolated, protocol-aware closed-loop materials
+discovery. Every paid target-protocol outcome remains in an append-only archive;
+the live research question is how a calibrated multi-fidelity belief can improve
+target-protocol convex-hull discovery over direct low-fidelity ranking.
 
-The live research question is **Decision-Sufficient Scientific State**: what is
-the least costly observable, protocol-valid online state that preserves the
-scientific decisions available from the complete immutable archive? The next
-materials hypothesis is a Certified Hull-Decision State whose active evidence
-has a legal, uncertainty-aware influence under the target protocol. Its
-all-outcome state, source-environment transport and robust hull-certificate
-algorithm are implemented and tested. The fresh v4 evaluation is a
-method-level NO-GO rather than a positive result.
+## Current status
 
-The corrected CAW-Joint method remains a frozen method-level NO-GO. The current
-real-WBM diagnosis covers two disjoint initial-structure panels: 32 exact
-systems and 683 candidates at `B=8,K=2`. It found and fixed both a parity-energy
-bug and post-DFT relaxed-structure leakage in SOAP. On the corrected panels,
-P3C's pooled Brier difference from GP variance is essentially zero, while CRPS,
-log loss, RMSE, Gaussian NLL, and runtime are worse on average. The fresh
-next-16 panel does not reproduce the earlier weak probability-metric signal.
-P3C is therefore a stopped method-level NO-GO, not a superiority claim. AKSC was
-considered as a separate all-outcome kernel-sketch architecture, but a
-checkpointed B40 compute-relevance gate now rejects it as this paper's WBM main
-method: full-history GP numerical work is at most 0.689% of real round-pipeline
-time, so perfect elimination would yield at most a 1.00694x ideal speedup. WBM
-is consequently the homogeneous, low-compute-cost null regime in which full
-history should remain active. The
-[authoritative experiment and evidence ledger](docs/EXPERIMENT_LEDGER.md) is the
-single required starting point before proposing another method, editing the
-paper's historical account or rerunning an old experiment. It preserves the
-complete CAW-Joint -> DACC -> P3C -> outcome-contribution
-deletion/reference-mismatch -> AKSC -> B40 -> JARVIS--MP v1/v3/v4 chain, evidence
-dispositions, external paths and hashes, invalidated/interrupted/sealed runs,
-recovery tags, statistical boundaries and future authorization rules. Detailed
-technical annexes remain available through its source map; they do not override
-the ledger and must not be deleted until any unique audit content has been
-migrated there. The separate
-[live decision-state specification](docs/DECISION_SUFFICIENT_SCIENTIFIC_STATE.md)
-defines the current paper-facing hypothesis rather than the historical record.
+There is no paper-level positive result yet.
 
-A real JARVIS--MP multi-protocol task has now been constructed from 1,658
-same-material structure-matched pairs. The v1 global-affine evaluation passes
-all oracle/null/replay/no-deletion implementation gates but is a scientific
-NO-GO: held-out transport violations are 45.32%, and the rank-16 state does not
-improve hull decision cost or regret. A fresh v3 composition-aware calibration
-also stops before evaluation because its exact-system-clustered radius is
-0.177264 eV/atom, above the frozen 0.15 ceiling. Its 12 fresh evaluation systems
-remain unopened. See the
-[JARVIS--MP preregistration and frozen results](docs/JARVIS_MP_MULTIFIDELITY_PREREGISTRATION.md).
+- CAW-Joint, DACC, P3C, AKSC and the JARVIS--MP certificate experiments are
+  stopped or historical lines. Their evidence dispositions and recovery points
+  live in [the experiment ledger](docs/EXPERIMENT_LEDGER.md); their retired
+  runners are not compatibility dependencies of the live package.
+- The MatPES 2025.2 audit finds 385,890 exact same-configuration PBE--r2SCAN
+  pairs, including 84,532 pairs with formation energies on both sides. Exact
+  chemical systems and original Materials Project parents, rather than the
+  upstream row split, define development partitions.
+- A causal-hull audit found that the first MatPES runner normalized composition
+  but retained an unnormalized cell total energy. Those earlier closed-loop
+  traces are invalid after their first reveal. Candidates and oracle outcomes
+  now preserve stoichiometric atom count; only policy-facing per-atom
+  compositions are normalized.
+- The coarse transport posterior used a system-balanced linear discrepancy plus
+  one random system intercept. On eight development systems, 88 disjoint fit
+  systems did not make its hull policy competitive with source margin.
+- The current development model is a hierarchical PBE--r2SCAN discrepancy
+  posterior: a system-balanced global delta model, an exact-system random
+  intercept, and a system-local Matérn-5/2 residual process. The global mean
+  uses only PBE observables and normalized element fractions; the local kernel
+  uses a frozen 64-dimensional CHGNet-0.3.0 source-structure representation.
+  Every revealed target outcome conditions the posterior.
+- The resulting method is **Delta-Hull Active Search**: propagate the joint
+  PBE--r2SCAN posterior through the complete target-protocol convex hull, then
+  select the candidate with the largest posterior probability of belonging to
+  that final hull. This is a delayed structured-label problem: the oracle
+  reveals a continuous r2SCAN energy, while the query's value depends jointly
+  on every pool energy and is known only through the final hull. The rule is
+  the exact one-query Bayes action for equal query costs; variable-cost ratio
+  scoring is deliberately rejected.
+- On 24 hash-selected development systems at budget six, the 1024-point nested
+  Sobol implementation obtains `3.7083` oracle-final confirmations per system
+  versus `3.4583` for source margin. The paired exact-system difference is
+  `+0.2500`, with a deterministic bootstrap 95% interval `[+0.0417,+0.5000]`
+  (6 wins, 17 ties, 1 loss). It captures six of the 19 confirmations left
+  between source margin and the finite-pool oracle ceiling. Causal discoveries
+  remain tied at `4.3333`, and wall time rises from `1.99` to `22.13` seconds
+  per system. MC512 and MC1024 give the same system-level discovery effect;
+  their first actions agree in 23/24 systems, complete six-step traces in
+  21/24, and individual rounds in 134/144. This is improved effect-level
+  numerical stability, not exact trace convergence or a paper-level GO. The
+  next gate is replication on a fresh exact-system split with MC1024 frozen.
 
-The v4 continuation replaced hand-built transport rules with frozen
-CHGNet-0.3.0 source-structure features, exact-system conformal calibration,
-all-target-outcome natural parameters and a robust hull LP. It used 210 fresh
-calibration systems and opened 72 disjoint evaluation systems only after the
-decision-level gate passed. Certified decisions were sound whenever the
-simultaneous interval event held, but event coverage was 50/56 supported
-systems (89.29%, below the frozen 90% gate), and the method was significantly
-worse than naive source-as-target on hull error and regret. See the
-[v4 certificate audit](docs/ENVIRONMENT_HULL_CERTIFICATE_2026-07-20.md).
+No opened JARVIS--MP evaluation system is reused for current development, and
+no MatPES result above is a sealed confirmatory evaluation.
 
-## Package overview
+## Live architecture
 
-`src/matmem/` provides:
+- `src/matmem/protocol_closed_loop.py`: typed candidates, observable policy
+  state, append-only action/reveal records, oracle vault, composition-dependent
+  causal hull, and selected-action-only reveal execution.
+- `src/matmem/protocol_knowledge_gradient.py`: system-balanced transport,
+  hierarchical local discrepancy posterior, nested scrambled-Sobol final-hull
+  integration, Delta-Hull Active Search, two-step knowledge-gradient and
+  continuous hull-risk diagnostics.
+- `src/matmem/protocol_policy_worker.py`: oracle-free source, ridge, CHIC and
+  protocol-hull policies in a persistent subprocess.
+- `src/matmem/matpes_data.py`: protocol-neutral MatPES identities and strict
+  same-configuration checks.
+- `tools/audit_matpes_protocol_pairs.py`: complete PBE--r2SCAN pairing and
+  parent/split audit.
+- `tools/build_matpes_protocol_task.py`: composition-aware task construction
+  with a separate target oracle vault.
+- `tools/run_matpes_protocol_closed_loop_exploratory.py`: action-driven MatPES
+  development runner and post-trace causal/final evaluator.
+- `docs/EXPERIMENT_LEDGER.md`: authoritative history for valid, invalidated,
+  incomplete and stopped evidence.
+- `docs/DECISION_SUFFICIENT_SCIENTIFIC_STATE.md`: no-deletion, null-regime and
+  decision-alignment boundary for paper-facing methods.
 
-- `cards`, `identity`, `protocols`: native material records, identity, and compatibility contracts;
-- `activation`, `sufficient_state`: fail-closed protocol influence and
-  fixed-rank linear--Gaussian natural parameters updated by every legal
-  outcome; neither module exposes a capacity/similarity deletion path;
-- `environment_transport`, `hull_certificate`: frozen source-environment
-  directed transport, leverage-scaled clustered intervals, robust
-  stable/unstable/abstain hull LPs and certified action sets;
-- `residual`, `residual_posterior`: certificate-compatible residual retrieval and a fixed-kernel GP over SOAP embeddings;
-- `ceiling_diagnostics`: evaluator-only effective-dimension, residual--kernel
-  alignment, LOO dispersion/coverage, and compute-ceiling checks;
-- `calibration_utility`, `coreset`: fixed-reference proper divergences,
-  asymmetric reference-decision regret, exact online drop-one P3C, and an
-  archive-exact diagnostic; the older facility objective remains an explicit
-  legacy comparator;
-- `acquisition`, `baselines`: oracle-blind acquisition policies and bounded-memory baselines;
-- `hull_engine`, `wbm`, `wbm_secure`: composition-dependent causal hull, WBM artifact audit, and the sole secure real-WBM runner.
+Datasets, checkpoints, oracle vaults, event logs and experiment outputs remain
+outside Git. The repository contains source, tests and small provenance notes
+only.
 
-The repository intentionally contains no downloaded datasets, model checkpoints, or
-raw experiment outputs. It contains aggregate audit/pilot reports, but does not claim
-formal paper results beyond the preliminary engineering pilot.
+## Environment
 
-## Environment and installation
-
-Python 3.11 or newer is required. The maintained development environment is the Conda
-environment named `llm`:
+Python, pytest and Ruff use the `llm` Conda environment locally:
 
 ```powershell
-conda create -n llm python=3.11 -y
 conda run --no-capture-output -n llm python -m pip install -e ".[dev]"
+conda run --no-capture-output -n llm pytest -q
+conda run --no-capture-output -n llm ruff check src tests tools
 ```
 
-## Running the WBM calibration engineering pilot
+Real-data runs execute on the laboratory server with explicit one-thread BLAS
+limits so wall-time comparisons are reproducible. A representative development
+command is:
 
-```powershell
-conda run --no-capture-output -n llm python tools/run_wbm_calibration_engineering_pilot.py --help
+```bash
+PYTHONPATH=src OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 \
+MKL_NUM_THREADS=1 NUMEXPR_NUM_THREADS=1 \
+python tools/run_matpes_protocol_closed_loop_exploratory.py \
+  --task /path/to/matpes-task.json \
+  --development-vault /path/to/development-oracle-vault.json \
+  --output /path/outside/git/result.json \
+  --transport-family hierarchical_matern52_frozen_structure \
+  --posterior-sample-count 128 \
+  --policies source_margin ridge_margin delta_hull_active_search
 ```
 
-Frozen-grid execution requires an external calibration-freeze manifest and the
-matching registered repository config; both hashes are embedded in every trace
-and summary. Real inputs and outputs remain external:
+## Research rule
 
-```powershell
-conda run --no-capture-output -n llm python tools/build_wbm_frozen_grid_manifest.py --help
-conda run --no-capture-output -n llm python tools/run_wbm_frozen_grid.py --help
-```
-
-The old DACC grid was manually paused and is not resumed under P3C. The original
-P3C P1 diagnostic compared legacy facility DACC, joint self-risk, four proper
-projection variants, a theory-fixed zero-decision-regret variant, and GP
-variance under the same frozen GP and acquisition trace. Its immutable summary
-SHA-256 is `4facffd371820bf25678e16e8311bb4c1b7c798f363661c53a1e55102a6109fa`.
-The authoritative follow-up is external to Git at
-`E:\DATA\EviMem-RL\outputs\engineering\wbm-p3c-reference-path-selection-b8-k2-v5`:
-the summary SHA-256 is
-`0d25f251a1d1ede6dc2b63c5e2ed7c8782fde716f984b45d9c93060ea4b2f9b3`
-and the deterministic decomposition SHA-256 is
-`149ed9562d5a6c6d550c550f99711542df2733c58236cc3f7daf802a9461ef1d`.
-Failed `v2`/`v3` attempts have no valid summary and are excluded; `v4` is
-scientifically trace-equivalent but has an incomplete lazy-GP timing definition,
-so only `v5` may be cited. No broader P3C grid or MADE run is authorized.
-
-## Development
-
-```powershell
-conda run --no-capture-output -n llm python -m pytest -q
-conda run --no-capture-output -n llm ruff check .
-```
+Improve the measured failure cause, not the score count. A new paper-facing
+method must keep all outcomes, use exact chemical-system units, preserve
+stoichiometry, isolate the oracle, reduce to direct full-history use in the
+homogeneous zero-cost null, and report causal discovery separately from
+oracle-final confirmation and invalidation. Composition-aware posterior gains
+must replicate across systems before any new acquisition module is added.

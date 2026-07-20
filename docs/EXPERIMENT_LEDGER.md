@@ -1,8 +1,10 @@
 # Authoritative experiment and decision ledger
 
-**Status: paper-level NO-GO after completed v4 evaluation (2026-07-20).** This is the first file a future
-maintainer or coding agent should read before changing the method or launching
-another experiment. It records why the research moved from CAW-Joint to DACC,
+**Status: active hierarchical MatPES protocol-posterior exploration after the
+completed v4 and CHIC NO-GOs (2026-07-21).** There is still no paper-level
+positive method. This is the first file
+a future maintainer or coding agent should read before changing the method or
+launching another experiment. It records why the research moved from CAW-Joint to DACC,
 from DACC to P3C, why P3C exposed outcome-contribution deletion and reference
 mismatch, why AKSC was proposed, why the WBM compute gate stopped AKSC as the
 paper's next main line, and why two real JARVIS--MP transport certificates did
@@ -21,11 +23,10 @@ result, including results that no longer belong in the paper's main text. A
 manuscript edit may move old methods to an appendix or summarize them as an
 ablation, but it must not erase their scientific disposition from this file.
 
-The other files in `docs/` are frozen technical annexes. They may contain
-longer formulas, tables, implementation notes or preregistration details, but
-they do not override this ledger. Before deleting or shortening an annex, all
-unique experiment identity, checksum, correction, failure attribution,
-validity label and stopping decision must first be copied here. Git tags remain
+The remaining files in `docs/` are live scientific or data-contract notes; they
+do not override this ledger. Superseded formulas, configs and runners were
+removed from the live tree after their unique experiment identity, checksum,
+failure attribution and stopping decision were consolidated here. Git tags are
 the recovery mechanism for retired code; restoring an old runner to the live
 architecture is not a preservation mechanism.
 
@@ -70,24 +71,34 @@ JARVIS--MP task confirmed strong same-candidate low-fidelity signal, but a
 global affine certificate violated its held-out radius on 45.32% of pairs and
 a composition-aware certificate exceeded its frozen calibration ceiling before
 fresh evaluation. P3C is stopped, AKSC is not authorized for WBM, and safe
-protocol-aware reuse remains NO-GO under the tested certificates.
+protocol-aware reuse remains NO-GO under the tested certificates. The v4
+runner was subsequently found to use a fixed hash reveal trajectory, so its
+counterfactual action scores did not test active query selection. CHIC changes
+that failed assumption by making the selected action the only oracle reveal
+and by selecting training gradients for an explicitly expensive optimizer.
+Its first calibration-system experiments are executable but remain negative.
+The subsequent MatPES task found and fixed a stoichiometric total-energy defect
+that invalidates its earliest closed-loop traces. On the corrected task, a
+composition-referenced hierarchical discrepancy posterior substantially
+improves energy and hull inference. Delta-Hull Active Search then shows a
+`+0.25` oracle-final confirmation signal on 24 development systems at MC1024.
+The effect is unchanged from MC512 and most action traces agree, but fresh-split
+replication remains absent. That signal is development-only and is not yet a
+paper-level method claim.
 
 ## Current research decision (not an experiment)
 
-The stopping chain does not authorize a fourth posterior approximation. The
-live problem is now **Decision-Sufficient Scientific State**, specified in
-`docs/DECISION_SUFFICIENT_SCIENTIFIC_STATE.md`: preserve the least costly
-observable, protocol-valid state that keeps registered scientific decisions
-within a frozen distortion tolerance of the complete archive. WBM is retained
-as the homogeneous, low-compute-cost null regime, where the correct behavior is
-full history. A positive next experiment requires independently measured
-protocol incompatibility, shift, access/compute cost, or another explicit
-constraint. The all-outcome predictive layer, fail-closed activation path and
-robust hull-decision certificate now exist and pass exact replay, null,
-no-deletion, self-removal and interval-soundness tests. The v4 evaluation
-nevertheless fails the frozen simultaneous-coverage gate and is dominated by
-simpler source reuse. Thus the certificate is a validated selective mechanism,
-not a positive state-compression result.
+The stopping chain does not authorize another outcome-selected posterior
+approximation. CHIC tested a real optimizer-input constraint without deleting
+outcomes, but its JARVIS task did not show an advantage. The active development
+hypothesis is now a scientifically different object: a composition-referenced,
+hierarchical PBE--r2SCAN discrepancy posterior on exact same-configuration
+MatPES pairs, followed by final-target-hull probability. Every paid target
+outcome remains in the archive and conditions the posterior. WBM remains the
+homogeneous low-compute null, and opened JARVIS evaluation systems remain
+closed to development. The decision-sufficient-state definition still governs
+archive, protocol and null behavior; no MatPES superiority claim is currently
+supported.
 
 ## Terminology that must not be blurred
 
@@ -112,7 +123,7 @@ not a positive state-compression result.
 
 ## Evidence-adjudication matrix
 
-This table is the compact judgment layer over experiments E0--E15. Detailed
+This table is the compact judgment layer over experiments E0--E21. Detailed
 paths and hashes appear in the numbered entries below.
 
 | Stage | Evidence disposition | What is established | What is not established | Rerun/continuation rule |
@@ -131,6 +142,11 @@ paths and hashes appear in the numbered entries below.
 | JARVIS--MP v1 | Authoritative negative mechanism result | Real paired signal exists; hard implementation gates pass; global transport and rank-16 state fail | Safe cross-system reuse or a positive compressed-state result | Opened systems are development-closed and cannot calibrate v2+ |
 | JARVIS--MP v3 | Sealed calibration-stage NO-GO | Element offsets reduce but do not certify protocol discrepancy | Any v3 evaluation performance | Keep all 12 evaluation systems sealed; never relax 0.15 retrospectively |
 | Environment-conditional transport + robust hull certificate | Authoritative fresh-system NO-GO | All-outcome correction and robust hull decisions work; inlier certificate soundness holds | Superiority over naive/global source reuse or the frozen 90% interval gate | Evaluation systems are opened and development-closed; do not tune this method on them |
+| CHIC fixed-trace subset | Mechanism diagnostic | Hull-gradient matching is non-degenerate, but it does not beat diversity/hard-example selection | A useful training-compute frontier | Do not tune on these eight systems; change the failed task/model assumption |
+| CHIC action-driven loop | Exploratory negative | Selected actions are sole reveals; causal-hull lookahead improves pure influence but source margin remains stronger | Closed-loop superiority | Use only calibration/development systems until a new task has a real training bottleneck |
+| LeMat PBE/SCAN pair audit | Authoritative data-quality NO-GO | The downloaded Unique configs are intact but have zero ID/fingerprint overlap | Same-structure multi-protocol pairs | Do not pair by formula; use MatPES PBE--r2SCAN instead |
+| MatPES pair/task and stoichiometry audit | Authoritative infrastructure plus historical invalidation | Exact PBE--r2SCAN pairs exist at scale; action-driven reveal works after preserving cell stoichiometry | Any result from the old normalized-composition/total-energy path | Never cite pre-repair MatPES closed-loop traces |
+| Hierarchical MatPES posterior + Delta-Hull Active Search | Promising development signal | Composition/reference correction and a local Matern posterior are non-degenerate; on 24 systems MC512 and MC1024 both improve oracle-final confirmation by `+0.25` per system | Fresh-split superiority, exact trace convergence or a paper-level method claim | Freeze MC1024 and replicate on new exact systems; do not add score blends or tune the opened development panel |
 
 ## Cross-iteration cause judgments
 
@@ -152,6 +168,11 @@ tested rather than inferred from a negative headline.
 | Global transport generalizes across exact systems | Rejected | V1 held-out violation rate is 45.3202%; 88.459% of source--target shift variance lies between systems |
 | Element-only reference correction is sufficient | Rejected at calibration | V3 clustered radius 0.177264 eV/atom exceeds the frozen 0.15 ceiling |
 | Rank-16 failure proves representation compression is intrinsically bad | Unsupported | Rank 16 was not justified by a measured bottleneck and projection RMSE is 0.41698 eV/atom; this is an intentionally restrictive representation, not a lower bound |
+| Early MatPES hull policies fail because their objective is wrong | Unsupported after audit | Their causal hull was corrupted after reveal by attaching a cell total energy to a normalized one-atom composition |
+| More disjoint fit systems rescue the coarse random-intercept posterior | Rejected | Eight query systems with 88 disjoint fit systems still leave source margin stronger and posterior hull acquisition worse |
+| Element reference and local discrepancy are irrelevant | Rejected in development | Element fractions reduce between-system variance and a local Matern posterior materially improves energy and hull errors; claim remains development-only |
+| Source margin leaves no active-search headroom | Rejected on the 24-system development panel | The finite-pool oracle ceiling contains 19 additional budget-feasible confirmations; Delta-Hull recovers six | That the same headroom or capture ratio generalizes to a fresh split | Report ceiling and captured headroom with every future result |
+| MC1024 exactly resolves the derived hull probability | Not established, but effect-level stability improved | MC512/1024 have identical discovery effects; first actions agree in 23/24 systems, complete traces in 21/24 and rounds in 134/144 | Exact trace convergence or fresh-split superiority | Freeze MC1024; carry the residual numerical limitation into fresh-split replication |
 
 ## Manuscript treatment versus evidence preservation
 
@@ -521,6 +542,186 @@ proposal-only. See E15.
   theorem/implementation as a valid mechanism and the result as evidence that
   richer representation alone does not beat simple low-fidelity reuse.
 
+### E16. CHIC fixed-reveal training-subset diagnostic
+
+- External K2 result:
+  `E:\DATA\EviMem-RL\outputs\exploratory\chic-training-subset-8sys-b6-k2-v2.json`,
+  SHA256 `296536123c9bf9e77735981404219e6567c78f18c33ac080e1740d0c7c5016cd`.
+- External K1/rho10 result:
+  `E:\DATA\EviMem-RL\outputs\exploratory\chic-training-subset-8sys-b6-k1-rho10-v1.json`,
+  SHA256 `bbec19d6bb84cfc80b986dc387e7d5cb4cfc6d4fa882cc21a650cd6a383fe759`.
+- Both runs use eight calibration-development exact systems, fixed six-query
+  reveal traces and an MLP pretrained on disjoint calibration-fit systems.
+  Evaluation systems are not accessed.
+- At K2, CHIC/GRAD-MATCH select the same subset in all 48 rounds. CHIC mean MAE,
+  hull error and action regret are `0.042598`, `0.121402`, `0.016965`, versus
+  diversity `0.043014`, `0.116483`, `0.016965` and hard example `0.041720`,
+  `0.118797`, `0.016965`. Mean CHIC gradient evaluations are 79.5 versus 11 for
+  the simple bounded selectors.
+- At K1 with decision-curvature weight 10, CHIC and GRAD-MATCH differ in 6/48
+  rounds, proving non-degenerate hull influence. CHIC still has MAE `0.042890`
+  and hull error `0.121402`; diversity has `0.042999` and `0.111034`, while hard
+  example has `0.042209` and `0.116342`.
+- A later causal-target audit found that this version allowed unqueried
+  predicted candidates to support the decision-gradient hull, whereas the
+  registered online evaluator uses only initial and revealed target phases.
+  The code is corrected, but these results remain a mechanism diagnostic.
+- Claim status: no training-subset advantage; do not tune capacity or curvature
+  on these eight development systems.
+
+### E17. CHIC action-driven closed-loop diagnostic
+
+- First output:
+  `E:\DATA\EviMem-RL\outputs\exploratory\chic-closed-loop-8sys-b6-v1.json`,
+  SHA256 `a961b85212e41d987d5fd1bfb939ef952129d676b42d91d4aa785fe78fa7b608`.
+- Causal-hull corrected output:
+  `E:\DATA\EviMem-RL\outputs\exploratory\chic-closed-loop-8sys-b6-v2.json`,
+  SHA256 `5aaaac9973cd799bee0cf89651b8a9ad2cc3831ee4f83a900209cf92a1b1aad8`.
+- The native runner persists the policy action before reveal, reveals only that
+  ID, appends every target outcome to the archive, and rebuilds the
+  composition-dependent causal hull. Unrevealed outcome perturbations cannot
+  change the first action in failure-capable tests.
+- In v1, pure hull influence has system-macro mean action regret `0.182061`
+  versus ridge uncertainty `0.184915` and source margin `0.107554`. CHIC and
+  uncertainty agree in 44/48 rounds and CHIC loses to source margin in all
+  eight systems.
+- V2 removes unqueried predicted phases from the causal hull and adds two
+  same-predictor controls. Ridge margin obtains regret `0.123046`; a two-step
+  causal-hull lookahead with no hand-mixed exploration weight obtains
+  `0.145319`; pure influence remains `0.182061`; source margin remains best at
+  `0.107554`. Lookahead recovers 1.5 stable discoveries per system, equal to
+  source margin, but beats source margin on only 2/8 systems and is slower
+  (5.922 versus 4.119 seconds per system).
+- Diagnosis: the reveal boundary and hull update are correct. The remaining
+  failure is scientific/model-level: a few within-system labels cannot support
+  a 64-dimensional local correction, pure information acquisition is
+  misaligned with cumulative discovery regret, and the low-fidelity source
+  already gives a very strong ranking.
+- Claim status: exploratory negative. Move to a paired protocol task with a
+  real training-update budget; do not tune the JARVIS systems further.
+
+### E18. LeMat BulkUnique PBE/SCAN pair-key audit
+
+- External output:
+  `E:\DATA\EviMem-RL\outputs\exploratory\lemat-pbe-scan-pair-key-audit-v1.json`,
+  SHA256 `88a1df038bf5d9780f80c88417fd065be33db66189f49e9c351098d22d31743c`.
+- The official snapshot contains 5,005,017 PBE rows in 16 shards and 417,666
+  SCAN rows in two shards, with no missing IDs/fingerprints and no duplicate
+  SCAN IDs/fingerprints.
+- Cross-config intersection is exactly zero for both `immutable_id` and
+  `entalpic_fingerprint`. The Unique configs are internally intact but are
+  mutually deduplicated sets, not paired calculations.
+- Claim status: authoritative data-task NO-GO. Formula-only matching is unsafe.
+  Use the official MatPES PBE/r2SCAN 2025.2 files, which expose a common
+  `matpes_id` and structure record, and audit exact structure equality before
+  any CHIC run.
+
+### E19. MatPES exact-pair task, frozen representation and stoichiometry repair
+
+- Pair audit: 385,890 exact same-configuration PBE--r2SCAN pairs; 84,532 have
+  formation energy on both sides. Audit SHA256
+  `248684a47ee0b08964efb2c00705cdac291516b47524935d90845169194decab`.
+- Frozen development task: 324 exact chemical systems, 10,236 pairs, 16--64
+  selected candidates per system and no repeated original Materials Project
+  parent within a system. Every selected pair has a frozen CHGNet-0.3.0
+  64-dimensional `crystal_fea`. Task SHA256
+  `f43c1ab99995e229edd95b47c834f9e9b439d04fc3de0a369cc6d79f7f74d0df`;
+  checkpoint SHA256
+  `d14ab7c0f093efe64b60a7bcd540bca10e74fb7f46c86108a079af60524659d1`.
+- Development vault SHA256
+  `a272d3a2ce6286443ae6fce35726a688751a37284e3df362c5d1f70e2fcb9952`.
+  Policy state contains PBE structure/energy and protocol identity but never an
+  unrevealed r2SCAN energy or final-hull label.
+- Five PBE structures contain 14 atoms isolated at a 6-Angstrom neighbor
+  cutoff. They are retained and explicitly audited rather than silently
+  filtered after outcomes are inspected.
+- Defect found: the earliest MatPES reveal path normalized a cell composition
+  to one atom but attached the unnormalized cell total energy. Every trace
+  after its first reveal therefore built the wrong causal phase diagram.
+  `ProtocolOracleOutcome` now preserves stoichiometry and the causal hull
+  converts total and per-atom energies consistently.
+- Claim status: authoritative infrastructure plus historical invalidation. No
+  pre-repair MatPES performance number is scientifically usable.
+
+### E20. Hierarchical PBE--r2SCAN posterior development diagnostics
+
+- A system-balanced global discrepancy mean, exact-system random intercept and
+  local Matérn-5/2 process are fitted on systems disjoint from each query
+  system. The mean uses PBE observables and element fractions; the kernel uses
+  the frozen CHGNet source representation. Every revealed target outcome
+  remains in the posterior.
+- Composition-kernel 24-system output SHA256
+  `8466ee6abf4afc208321c850d7826630dcda0102b3a67ae461aa1544e7e648c3`:
+  posterior ranking improves AP/AUC over source margin, but oracle-final
+  confirmations improve only `+0.0833` per system with 95% interval
+  `[-0.1667,+0.3333]`.
+- CHGNet-kernel pseudo-random-MC128 24-system output SHA256
+  `7f8240a6b6e058d885a1bb3f0ace77e0ccf02b8df62c62b4d4989be093b595cb`:
+  oracle-final difference `+0.1667` per system, interval `[0,+0.375]`, with
+  five wins, eighteen ties and one loss. Full traces were numerically unstable
+  under 32/128 sampling, so this is not claim-grade evidence.
+- Nested scrambled-Sobol sampling replaces ordinary pseudo-random Monte Carlo.
+  For the same seed, every power-of-two design is an exact prefix of the next;
+  8-system MC32/128/512 outputs have SHA256 values
+  `8c655340806c424f9d683a7a8e211c5c12619a6779c5bde182618b4c00a88752`,
+  `82caace7f80f9d4e1c4c8c053ed392ebb3dec322c5fe5cce8f706cc3894c9bab`
+  and `a86d5f33361a48acf8f5bf6ede973bf2bbad1c0757dde07e1a4c05c4c0e32193`.
+- Claim status: valid mechanism development. It justifies a larger fixed
+  development panel, not a superiority claim.
+
+### E21. Delta-Hull Active Search, 24-system development panel
+
+- Scientific change: Delta-Hull does not compress or delete outcomes. It
+  propagates the hierarchical protocol posterior through the complete fixed
+  target-protocol hull and, for equal costs, selects the candidate with largest
+  posterior final-hull-membership probability. The target oracle reveals an
+  energy rather than a final label; membership is a delayed structured event
+  coupled through all pool energies. This is the exact one-query Bayes action
+  for the registered reward, not a finite-horizon optimality claim. Unequal
+  costs are rejected rather than handled by an unproved probability/cost
+  ratio.
+- Frozen panel: 24 hash-selected exact systems, budget six, 300 disjoint fit
+  systems/9,405 fit rows, selected-action-only reveal and full-history
+  posterior conditioning. Evaluation systems were not accessed.
+- Sobol MC128 output SHA256
+  `a1cab6edea238fadbf79b050b6063811d87b59a03a1c6ca6bcd2c556ba8bd541`.
+  Delta-Hull obtains `3.6250` oracle-final phases per system versus `3.4583`
+  for source margin; paired difference `+0.1667`, 95% interval
+  `[-0.0833,+0.4167]`.
+- Sobol MC512 output SHA256
+  `f70c444606e06b452087d6b3bce54cdf73a645c4ae2251f6095168e277306c96`.
+  Delta-Hull obtains `3.7083` versus `3.4583`; paired difference `+0.2500`,
+  interval `[+0.0417,+0.5000]`, with 6 wins, 17 ties and 1 loss. Source margin
+  leaves 19 discoveries below the finite-pool budget ceiling; Delta-Hull
+  recovers six (`31.58%`).
+- Sobol MC1024 output SHA256
+  `0d33010093e1385e74a9c8ef263b43699c399bb168441613a6577f1eba5f6c06`.
+  The oracle-final means, paired `+0.2500` difference, bootstrap interval and
+  6/17/1 win/tie/loss counts are identical to MC512. MC512/1024 agree on the
+  first action for 23/24 systems, the full six-step trace for 21/24 and 134/144
+  individual rounds. The three systems with trace changes retain the same
+  system-level discovery difference.
+- These three artifacts were launched from an isolated pre-rename snapshot and
+  record the policy label `protocol_hull_probability`. That implementation is
+  the same posterior final-hull-membership rule now named
+  `delta_hull_active_search`; the live tree retains no compatibility alias.
+  A post-run audit found that the renamed local runner had not added Delta-Hull
+  to its transport-model routing predicate. The isolated runs are unaffected
+  because their old label matched the old `protocol_hull_` predicate. The live
+  routing is corrected and covered by a failure-capable test before any rerun.
+- The effect is narrow and objective-specific. Causal discoveries tie at
+  `4.3333`; final-causal confirmations are `4.1250` versus `4.0417`; oracle-pool
+  invalidation is `0.6250` versus `0.8750`. Prequential energy MAE is worse by
+  `+0.00376` eV/atom, while prequential mean-hull MAE improves by `-0.00145`
+  eV/atom. Wall time is `22.13` versus `1.99` seconds per system.
+- The MC512 effect survives MC1024, so ordinary finite-sample integration noise
+  is no longer the leading explanation for the discovery signal. Exact trace
+  convergence is still false, and the same development systems supplied both
+  levels. This closes only the development effect-stability check.
+- Claim status: promising development signal, not confirmatory evidence and not
+  paper-level GO. Do not add an acquisition blend or tune posterior parameters;
+  freeze MC1024 and test the unchanged method on a fresh exact-system split.
+
 ## Superseded, invalid and incomplete evidence
 
 | Evidence | Required treatment |
@@ -548,33 +749,16 @@ proposal-only. See E15.
 | Composition-dependent causal hull | `1b37686` |
 | DACC implementation | `0fb29eb` |
 | First engineering WBM result | `76b8612` |
+| Complete pre-CHIC v4 NO-GO tree | `decision-state-v4-no-go-2026-07-20` / `c905395` |
 
-## Preserved technical-annex source map
+## Live documents and retired annexes
 
-These annexes remain in Git for exact technical detail. Their status and
-allowed use are governed by this ledger.
-
-| Annex | Preserved content | Authority boundary |
-|---|---|---|
-| `RESEARCH_ITERATION_HISTORY.md` | Narrative CAW--DACC--P3C--AKSC chronology and retired-code recovery guidance | Historical annex; this ledger controls current status |
-| `WBM_CALIBRATION_CORESET_AMENDMENT.md` | P3C equations, neighborhood search, proper-divergence variants and P1 follow-up | Stopped-method specification, not an active method |
-| `WBM_ENGINEERING_P1_P15_AND_PILOT.md` | Infrastructure gates, DACC/joint-risk/P3C engineering tables and frozen calibration details | Mixed historical/diagnostic evidence; validity labels here prevail |
-| `P3C_FAILURE_ATTRIBUTION_2026-07-20.md` | Code/data/method/theory decomposition and 32-system corrected replication | Technical support for E8--E11 |
-| `AKSC_CEILING_DIAGNOSTIC_2026-07-20.md` | Effective dimension, reference dispersion and proposed all-outcome architecture | Diagnostic/proposal annex; B40 later stops WBM AKSC |
-| `WBM_LONG_ARCHIVE_COMPUTE_GATE_2026-07-20.md` | Checkpointed B40 timing and Amdahl decision | Technical support for E12 |
-| `WBM_DATA_LICENSE_AND_INFRASTRUCTURE_AUDIT.md` | WBM/MP/CHGNet license, artifact, parity and oracle-boundary provenance | Infrastructure evidence only |
-| `JARVIS_MP_MULTIFIDELITY_PREREGISTRATION.md` | Real pair construction, v1 result, v3 calibration and immutable hashes | Technical support for E13--E14 |
-| `ENVIRONMENT_HULL_CERTIFICATE_2026-07-20.md` | Natural v4 method, theorem, fresh split, calibration/evaluation hashes and validation report | Technical support for E15 |
-| `DECISION_SUFFICIENT_SCIENTIFIC_STATE.md` | Current formal problem, alignment gates and paper-facing method boundary | Live specification; not a positive result |
-
-If an annex is later removed from the active branch, its last commit/tag and
-all unique audit facts must first be recorded in this table and in the relevant
-numbered evidence entry. Manuscript page pressure is never a reason to destroy
-the research audit trail.
-
-The live package keeps the secure WBM path, P3C/legacy selectors as audited
-diagnostics, fixed-GP components and failure-capable tests. Removed historical
-runners are intentionally absent. Do not add compatibility adapters or copy old
+The live tree keeps this ledger, the decision-sufficient-state definition, the
+WBM data/license audit and the reusable robust-hull certificate note. The
+duplicated CAW/DACC/P3C/AKSC/WBM-grid and JARVIS v1/v3 preregistration annexes,
+their configs and their executable runners were retired on 2026-07-21. Their
+last complete state is tag `decision-state-v4-no-go-2026-07-20`; E0--E21 above
+retain the claim-relevant counts, hashes and dispositions. Do not copy those
 executors back into `src/matmem`.
 
 ## Rules before any new method or experiment
@@ -588,8 +772,9 @@ executors back into `src/matmem`.
    contributes to the deployed posterior.
 5. Measure a real bottleneck before proposing compression. A fixed-probe speedup
    cannot substitute for end-to-end Amdahl relevance.
-6. Freeze calibration systems, parameters, estimands and stopping rules before
-   evaluation outcomes are opened.
+6. Exploration may iterate on calibration/development systems. Before any
+   confirmatory evaluation is opened, freeze the method, systems, estimands and
+   stopping rule and use a fresh split.
 7. Preserve negative and interrupted artifacts; never overwrite, combine or
    silently relabel them.
 8. A conformal absolute-error radius is not a Gaussian standard deviation.
