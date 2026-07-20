@@ -1,19 +1,37 @@
 # matmem
 
-**Decision-aware calibration coresets and protocol-aware residual memory for materials discovery.**
+**Auditable sequential residual modeling for materials discovery.**
 
-The current paper-facing hypothesis is a **Decision-Aware Calibration Coreset (DACC)**
-for a frozen materials predictor. `K` bounds the residual witnesses used for online
-calibration; every revealed DFT result remains in an immutable audit archive. Real-WBM
-execution uses one allow-listed subprocess policy path, an oracle-isolated reveal
-boundary, and a composition-dependent causal hull.
+The most recently tested paper-facing hypothesis is **P3C (Proper Posterior-Projection Coreset)**
+for a frozen materials predictor. After one new result is legally revealed,
+P3C treats the posterior conditioned on the current active set plus that
+new witness as a fixed reference distribution. It exactly selects the allowed
+size-`K` drop-one subset that minimizes a proper-score divergence from that
+reference. Every revealed DFT result remains in an immutable audit archive.
 
-The corrected CAW-Joint method remains a frozen method-level NO-GO. The small WBM
-matched-trace pilot gives preliminary DACC mechanism evidence, not a superiority
-claim; survival-conditioned acquisition is currently negative and paused. See the
-[current DACC specification](docs/WBM_CALIBRATION_CORESET_AMENDMENT.md),
-[engineering WBM result](docs/WBM_ENGINEERING_P1_P15_AND_PILOT.md), and
-[research iteration history](docs/RESEARCH_ITERATION_HISTORY.md).
+The corrected CAW-Joint method remains a frozen method-level NO-GO. The current
+real-WBM diagnosis covers two disjoint initial-structure panels: 32 exact
+systems and 683 candidates at `B=8,K=2`. It found and fixed both a parity-energy
+bug and post-DFT relaxed-structure leakage in SOAP. On the corrected panels,
+P3C's pooled Brier difference from GP variance is essentially zero, while CRPS,
+log loss, RMSE, Gaussian NLL, and runtime are worse on average. The fresh
+next-16 panel does not reproduce the earlier weak probability-metric signal.
+P3C therefore remains a method-level NO-GO, not a superiority claim. AKSC was
+considered as a separate all-outcome kernel-sketch architecture, but a
+checkpointed B40 compute-relevance gate now rejects it as this paper's WBM main
+method: full-history GP numerical work is at most 0.689% of real round-pipeline
+time, so perfect elimination would yield at most a 1.00694x ideal speedup. See the
+[current P3C specification](docs/WBM_CALIBRATION_CORESET_AMENDMENT.md),
+[engineering WBM result](docs/WBM_ENGINEERING_P1_P15_AND_PILOT.md),
+[code/data/method/theory attribution](docs/P3C_FAILURE_ATTRIBUTION_2026-07-20.md),
+[fixed-GP/AKSC ceiling audit](docs/AKSC_CEILING_DIAGNOSTIC_2026-07-20.md),
+[long-archive compute-relevance gate](docs/WBM_LONG_ARCHIVE_COMPUTE_GATE_2026-07-20.md), and
+[research iteration history](docs/RESEARCH_ITERATION_HISTORY.md). The
+[authoritative experiment and decision ledger](docs/EXPERIMENT_LEDGER.md) is the
+required starting point before proposing another method or rerunning an old
+experiment. It records the complete DACC -> P3C -> outcome-contribution
+deletion/reference-mismatch -> AKSC -> B40 stopping chain, external artifact
+paths, hashes, invalidated runs and recovery tags.
 
 ## Package overview
 
@@ -21,8 +39,12 @@ claim; survival-conditioned acquisition is currently negative and paused. See th
 
 - `cards`, `identity`, `protocols`: native material records, identity, and compatibility contracts;
 - `residual`, `residual_posterior`: certificate-compatible residual retrieval and a fixed-kernel GP over SOAP embeddings;
-- `calibration_utility`, `coreset`: decision-aware calibration coresets under
-  `F_t(M)=sum_u max_m G_t(u,m)` with exact streaming one-swap updates;
+- `ceiling_diagnostics`: evaluator-only effective-dimension, residual--kernel
+  alignment, LOO dispersion/coverage, and compute-ceiling checks;
+- `calibration_utility`, `coreset`: fixed-reference proper divergences,
+  asymmetric reference-decision regret, exact online drop-one P3C, and an
+  archive-exact diagnostic; the older facility objective remains an explicit
+  legacy comparator;
 - `acquisition`, `baselines`: oracle-blind acquisition policies and bounded-memory baselines;
 - `hull_engine`, `wbm`, `wbm_secure`: composition-dependent causal hull, WBM artifact audit, and the sole secure real-WBM runner.
 
@@ -46,17 +68,29 @@ conda run --no-capture-output -n llm python -m pip install -e ".[dev]"
 conda run --no-capture-output -n llm python tools/run_wbm_calibration_engineering_pilot.py --help
 ```
 
-The frozen exact-system grid is constructed and executed with external
-manifests and outputs only:
+Frozen-grid execution requires an external calibration-freeze manifest and the
+matching registered repository config; both hashes are embedded in every trace
+and summary. Real inputs and outputs remain external:
 
 ```powershell
 conda run --no-capture-output -n llm python tools/build_wbm_frozen_grid_manifest.py --help
 conda run --no-capture-output -n llm python tools/run_wbm_frozen_grid.py --help
 ```
 
-The grid uses `B={4,8,12}`, valid `K={1,2,4}`, all candidates from each selected
-exact chemical system, GP variance as the primary calibration baseline, and
-joint-posterior risk only in the two frozen sentinel cells. Survival is absent.
+The old DACC grid was manually paused and is not resumed under P3C. The original
+P3C P1 diagnostic compared legacy facility DACC, joint self-risk, four proper
+projection variants, a theory-fixed zero-decision-regret variant, and GP
+variance under the same frozen GP and acquisition trace. Its immutable summary
+SHA-256 is `4facffd371820bf25678e16e8311bb4c1b7c798f363661c53a1e55102a6109fa`.
+The authoritative follow-up is external to Git at
+`E:\DATA\EviMem-RL\outputs\engineering\wbm-p3c-reference-path-selection-b8-k2-v5`:
+the summary SHA-256 is
+`0d25f251a1d1ede6dc2b63c5e2ed7c8782fde716f984b45d9c93060ea4b2f9b3`
+and the deterministic decomposition SHA-256 is
+`149ed9562d5a6c6d550c550f99711542df2733c58236cc3f7daf802a9461ef1d`.
+Failed `v2`/`v3` attempts have no valid summary and are excluded; `v4` is
+scientifically trace-equivalent but has an incomplete lazy-GP timing definition,
+so only `v5` may be cited. No broader P3C grid or MADE run is authorized.
 
 ## Development
 

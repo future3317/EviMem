@@ -19,11 +19,15 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
+import ijson
 import numpy as np
 
 TOOLS_DIR = Path(__file__).resolve().parent
 if str(TOOLS_DIR) not in sys.path:
     sys.path.insert(0, str(TOOLS_DIR))
+SRC_ROOT = TOOLS_DIR.parent / "src"
+if str(SRC_ROOT) not in sys.path:
+    sys.path.insert(0, str(SRC_ROOT))
 
 from audit_wbm_official_artifacts import _load_ppd_read_only  # noqa: E402
 from build_wbm_candidate_parity_audit import (  # noqa: E402
@@ -32,6 +36,8 @@ from build_wbm_candidate_parity_audit import (  # noqa: E402
     STRICT_TOLERANCE_EV_PER_ATOM,
     _repair_historical_composition_interface,
 )
+
+from matmem.identity import StructureStage, WBMStructureSourceField  # noqa: E402
 
 NEAR_HULL_EV_PER_ATOM = 0.05
 
@@ -52,16 +58,21 @@ def _require_external(path: Path, repo_root: Path) -> None:
 def _pool_index(payload: dict[str, Any]) -> tuple[dict[str, str], set[tuple[str, ...]]]:
     by_id: dict[str, str] = {}
     systems: set[tuple[str, ...]] = set()
-    for pool_name, pool in payload["selection"]["pools"].items():
+    pools = payload["selection"]["pools"]
+    if not pools:
+        raise ValueError("engineering gate requires at least one exact-system pool")
+    for pool_name, pool in pools.items():
         system = tuple(sorted(pool["chemical_system"]))
+        if system in systems:
+            raise ValueError(f"exact chemical system is split across pools: {system}")
         systems.add(system)
+        if not pool["candidates"]:
+            raise ValueError(f"empty exact-system pool: {pool_name}")
         for candidate in pool["candidates"]:
             query_id = candidate["query_id"]
             if query_id in by_id:
                 raise ValueError(f"duplicate frozen query ID: {query_id}")
             by_id[query_id] = pool_name
-    if len(by_id) != 128 or len(systems) != 8:
-        raise ValueError("engineering amendment requires eight disjoint 16-candidate pools")
     return by_id, systems
 
 
@@ -83,6 +94,16 @@ def validate_engineering_p1(
         raise ValueError("parity rows do not exactly match the frozen pool IDs")
     if set(soap_payload["pool_by_id"]) != set(pool_by_id):
         raise ValueError("SOAP manifest does not exactly match the frozen pool IDs")
+    expected_structure_ids = {
+        candidate["query_id"]: "byte-identical:" + candidate["exact_structure_sha256"]
+        for pool in pool_payload["selection"]["pools"].values()
+        for candidate in pool["candidates"]
+    }
+    if any(
+        parity_by_id[query_id].get("canonical_structure_id") != structure_id
+        for query_id, structure_id in expected_structure_ids.items()
+    ):
+        raise ValueError("parity audit is not bound to the frozen initial-structure identities")
     if set(soap_query_ids) != set(pool_by_id) or len(soap_query_ids) != len(set(soap_query_ids)):
         raise ValueError("SOAP cache IDs do not uniquely match the frozen pool IDs")
     if soap_vectors.shape[0] != len(pool_by_id) or soap_vectors.ndim != 2:
@@ -92,6 +113,12 @@ def validate_engineering_p1(
         raise ValueError("SOAP vectors must be finite and unit-normalized")
     if soap_payload["cache_sha256"] != soap_cache_sha256:
         raise ValueError("SOAP cache checksum differs from its manifest")
+    if soap_payload.get("structure_stage") != StructureStage.INITIAL.value:
+        raise ValueError("SOAP cache must use WBM initial structures, not relaxed CSE structures")
+    if soap_payload.get("causal_available_before_query") is not True:
+        raise ValueError("SOAP structure source must be observable before oracle reveal")
+    if soap_payload.get("structure_source_field") != WBMStructureSourceField.ORIGINAL.value:
+        raise ValueError("SOAP cache must bind the official WBM org initial-structure field")
 
     form_diffs = [
         abs(
@@ -123,9 +150,17 @@ def validate_engineering_p1(
     )
     return {
         "engineering_p1_passed": passed,
+        "cross_environment_diagnostic_passed": passed,
+        "frozen_parity_replay_passed": True,
+        "policy_oracle_energy_source": (
+            "parity_corrected_formation_energy_ev_per_atom; modern replay is diagnostic only"
+        ),
         "claim_scope": "fixed_historical_pipeline_wbm_replay",
         "official_energy_reproduction_claim_permitted": False,
-        "identity_level": "byte_identical_relaxed_cse_structure_engineering_only",
+        "identity_level": "byte_identical_initial_wbm_structure_engineering_only",
+        "soap_structure_stage": StructureStage.INITIAL.value,
+        "soap_causal_available_before_query": True,
+        "soap_structure_source_field": WBMStructureSourceField.ORIGINAL.value,
         "claim_grade_identity_passed": False,
         "claim_grade_identity_blockers": [
             "primitive_conventional_cell_invariant_matching_pending",
@@ -164,25 +199,28 @@ def _load_exact_system_universe(
 
     selected: dict[tuple[str, ...], list[Any]] = defaultdict(list)
     for step, expected_count in enumerate(STEP_COUNTS, start=1):
-        with bz2.open(raw_root / f"step_{step}.json.bz2", "rt", encoding="utf-8") as handle:
-            entries = json.load(handle).get("entries")
-        if not isinstance(entries, list) or len(entries) != expected_count:
+        entry_count = 0
+        with bz2.open(raw_root / f"step_{step}.json.bz2", "rb") as handle:
+            entries = ijson.items(handle, "entries.item", use_float=True)
+            for index, raw_entry in enumerate(entries, start=1):
+                entry_count = index
+                if not isinstance(raw_entry, dict):
+                    raise ValueError(f"invalid WBM step-{step} entry at index {index}")
+                query_id = f"wbm-{step}-{index}"
+                if query_id not in cleaned_ids:
+                    continue
+                system = tuple(sorted(str(item) for item in raw_entry["composition"]))
+                if system not in systems:
+                    continue
+                copied = json.loads(json.dumps(raw_entry))
+                copied["entry_id"] = query_id
+                parameters = copied.get("parameters")
+                if not isinstance(parameters, dict) or "is_hubbard" not in parameters:
+                    raise ValueError(f"missing WBM calculation parameters for {query_id}")
+                parameters["run_type"] = "GGA+U" if parameters["is_hubbard"] else "GGA"
+                selected[system].append(ComputedStructureEntry.from_dict(copied))
+        if entry_count != expected_count:
             raise ValueError(f"unexpected WBM step-{step} entry count")
-        for index, raw_entry in enumerate(entries, start=1):
-            query_id = f"wbm-{step}-{index}"
-            if query_id not in cleaned_ids:
-                continue
-            system = tuple(sorted(str(item) for item in raw_entry["composition"]))
-            if system not in systems:
-                continue
-            copied = json.loads(json.dumps(raw_entry))
-            copied["entry_id"] = query_id
-            parameters = copied.get("parameters")
-            if not isinstance(parameters, dict) or "is_hubbard" not in parameters:
-                raise ValueError(f"missing WBM calculation parameters for {query_id}")
-            parameters["run_type"] = "GGA+U" if parameters["is_hubbard"] else "GGA"
-            selected[system].append(ComputedStructureEntry.from_dict(copied))
-        del entries
         gc.collect()
     if set(selected) != systems:
         raise ValueError("one or more frozen exact systems have no cleaned WBM universe")
@@ -360,7 +398,7 @@ def main() -> None:
         "p1_5": p15,
         "execution_effect": {
             "engineering_runner_smoke": bool(
-                p1["engineering_p1_passed"]
+                p1["frozen_parity_replay_passed"]
                 and p15["engineering_p1_5_support_present"]
             ),
             "comparative_claim_grade_matrix": False,

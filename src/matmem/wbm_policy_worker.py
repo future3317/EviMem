@@ -39,6 +39,7 @@ def _material_views(
         MaterialQuery(
             query_id=item.query_id,
             structure_hash=item.structure_hash,
+            structure_identity=item.structure_identity,
             identity=MaterialIdentity(
                 exact_calculation_id=f"policy:{item.query_id}",
                 canonical_structure_id=f"policy:{item.structure_hash}",
@@ -75,8 +76,9 @@ def _material_views(
     witnesses = tuple(
         MaterialMemoryCard(
             card_id=item.witness_id,
-            material_id=item.witness_id,
+            material_id=item.material_id,
             structure_hash=item.structure_hash,
+            structure_identity=item.structure_identity,
             identity=MaterialIdentity(
                 exact_calculation_id=f"policy:{item.witness_id}",
                 canonical_structure_id=f"policy:{item.structure_hash}",

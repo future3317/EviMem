@@ -17,6 +17,7 @@ from matmem import (
     HullSnapshot,
     MaterialIdentity,
     MaterialQuery,
+    OracleEnergySource,
     PersistentFIFOEvidence,
     PolicyState,
     PolicySubprocess,
@@ -25,6 +26,7 @@ from matmem import (
     SecureWBMRunner,
     StreamingCalibrationCoreset,
     StreamingCoresetEvidence,
+    StructureArtifactIdentity,
     WBMOracleRecord,
     WBMOracleVault,
     assert_exact_emulation,
@@ -74,6 +76,9 @@ def _query(
     return MaterialQuery(
         query_id=query_id,
         structure_hash=f"structure-{query_id}",
+        structure_identity=StructureArtifactIdentity.initial(
+            query_id, f"structure-{query_id}"
+        ),
         identity=MaterialIdentity(
             exact_calculation_id=query_id,
             canonical_structure_id=f"canonical-{query_id}",
@@ -130,6 +135,7 @@ def _fixture(
         WBMOracleRecord(
             query_id=query.query_id,
             structure_hash=query.structure_hash,
+            energy_source=OracleEnergySource.FROZEN_PARITY_CORRECTED,
             corrected_total_energy_ev=totals[query.query_id],
             corrected_formation_energy_ev_per_atom=formations[query.query_id],
             source_record_locator=query.query_id,
@@ -141,6 +147,7 @@ def _fixture(
         CorrectedPhaseEntry(
             query_id=query_id,
             corrected_total_energy_ev=totals[query_id],
+            energy_source=OracleEnergySource.FROZEN_PARITY_CORRECTED,
             entry=entries[query_id],
         )
         for query_id in ("q1", "q2", "q3")
@@ -247,6 +254,29 @@ def test_unqueried_oracle_counterfactual_cannot_change_actions(tmp_path: Path) -
         second_formation_energy=0.40,
     )
     assert baseline.selected_query_ids == changed.selected_query_ids
+    assert baseline.events[0].pre_reveal_state_checksum == changed.events[0].pre_reveal_state_checksum
+    assert baseline.events[0].action_checksum == changed.events[0].action_checksum
+
+
+def test_nonparity_energy_cannot_enter_hull_or_oracle_vault() -> None:
+    queries, records, entries, _ = _fixture()
+    with pytest.raises(ValueError, match="frozen parity energy"):
+        CorrectedPhaseEntry(
+            query_id="modern",
+            corrected_total_energy_ev=-17.0,
+            energy_source="modern_environment",  # type: ignore[arg-type]
+            entry=_entry("modern", "FeZr", -17.0),
+        )
+    invalid = records[0].model_dump(mode="json")
+    invalid["energy_source"] = "modern_environment"
+    with pytest.raises(ValueError, match="energy_source"):
+        WBMOracleRecord.model_validate(invalid)
+    with pytest.raises(ValueError, match="frozen parity energy"):
+        WBMOracleVault(
+            (records[0].model_copy(update={"energy_source": "modern_environment"}),),
+            {records[0].query_id: entries[records[0].query_id]},
+            source_version="forbidden-modern-source",
+        )
 
 
 def test_budget_prefix_parity_changes_only_state_checksum_not_behavior(tmp_path: Path) -> None:
@@ -415,11 +445,13 @@ def test_three_hulls_distinguish_selected_and_oracle_final() -> None:
     selected = CorrectedPhaseEntry(
         query_id="selected",
         corrected_total_energy_ev=-17.2,
+        energy_source=OracleEnergySource.FROZEN_PARITY_CORRECTED,
         entry=ComputedEntry("FeZr", -17.2, entry_id="selected"),
     )
     hidden = CorrectedPhaseEntry(
         query_id="hidden",
         corrected_total_energy_ev=-17.6,
+        energy_source=OracleEnergySource.FROZEN_PARITY_CORRECTED,
         entry=ComputedEntry("FeZr", -17.6, entry_id="hidden"),
     )
     causal.add_revealed(selected)

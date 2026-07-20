@@ -190,8 +190,9 @@ class SurvivalConditionedAcquisition:
 
         return MaterialMemoryCard(
             card_id=f"fantasy:{query.query_id}:{index}",
-            material_id=f"fantasy:{query.query_id}",
+            material_id=query.query_id,
             structure_hash=query.structure_hash,
+            structure_identity=query.structure_identity,
             identity=query.identity,
             composition=query.composition,
             embedding=query.embedding,

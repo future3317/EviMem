@@ -14,3 +14,7 @@
 - Prefer maintained libraries such as Pydantic, NumPy, SciPy, scikit-learn,
   pymatgen, and dscribe over local reimplementations.
 - Do not introduce legacy EviPGCE compatibility adapters.
+- Before changing a method, restoring a runner or launching an experiment, read
+  `docs/EXPERIMENT_LEDGER.md`. Respect its superseded/invalid/incomplete result
+  labels and do not repeat a stopped line without stating which failed
+  assumption and gate have changed.

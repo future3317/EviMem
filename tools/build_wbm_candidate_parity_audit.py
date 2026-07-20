@@ -336,15 +336,18 @@ def merge(args: argparse.Namespace) -> None:
     parity_rows = {row["query_id"]: row for row in parity["rows"]}
     if set(modern_rows) != set(parity_rows) or not modern_rows:
         raise ValueError("modern and parity candidate sets differ")
+    pool_rows = _pool_rows(args.pool_manifest)
+    if set(pool_rows) != set(parity_rows):
+        raise ValueError("pool manifest and parity candidate sets differ")
     rows = []
     for query_id in sorted(parity_rows):
         current, historic = modern_rows[query_id], parity_rows[query_id]
         row = {
             "query_id": query_id,
-            "exact_chemsys": historic["exact_chemsys"],
-            "canonical_structure_id": historic["canonical_structure_id"],
-            "prototype_cluster_id": historic["prototype_cluster_id"],
-            "mp_overlap_group": historic["mp_overlap_group"],
+            "exact_chemsys": pool_rows[query_id]["exact_chemsys"],
+            "canonical_structure_id": pool_rows[query_id]["canonical_structure_id"],
+            "prototype_cluster_id": pool_rows[query_id]["prototype_cluster_id"],
+            "mp_overlap_group": pool_rows[query_id]["mp_overlap_group"],
             "official_prediction_ev_per_atom": historic[
                 "official_prediction_ev_per_atom"
             ],
@@ -400,6 +403,7 @@ def merge(args: argparse.Namespace) -> None:
             OFFICIAL_ROUNDING_TOLERANCE_EV_PER_ATOM
         ),
         "candidate_count": len(rows),
+        "pool_manifest_sha256": _sha256(args.pool_manifest),
         "rows": rows,
     }
     args.output.parent.mkdir(parents=True, exist_ok=True)
@@ -426,6 +430,7 @@ def main() -> None:
     build_parser.add_argument("--predictions", type=Path)
     build_parser.add_argument("--output", type=Path, required=True)
     merge_parser = subparsers.add_parser("merge")
+    merge_parser.add_argument("--pool-manifest", type=Path, required=True)
     merge_parser.add_argument("--modern-input", type=Path, required=True)
     merge_parser.add_argument("--parity-input", type=Path, required=True)
     merge_parser.add_argument("--output", type=Path, required=True)

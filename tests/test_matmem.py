@@ -26,6 +26,7 @@ from matmem import (
     ScreeningDecision,
     SourceProvenance,
     StreamingCalibrationCoreset,
+    StructureArtifactIdentity,
 )
 
 
@@ -82,6 +83,9 @@ def _query(
     return MaterialQuery(
         query_id=query_id,
         structure_hash=f"structure-{query_id}",
+        structure_identity=StructureArtifactIdentity.initial(
+            query_id, f"structure-{query_id}"
+        ),
         identity=MaterialIdentity(
             exact_calculation_id=f"calculation-{query_id}",
             canonical_structure_id=f"canonical-{query_id}",
@@ -108,6 +112,9 @@ def _card(
         card_id=card_id,
         material_id=f"mp-{card_id}",
         structure_hash=f"structure-{card_id}",
+        structure_identity=StructureArtifactIdentity.initial(
+            f"mp-{card_id}", f"structure-{card_id}"
+        ),
         identity=MaterialIdentity(
             exact_calculation_id=f"calculation-{card_id}",
             canonical_structure_id=f"canonical-{card_id}",
@@ -277,7 +284,7 @@ def test_coreset_selects_a_costly_false_stable_near_miss_not_a_redundant_card() 
     )
     assert selection.selected_card_ids == ("near-miss",)
     assert selection.objective_value > 0
-    assert selection.selected_decision_risk < selection.baseline_decision_risk
+    assert selection.facility_proxy_risk < selection.baseline_decision_risk
 
 
 def test_redundant_failure_kill_test_preserves_distinct_risk_coverage() -> None:

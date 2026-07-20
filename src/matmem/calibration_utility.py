@@ -4,11 +4,277 @@ from __future__ import annotations
 
 from collections.abc import Collection, Iterable, Sequence
 from dataclasses import dataclass
+from typing import Literal
 
 import numpy as np
+from scipy.special import ndtr
 
 from .cards import MaterialMemoryCard, MaterialQuery
-from .residual_posterior import FixedKernelResidualGP
+from .residual_posterior import FixedKernelResidualGP, ResidualPrediction
+
+
+def _readonly_vector(values: Iterable[float], *, name: str) -> np.ndarray:
+    vector = np.asarray(tuple(values), dtype=float)
+    if vector.ndim != 1 or not np.all(np.isfinite(vector)):
+        raise ValueError(f"{name} must be a finite one-dimensional vector")
+    vector = vector.copy()
+    vector.setflags(write=False)
+    return vector
+
+
+@dataclass(frozen=True)
+class ReferencePosteriorSnapshot:
+    """A fixed full-evidence posterior shared by every candidate subset."""
+
+    query_ids: tuple[str, ...]
+    mean_ev_per_atom: np.ndarray
+    std_ev_per_atom: np.ndarray
+    stable_probability: np.ndarray
+    residual_threshold_ev_per_atom: np.ndarray
+
+    def __post_init__(self) -> None:
+        if len(set(self.query_ids)) != len(self.query_ids):
+            raise ValueError("reference posterior query IDs must be unique")
+        for field in (
+            "mean_ev_per_atom",
+            "std_ev_per_atom",
+            "stable_probability",
+            "residual_threshold_ev_per_atom",
+        ):
+            vector = _readonly_vector(getattr(self, field), name=field)
+            if len(vector) != len(self.query_ids):
+                raise ValueError("reference posterior vectors must match query IDs")
+            object.__setattr__(self, field, vector)
+        if np.any(self.std_ev_per_atom <= 0):
+            raise ValueError("reference posterior standard deviations must be positive")
+        if np.any((self.stable_probability < 0) | (self.stable_probability > 1)):
+            raise ValueError("reference posterior probabilities must lie in [0, 1]")
+
+    @classmethod
+    def from_prediction(
+        cls,
+        queries: Sequence[MaterialQuery],
+        prediction: ResidualPrediction,
+    ) -> ReferencePosteriorSnapshot:
+        items = tuple(queries)
+        query_ids = tuple(item.query_id for item in items)
+        if prediction.query_ids != query_ids:
+            raise ValueError("reference prediction order does not match the query pool")
+        return cls(
+            query_ids=query_ids,
+            mean_ev_per_atom=np.asarray(prediction.mean_ev_per_atom),
+            std_ev_per_atom=np.asarray(prediction.std_ev_per_atom),
+            stable_probability=np.asarray(prediction.stable_probability),
+            residual_threshold_ev_per_atom=np.asarray(
+                [
+                    item.stability_threshold_ev_per_atom
+                    - item.base_hull_distance_ev_per_atom
+                    for item in items
+                ]
+            ),
+        )
+
+
+def bernoulli_brier_divergence(
+    reference_probability: float,
+    candidate_probability: float,
+) -> float:
+    """Strictly proper Brier excess risk for a Bernoulli forecast."""
+
+    if not 0 <= reference_probability <= 1 or not 0 <= candidate_probability <= 1:
+        raise ValueError("Bernoulli probabilities must lie in [0, 1]")
+    return float((candidate_probability - reference_probability) ** 2)
+
+
+def bernoulli_log_divergence(
+    reference_probability: float,
+    candidate_probability: float,
+    *,
+    clip: float = 1e-12,
+) -> float:
+    """Bernoulli KL induced by the proper logarithmic score."""
+
+    if not 0 <= reference_probability <= 1 or not 0 <= candidate_probability <= 1:
+        raise ValueError("Bernoulli probabilities must lie in [0, 1]")
+    if not 0 < clip < 0.5:
+        raise ValueError("probability clip must lie in (0, 0.5)")
+    q = float(np.clip(reference_probability, clip, 1 - clip))
+    p = float(np.clip(candidate_probability, clip, 1 - clip))
+    value = q * np.log(q / p) + (1 - q) * np.log((1 - q) / (1 - p))
+    return float(max(0.0, value))
+
+
+def gaussian_kl_divergence(
+    reference_mean: float,
+    reference_std: float,
+    candidate_mean: float,
+    candidate_std: float,
+) -> float:
+    """KL(N_reference || N_candidate), including mean and scale fidelity."""
+
+    values = (reference_mean, reference_std, candidate_mean, candidate_std)
+    if not all(np.isfinite(values)) or min(reference_std, candidate_std) <= 0:
+        raise ValueError("Gaussian moments must be finite with positive scales")
+    value = (
+        np.log(candidate_std / reference_std)
+        + (reference_std**2 + (reference_mean - candidate_mean) ** 2)
+        / (2 * candidate_std**2)
+        - 0.5
+    )
+    return float(max(0.0, value))
+
+
+def threshold_weighted_crps_divergence(
+    reference_mean: float,
+    reference_std: float,
+    candidate_mean: float,
+    candidate_std: float,
+    *,
+    threshold: float,
+    bandwidth: float,
+    weight_floor: float = 0.05,
+    quadrature_points: int = 257,
+) -> float:
+    """Deterministic threshold-weighted CRPS divergence for two Gaussians."""
+
+    values = (
+        reference_mean,
+        reference_std,
+        candidate_mean,
+        candidate_std,
+        threshold,
+        bandwidth,
+        weight_floor,
+    )
+    if not all(np.isfinite(values)) or min(reference_std, candidate_std, bandwidth) <= 0:
+        raise ValueError("weighted CRPS inputs must be finite with positive scales")
+    if not 0 < weight_floor <= 1:
+        raise ValueError("weighted CRPS floor must lie in (0, 1]")
+    if quadrature_points < 33 or quadrature_points % 2 == 0:
+        raise ValueError("weighted CRPS quadrature requires an odd count of at least 33")
+    if reference_mean == candidate_mean and reference_std == candidate_std:
+        return 0.0
+    tail = 8.0 * max(reference_std, candidate_std, bandwidth)
+    lower = min(reference_mean, candidate_mean, threshold) - tail
+    upper = max(reference_mean, candidate_mean, threshold) + tail
+    grid = np.linspace(lower, upper, quadrature_points)
+    reference_cdf = ndtr((grid - reference_mean) / reference_std)
+    candidate_cdf = ndtr((grid - candidate_mean) / candidate_std)
+    weights = weight_floor + np.exp(-np.abs(grid - threshold) / bandwidth)
+    value = np.trapezoid(weights * (reference_cdf - candidate_cdf) ** 2, grid)
+    return float(max(0.0, value))
+
+
+def reference_decision_regret(
+    reference_probability: float,
+    candidate_probability: float,
+    *,
+    false_stable_cost: float,
+    false_unstable_cost: float,
+) -> float:
+    """Excess asymmetric decision cost under a fixed reference probability."""
+
+    if min(false_stable_cost, false_unstable_cost) <= 0:
+        raise ValueError("decision costs must be positive")
+    if not 0 <= reference_probability <= 1 or not 0 <= candidate_probability <= 1:
+        raise ValueError("Bernoulli probabilities must lie in [0, 1]")
+    threshold = false_stable_cost / (false_stable_cost + false_unstable_cost)
+    candidate_stable = candidate_probability >= threshold
+    candidate_cost = (
+        false_stable_cost * (1 - reference_probability)
+        if candidate_stable
+        else false_unstable_cost * reference_probability
+    )
+    reference_optimum = min(
+        false_stable_cost * (1 - reference_probability),
+        false_unstable_cost * reference_probability,
+    )
+    return float(max(0.0, candidate_cost - reference_optimum))
+
+
+@dataclass(frozen=True)
+class ProperPosteriorDivergence:
+    """Frozen proper-score objective for posterior projection."""
+
+    kind: Literal["brier", "log", "gaussian_kl", "threshold_weighted_crps"]
+    threshold_bandwidth_ev_per_atom: float = 0.05
+    weight_floor: float = 0.05
+    reference_weight_floor: float = 0.05
+
+    def __post_init__(self) -> None:
+        if self.kind not in {
+            "brier",
+            "log",
+            "gaussian_kl",
+            "threshold_weighted_crps",
+        }:
+            raise ValueError("unsupported proper posterior divergence")
+        if self.threshold_bandwidth_ev_per_atom <= 0:
+            raise ValueError("threshold bandwidth must be positive")
+        if not 0 < self.weight_floor <= 1 or not 0 < self.reference_weight_floor <= 1:
+            raise ValueError("posterior-projection weight floors must lie in (0, 1]")
+
+    def reference_weights(
+        self,
+        reference: ReferencePosteriorSnapshot,
+        *,
+        false_stable_cost: float,
+        false_unstable_cost: float,
+    ) -> np.ndarray:
+        maximum = false_stable_cost * false_unstable_cost / (
+            false_stable_cost + false_unstable_cost
+        )
+        bayes_risk = np.minimum(
+            false_stable_cost * (1 - reference.stable_probability),
+            false_unstable_cost * reference.stable_probability,
+        )
+        return np.asarray(
+            self.reference_weight_floor
+            + (1 - self.reference_weight_floor) * (bayes_risk / maximum),
+            dtype=float,
+        )
+
+    def per_query(
+        self,
+        reference: ReferencePosteriorSnapshot,
+        candidate: ResidualPrediction,
+    ) -> np.ndarray:
+        if candidate.query_ids != reference.query_ids:
+            raise ValueError("candidate prediction order differs from the reference")
+        candidate_mean = np.asarray(candidate.mean_ev_per_atom, dtype=float)
+        candidate_std = np.asarray(candidate.std_ev_per_atom, dtype=float)
+        candidate_probability = np.asarray(candidate.stable_probability, dtype=float)
+        values = []
+        for index in range(len(reference.query_ids)):
+            if self.kind == "brier":
+                value = bernoulli_brier_divergence(
+                    float(reference.stable_probability[index]),
+                    float(candidate_probability[index]),
+                )
+            elif self.kind == "log":
+                value = bernoulli_log_divergence(
+                    float(reference.stable_probability[index]),
+                    float(candidate_probability[index]),
+                )
+            elif self.kind == "gaussian_kl":
+                value = gaussian_kl_divergence(
+                    float(reference.mean_ev_per_atom[index]),
+                    float(reference.std_ev_per_atom[index]),
+                    float(candidate_mean[index]),
+                    float(candidate_std[index]),
+                )
+            else:
+                value = threshold_weighted_crps_divergence(
+                    float(reference.mean_ev_per_atom[index]),
+                    float(reference.std_ev_per_atom[index]),
+                    float(candidate_mean[index]),
+                    float(candidate_std[index]),
+                    threshold=float(reference.residual_threshold_ev_per_atom[index]),
+                    bandwidth=self.threshold_bandwidth_ev_per_atom,
+                    weight_floor=self.weight_floor,
+                )
+            values.append(value)
+        return np.asarray(values, dtype=float)
 
 
 @dataclass(frozen=True)

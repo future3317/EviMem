@@ -8,16 +8,24 @@ import pytest
 from matmem import (
     CalibrationUtilityBuilder,
     CalibrationUtilityMatrix,
+    ExactArchivePosteriorProjectionPlanner,
     FacilityLocationCoresetPlanner,
     FixedKernelGPConfig,
     FixedKernelResidualGP,
     FrozenHullDistanceAcquisition,
     GPVarianceOneSwapMemory,
     JointPosteriorRiskOneSwapPlanner,
+    PosteriorProjectionOneSwapPlanner,
+    PosteriorProjectionScorer,
+    ProperPosteriorDivergence,
     ProtocolCompatibilityResolver,
     ResidualPrediction,
     SurvivalConditionedAcquisition,
+    bernoulli_brier_divergence,
+    bernoulli_log_divergence,
     compare_facility_and_joint_objectives,
+    reference_decision_regret,
+    threshold_weighted_crps_divergence,
 )
 
 from .test_matmem import _card, _protocol, _query
@@ -166,9 +174,7 @@ def test_fixed_kernel_posterior_is_protocol_safe_and_deterministic() -> None:
         config=FixedKernelGPConfig(length_scale=0.2),
     ).fit((_card("positive", formation_energy=-0.90),))
     compatible = posterior.predict((_query("compatible"),))
-    incompatible = posterior.predict(
-        (_query("incompatible", protocol=_protocol("PBE+U")),)
-    )
+    incompatible = posterior.predict((_query("incompatible", protocol=_protocol("PBE+U")),))
     assert compatible.compatible_witness_count == (1,)
     assert compatible.mean_ev_per_atom[0] > 0
     assert incompatible.compatible_witness_count == (0,)
@@ -176,6 +182,40 @@ def test_fixed_kernel_posterior_is_protocol_safe_and_deterministic() -> None:
     left = posterior.sample_residuals(_query("sample"), num_samples=5, seed=7)
     right = posterior.sample_residuals(_query("sample"), num_samples=5, seed=7)
     assert np.array_equal(left, right)
+
+
+def test_fixed_gp_predictive_discrepancy_and_transport_uncertainty_are_distinct() -> None:
+    config = FixedKernelGPConfig(
+        length_scale=0.35,
+        signal_std_ev_per_atom=0.08,
+        noise_std_ev_per_atom=0.02,
+        jitter=1e-12,
+    )
+    posterior = FixedKernelResidualGP(
+        ProtocolCompatibilityResolver(),
+        config=config,
+    )
+    query = _query("variance-semantics", embedding=(1.0, 0.0))
+
+    prior = posterior.fit(()).predict((query,))
+    assert prior.std_ev_per_atom[0] ** 2 == pytest.approx(
+        config.signal_std_ev_per_atom**2 + config.noise_std_ev_per_atom**2,
+        abs=1e-12,
+    )
+
+    exact_card = _card(
+        "variance-semantics-card",
+        embedding=(1.0, 0.0),
+        formation_energy=-1.04,
+    )
+    conditioned = posterior.fit((exact_card,)).predict((query,))
+    # The independent predictive discrepancy remains after conditioning. An
+    # exact-protocol card has no transport radius, so it is not double-counted.
+    assert (
+        conditioned.std_ev_per_atom[0] ** 2
+        >= config.noise_std_ev_per_atom**2 - 1e-10
+    )
+    assert conditioned.std_ev_per_atom[0] < prior.std_ev_per_atom[0]
 
 
 def test_baseline_risk_uses_the_same_boundary_weights_as_gains() -> None:
@@ -203,6 +243,354 @@ def test_baseline_risk_uses_the_same_boundary_weights_as_gains() -> None:
         .values()
     )
     assert baseline != pytest.approx(unweighted)
+
+
+@pytest.mark.parametrize("seed", range(10))
+def test_single_witness_helper_equals_general_one_card_gp(seed: int) -> None:
+    generator = np.random.default_rng(seed)
+    builder = CalibrationUtilityBuilder(
+        FixedKernelResidualGP(
+            ProtocolCompatibilityResolver(),
+            config=FixedKernelGPConfig(length_scale=0.35),
+        )
+    )
+    queries = tuple(
+        _query(
+            f"single-q-{index}",
+            embedding=tuple(generator.normal(size=4)),
+            base_energy=float(-1 + generator.normal(scale=0.08)),
+        )
+        for index in range(5)
+    )
+    witness = _card(
+        "single-card",
+        embedding=tuple(generator.normal(size=4)),
+        formation_energy=float(-1 + generator.normal(scale=0.08)),
+        base_energy=-1.0,
+    )
+    fast = builder.posterior_template.single_witness_decision_risks(
+        queries,
+        witness,
+        false_stable_cost=builder.false_stable_cost,
+        false_unstable_cost=builder.false_unstable_cost,
+    )
+    general = (
+        builder.posterior_template.clone_unfit()
+        .fit((witness,))
+        .decision_risks(
+            queries,
+            false_stable_cost=builder.false_stable_cost,
+            false_unstable_cost=builder.false_unstable_cost,
+        )
+    )
+    assert fast == pytest.approx(general, abs=1e-12)
+
+
+def test_proper_projection_rejects_wrong_extreme_self_risk_preference() -> None:
+    reference = 0.99
+    wrong_extreme = 0.01
+    correct_extreme = 0.99
+
+    def self_risk(probability: float) -> float:
+        return min(5.0 * (1 - probability), probability)
+
+    assert self_risk(wrong_extreme) < self_risk(correct_extreme)
+    assert bernoulli_brier_divergence(reference, correct_extreme) == 0
+    assert bernoulli_brier_divergence(reference, wrong_extreme) > bernoulli_brier_divergence(
+        reference, correct_extreme
+    )
+    assert bernoulli_log_divergence(reference, wrong_extreme) > 0
+    assert (
+        reference_decision_regret(
+            reference,
+            wrong_extreme,
+            false_stable_cost=5.0,
+            false_unstable_cost=1.0,
+        )
+        > 0
+    )
+
+
+def test_threshold_weighted_crps_is_zero_only_for_matching_gaussian() -> None:
+    assert (
+        threshold_weighted_crps_divergence(0.0, 0.1, 0.0, 0.1, threshold=0.02, bandwidth=0.05) == 0
+    )
+    assert (
+        threshold_weighted_crps_divergence(0.0, 0.1, 0.08, 0.1, threshold=0.02, bandwidth=0.05) > 0
+    )
+
+
+@pytest.mark.parametrize("kind", ("brier", "log", "gaussian_kl", "threshold_weighted_crps"))
+def test_posterior_projection_one_swap_is_exact_in_union(kind: str) -> None:
+    posterior = FixedKernelResidualGP(
+        ProtocolCompatibilityResolver(),
+        config=FixedKernelGPConfig(length_scale=0.35),
+    )
+    planner = PosteriorProjectionOneSwapPlanner(
+        2,
+        posterior,
+        ProperPosteriorDivergence(kind=kind),  # type: ignore[arg-type]
+    )
+    queries = (
+        _query("p3c-q-a", embedding=(1.0, 0.0), base_energy=-1.01),
+        _query("p3c-q-b", embedding=(0.0, 1.0), base_energy=-0.97),
+    )
+    current = (
+        _card("p3c-old-a", embedding=(1.0, 0.0), formation_energy=-1.07),
+        _card("p3c-old-b", embedding=(0.0, 1.0), formation_energy=-0.96),
+    )
+    new = _card("p3c-new", embedding=(0.7, 0.7), formation_energy=-1.03)
+    selection = planner.preview_admit(current, new, queries)
+    expected = min(
+        selection.candidates,
+        key=lambda item: (
+            item.proper_divergence + item.reactivation_cost,
+            tuple(sorted(item.selected_card_ids)),
+        ),
+    )
+    assert len(selection.candidates) == 3
+    assert selection.selected_card_ids == expected.selected_card_ids
+    assert selection.reference_card_ids == ("p3c-old-a", "p3c-old-b", "p3c-new")
+
+
+def test_posterior_projection_candidates_are_nondegenerate_real_gp_posteriors() -> None:
+    generator = np.random.default_rng(0)
+    posterior = FixedKernelResidualGP(
+        ProtocolCompatibilityResolver(),
+        config=FixedKernelGPConfig(length_scale=0.35),
+    )
+    queries = tuple(
+        _query(
+            f"nondegenerate-q-{index}",
+            embedding=tuple(generator.normal(size=3)),
+            base_energy=float(-1.0 + generator.normal(scale=0.05)),
+        )
+        for index in range(5)
+    )
+    current = tuple(
+        _card(
+            f"nondegenerate-card-{index}",
+            embedding=tuple(generator.normal(size=3)),
+            formation_energy=float(-1.0 + generator.normal(scale=0.1)),
+            base_energy=-1.0,
+        )
+        for index in range(2)
+    )
+    new_card = _card(
+        "nondegenerate-new",
+        embedding=tuple(generator.normal(size=3)),
+        formation_energy=float(-1.0 + generator.normal(scale=0.1)),
+        base_energy=-1.0,
+    )
+    planner = PosteriorProjectionOneSwapPlanner(
+        2,
+        posterior,
+        ProperPosteriorDivergence(kind="log"),
+    )
+    selection = planner.preview_admit(current, new_card, queries)
+    cards_by_id = {card.card_id: card for card in (*current, new_card)}
+    candidate_posteriors = {
+        candidate.selected_card_ids: posterior.clone_unfit()
+        .fit(tuple(cards_by_id[card_id] for card_id in candidate.selected_card_ids))
+        .predict(queries)
+        for candidate in selection.candidates
+    }
+
+    objective_values = [candidate.proper_divergence for candidate in selection.candidates]
+    assert max(objective_values) - min(objective_values) > 1e-6
+    assert len(
+        {
+            (
+                tuple(np.round(prediction.mean_ev_per_atom, 12)),
+                tuple(np.round(prediction.std_ev_per_atom, 12)),
+            )
+            for prediction in candidate_posteriors.values()
+        }
+    ) == len(selection.candidates)
+    expected = min(
+        selection.candidates,
+        key=lambda item: (
+            item.proper_divergence + item.reactivation_cost,
+            tuple(sorted(item.selected_card_ids)),
+        ),
+    )
+    assert selection.selected_card_ids == expected.selected_card_ids
+    assert selection.selected_card_ids != tuple(card.card_id for card in current)
+
+
+def test_p3c_and_gp_variance_can_select_different_real_gp_subsets() -> None:
+    generator = np.random.default_rng(0)
+    posterior = FixedKernelResidualGP(
+        ProtocolCompatibilityResolver(),
+        config=FixedKernelGPConfig(length_scale=0.35),
+    )
+    queries = tuple(
+        _query(
+            f"different-objective-q-{index}",
+            embedding=tuple(generator.normal(size=3)),
+            base_energy=float(-1.0 + generator.normal(scale=0.05)),
+        )
+        for index in range(5)
+    )
+    current = tuple(
+        _card(
+            f"different-objective-card-{index}",
+            embedding=tuple(generator.normal(size=3)),
+            formation_energy=float(-1.0 + generator.normal(scale=0.1)),
+            base_energy=-1.0,
+        )
+        for index in range(2)
+    )
+    new_card = _card(
+        "different-objective-new",
+        embedding=tuple(generator.normal(size=3)),
+        formation_energy=float(-1.0 + generator.normal(scale=0.1)),
+        base_energy=-1.0,
+    )
+    p3c = PosteriorProjectionOneSwapPlanner(
+        2,
+        posterior,
+        ProperPosteriorDivergence(kind="log"),
+    ).preview_admit(current, new_card, queries)
+    gp_variance = GPVarianceOneSwapMemory(2, posterior)
+    for card in current:
+        gp_variance.admit(card, queries)
+    assert tuple(card.card_id for card in gp_variance.cards()) == tuple(
+        card.card_id for card in current
+    )
+    gp_variance.admit(new_card, queries)
+
+    gp_variance_ids = tuple(card.card_id for card in gp_variance.cards())
+    assert set(p3c.selected_card_ids) != set(gp_variance_ids)
+
+
+def test_posterior_projection_constraint_fallback_is_deterministic() -> None:
+    posterior = FixedKernelResidualGP(
+        ProtocolCompatibilityResolver(),
+        config=FixedKernelGPConfig(length_scale=0.35),
+    )
+    planner = PosteriorProjectionOneSwapPlanner(
+        2,
+        posterior,
+        ProperPosteriorDivergence(kind="threshold_weighted_crps"),
+        max_decision_regret=0.0,
+        max_log_divergence=0.0,
+    )
+    queries = (
+        _query("constraint-a", embedding=(1.0, 0.0), base_energy=-1.01),
+        _query("constraint-b", embedding=(0.0, 1.0), base_energy=-0.97),
+    )
+    current = (
+        _card("constraint-old-a", embedding=(1.0, 0.0), formation_energy=-1.07),
+        _card("constraint-old-b", embedding=(0.0, 1.0), formation_energy=-0.96),
+    )
+    selection = planner.preview_admit(
+        current,
+        _card("constraint-new", embedding=(0.7, 0.7), formation_energy=-1.03),
+        queries,
+    )
+    assert selection.used_constraint_fallback
+    expected = min(
+        selection.candidates,
+        key=lambda item: (
+            item.normalized_constraint_violation,
+            item.proper_divergence + item.reactivation_cost,
+            tuple(sorted(item.selected_card_ids)),
+        ),
+    )
+    assert selection.selected_card_ids == expected.selected_card_ids
+
+
+def test_archive_projection_enumerates_every_subset_up_to_capacity() -> None:
+    posterior = FixedKernelResidualGP(
+        ProtocolCompatibilityResolver(),
+        config=FixedKernelGPConfig(length_scale=0.35),
+    )
+    planner = ExactArchivePosteriorProjectionPlanner(
+        2, posterior, ProperPosteriorDivergence(kind="gaussian_kl")
+    )
+    archive = tuple(
+        _card(
+            f"archive-{index}",
+            embedding=tuple(np.eye(4)[index]),
+            formation_energy=-1 + 0.02 * index,
+        )
+        for index in range(4)
+    )
+    selection = planner.select(
+        archive,
+        (_query("archive-q", embedding=(0.5, 0.5, 0.5, 0.5)),),
+    )
+    assert len(selection.candidates) == 1 + 4 + 6
+    assert len(selection.selected_card_ids) <= 2
+
+
+def test_explicit_projection_scorer_factorizes_reference_and_search_space() -> None:
+    posterior = FixedKernelResidualGP(
+        ProtocolCompatibilityResolver(),
+        config=FixedKernelGPConfig(length_scale=0.35),
+    )
+    scorer = PosteriorProjectionScorer(
+        posterior,
+        ProperPosteriorDivergence(kind="log"),
+        false_stable_cost=5.0,
+        false_unstable_cost=1.0,
+        max_decision_regret=None,
+        max_log_divergence=None,
+        reactivation_weight=0.0,
+    )
+    near_a = _card(
+        "factor-a",
+        embedding=(1.0, 0.0),
+        formation_energy=-1.03,
+        base_energy=-1.03,
+    )
+    influential_b = _card(
+        "factor-b",
+        embedding=(0.0, 1.0),
+        formation_energy=-1.25,
+        base_energy=-1.03,
+    )
+    queries = (_query("factor-q", embedding=(0.0, 1.0), base_energy=-1.0),)
+    cards_by_id = {item.card_id: item for item in (near_a, influential_b)}
+    online_candidates = ((near_a.card_id,),)
+    archive_candidates = ((near_a.card_id,), (influential_b.card_id,))
+
+    union_online = scorer.score(
+        reference_cards=(near_a,),
+        candidate_sets=online_candidates,
+        cards_by_id=cards_by_id,
+        queries=queries,
+        current_ids=(),
+    )
+    union_archive = scorer.score(
+        reference_cards=(near_a,),
+        candidate_sets=archive_candidates,
+        cards_by_id=cards_by_id,
+        queries=queries,
+        current_ids=(),
+    )
+    archive_online = scorer.score(
+        reference_cards=(near_a, influential_b),
+        candidate_sets=online_candidates,
+        cards_by_id=cards_by_id,
+        queries=queries,
+        current_ids=(),
+    )
+    archive_archive = scorer.score(
+        reference_cards=(near_a, influential_b),
+        candidate_sets=archive_candidates,
+        cards_by_id=cards_by_id,
+        queries=queries,
+        current_ids=(),
+    )
+
+    assert union_online.selected_card_ids == (near_a.card_id,)
+    assert union_archive.selected_card_ids == (near_a.card_id,)
+    assert archive_online.selected_card_ids == (near_a.card_id,)
+    assert archive_archive.selected_card_ids == (influential_b.card_id,)
+    assert archive_archive.selected_proper_divergence < (archive_online.selected_proper_divergence)
+    assert union_archive.reference_card_ids != archive_archive.reference_card_ids
 
 
 @pytest.mark.parametrize("seed", range(5))
@@ -245,9 +633,7 @@ def test_joint_posterior_risk_one_swap_matches_manual_neighborhood(seed: int) ->
         (current[0], new_card),
     )
     manual = {
-        tuple(card.card_id for card in cards): builder.weighted_decision_risk(
-            queries, cards
-        )
+        tuple(card.card_id for card in cards): builder.weighted_decision_risk(queries, cards)
         for cards in candidates
     }
     expected = min(manual, key=lambda ids: (manual[ids], ids))
@@ -281,9 +667,7 @@ def test_objective_fidelity_scores_identical_one_swap_candidates() -> None:
         embedding=(0.7, 0.7),
         formation_energy=-1.01,
     )
-    diagnostic = compare_facility_and_joint_objectives(
-        current, new_card, queries, facility, joint
-    )
+    diagnostic = compare_facility_and_joint_objectives(current, new_card, queries, facility, joint)
     facility_preview = facility.preview_admit(current, new_card, queries)
     joint_preview = joint.preview_admit(current, new_card, queries)
     assert len(diagnostic.candidates) == 3
@@ -327,9 +711,11 @@ def test_gp_variance_one_swap_matches_manual_neighborhood(seed: int) -> None:
     )
 
     def objective(ids: tuple[str, ...]) -> float:
-        prediction = posterior.clone_unfit().fit(
-            tuple(cards_by_id[card_id] for card_id in ids)
-        ).predict(queries)
+        prediction = (
+            posterior.clone_unfit()
+            .fit(tuple(cards_by_id[card_id] for card_id in ids))
+            .predict(queries)
+        )
         return sum(value * value for value in prediction.std_ev_per_atom)
 
     objectives = {ids: objective(ids) for ids in candidates}

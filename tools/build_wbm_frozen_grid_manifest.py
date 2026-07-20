@@ -54,8 +54,13 @@ def select_frozen_grid_systems(
     candidates: list[ObservableCandidate],
     *,
     release_id: str = RELEASE_ID,
+    systems_per_stratum: int = MAX_SYSTEMS_PER_STRATUM,
+    stratum_offset: int = 0,
 ) -> dict[str, Any]:
-    """Select up to eight systems/stratum using only composition and release ID."""
+    """Select a deterministic rank window using only composition and release ID."""
+
+    if systems_per_stratum < 1 or stratum_offset < 0:
+        raise ValueError("systems_per_stratum must be positive and stratum_offset non-negative")
 
     by_system: dict[tuple[str, ...], list[ObservableCandidate]] = defaultdict(list)
     for candidate in candidates:
@@ -79,10 +84,11 @@ def select_frozen_grid_systems(
     stratum_report: dict[str, Any] = {}
     for stratum in STRATA:
         available = [system for system in eligible if _stratum(system) == stratum]
-        chosen = sorted(
+        ranked = sorted(
             available,
             key=lambda system: (_rank(release_id, "-".join(system)), system),
-        )[:MAX_SYSTEMS_PER_STRATUM]
+        )
+        chosen = ranked[stratum_offset : stratum_offset + systems_per_stratum]
         selected_systems.extend(chosen)
         stratum_report[stratum] = {
             "eligible_system_count": len(available),
@@ -123,7 +129,8 @@ def select_frozen_grid_systems(
             sorted("-".join(item) for item in calibration)
         ),
         "minimum_exact_system_candidate_count": MIN_SYSTEM_SIZE,
-        "maximum_systems_per_stratum": MAX_SYSTEMS_PER_STRATUM,
+        "systems_per_stratum": systems_per_stratum,
+        "stratum_rank_offset": stratum_offset,
         "strata": stratum_report,
         "selected_system_count": len(selected_systems),
         "selected_candidate_count": len(selected_ids),
@@ -153,6 +160,8 @@ def main() -> None:
     parser.add_argument("--cse-root", type=Path, required=True)
     parser.add_argument("--structures-root", type=Path, required=True)
     parser.add_argument("--cleaned-ids", type=Path, required=True)
+    parser.add_argument("--systems-per-stratum", type=int, default=MAX_SYSTEMS_PER_STRATUM)
+    parser.add_argument("--stratum-offset", type=int, default=0)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     if args.output.resolve().is_relative_to(Path(__file__).resolve().parents[1]):
@@ -165,7 +174,11 @@ def main() -> None:
     manifest = {
         "schema_version": "wbm-frozen-exact-system-grid-v1",
         "scope": "oracle_blind_frozen_grid_not_yet_claim_grade",
-        "selection": select_frozen_grid_systems(candidates),
+        "selection": select_frozen_grid_systems(
+            candidates,
+            systems_per_stratum=args.systems_per_stratum,
+            stratum_offset=args.stratum_offset,
+        ),
     }
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(

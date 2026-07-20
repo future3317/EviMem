@@ -5,6 +5,12 @@ runners, duplicated evaluators, or frozen preregistration machinery on the live
 branch. Git tags preserve exact code and documents; datasets and run outputs
 remain outside Git.
 
+**Current status must be read first:** P3C is stopped, AKSC is not authorized as
+the WBM paper's next main method, and the paper remains NO-GO. The complete
+artifact-level chronology, including invalid and interrupted runs, is in
+[`EXPERIMENT_LEDGER.md`](EXPERIMENT_LEDGER.md). The sections below are history,
+not a menu of currently active hypotheses.
+
 ## Recovery points
 
 | Research state | Git reference | Meaning |
@@ -65,9 +71,9 @@ synthetic hull is not a valid phase diagram and has been removed. The secure
 oracle vault, append-only event log, replay audit and exact persistent versus
 same-FIFO reconstruction parity tests remain live.
 
-### DACC and survival acquisition
+### Retired DACC and survival acquisition
 
-The current primary hypothesis compresses residual calibration with the
+At that iteration, the primary hypothesis compressed residual calibration with the
 facility-location objective
 
 ```text
@@ -86,9 +92,8 @@ full history. The smoke runner was removed because it is neither claim-grade nor
 used by the current paper.
 
 Survival-conditioned acquisition was worse in both early engineering cells and
-is paused. The implementation remains because it is the explicitly defined
-secondary hypothesis and its zero-weight/redundant-fantasy failure tests remain
-useful; it must not be tuned on evaluation pools.
+was paused. Its zero-weight/redundant-fantasy failure tests remain useful, but
+it is not a current contribution and must not be tuned on evaluation pools.
 
 ## Current real-data evidence
 
@@ -133,3 +138,47 @@ active evaluator and economics ledger, exact binary DP, scalar synthetic hull,
 legacy acquisition heuristics, six iteration-only runners and their dedicated
 tests. Those paths must be recovered from the frozen tags if a historical audit
 is needed; they should not be copied back as compatibility adapters.
+
+## 2026-07-20 closure: P3C and WBM posterior compression
+
+The DACC paragraph above records an earlier iteration and is not the current
+method status. DACC was replaced by P3C proper posterior projection, then P3C
+was stopped after two structure-correct, disjoint panels totaling 32 exact
+systems failed to reproduce the original probability-metric signal. Historical
+parity-energy drift and relaxed-structure SOAP leakage are now type-level
+provenance failures rather than accepted data variants.
+
+The fixed-GP ceiling has some mean and boundary-probability signal but is badly
+underdispersed: mean LOO squared standardized residual is 16.90 and nominal 90%
+coverage is 62.4%. Effective dimension averages 12.42, so K=2 is also far below
+the kernel spectrum's characteristic scale.
+
+A separate, checkpointed compute-relevance panel used the three longest
+eligible exact systems and complete B40 full-history traces. The largest GP
+numerical share of round-pipeline time was 0.689%, versus a preregistered 9.09%
+Amdahl threshold for a possible 10% ideal speedup. Consequently:
+
+- P3C is terminated as a main method;
+- AKSC/all-outcome kernel sketching is not authorized as this WBM paper's main
+  direction;
+- WBM remains useful for correctness and calibration diagnostics, not evidence
+  of a posterior-compression compute frontier;
+- the paper remains NO-GO.
+
+The authoritative record is
+`docs/WBM_LONG_ARCHIVE_COMPUTE_GATE_2026-07-20.md`.
+
+The full transition must be stated precisely. DACC's singleton
+facility-location objective did not match the joint GP used for prediction.
+P3C repaired that local reference mismatch by projecting a fixed temporary
+union posterior, but it still omitted evicted archive outcomes from the
+deployed GP and selected those omissions using observed residuals. This is
+outcome-*contribution* deletion, not deletion of the immutable scientific
+archive. Proper scoring guaranteed fidelity only to the frozen GP reference;
+the direct dispersion audit then showed that reference to be severely
+underdispersed. AKSC was proposed to keep all outcome contributions in
+low-dimensional posterior sufficient statistics while compressing only an
+outcome-independent representation. The B40 Amdahl gate failed before AKSC
+implementation, so that proposal is not evidence and is not the WBM paper's
+next method. See `docs/EXPERIMENT_LEDGER.md` for every experiment, path, hash,
+validity label and recovery point.

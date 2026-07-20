@@ -22,12 +22,17 @@ from pathlib import Path
 TOOLS_DIR = Path(__file__).resolve().parent
 if str(TOOLS_DIR) not in sys.path:
     sys.path.insert(0, str(TOOLS_DIR))
+SRC_ROOT = TOOLS_DIR.parent / "src"
+if str(SRC_ROOT) not in sys.path:
+    sys.path.insert(0, str(SRC_ROOT))
 
 from build_wbm_cleaned_id_manifest import (  # noqa: E402
     STEP3_ANOMALOUS_STRUCTURE_IDS,
     _fix_step3_alignment,
     _source_to_wbm_id,
 )
+
+from matmem.identity import WBMStructureSourceField  # noqa: E402
 
 RELEASE_ID = "wbm-small-exact-system-pilot-v1"
 CALIBRATION_FRACTION = 0.05
@@ -59,6 +64,23 @@ def _structure_checksum(structure: object) -> str:
     return "sha256:" + hashlib.sha256(payload).hexdigest()
 
 
+def _extract_initial_structure(record: object, *, query_id: str) -> dict[str, object]:
+    """Return the pre-relaxation WBM structure from an official raw record.
+
+    The upstream compiler maps ``org`` to ``Key.init_struct`` and ``opt`` to
+    ``Key.final_struct``.  Accepting the wrapper itself, or falling back to
+    ``opt``, would either fail late in pymatgen or leak post-DFT geometry.
+    """
+
+    source_field = WBMStructureSourceField.ORIGINAL.value
+    if not isinstance(record, dict) or source_field not in record:
+        raise ValueError(f"invalid WBM structure wrapper for cleaned ID {query_id}")
+    initial = record[source_field]
+    if not isinstance(initial, dict) or "lattice" not in initial or "sites" not in initial:
+        raise ValueError(f"missing WBM org initial structure for cleaned ID {query_id}")
+    return initial
+
+
 def _read_cleaned_ids(path: Path) -> set[str]:
     return {item.strip() for item in path.read_text(encoding="utf-8").splitlines() if item.strip()}
 
@@ -66,7 +88,14 @@ def _read_cleaned_ids(path: Path) -> set[str]:
 def read_observable_candidates(
     *, cse_root: Path, structures_root: Path, cleaned_ids: set[str]
 ) -> list[ObservableCandidate]:
-    """Read only policy-visible CSE fields and apply pinned source-ID alignment."""
+    """Read composition plus query-time initial structures only.
+
+    The Materials Cloud CSE records contain DFT-relaxed structures.  Those
+    records remain useful for composition and source-order alignment, but their
+    structures are oracle outcomes and must never define a policy-facing
+    identity or SOAP feature.  ``structures_root`` is the frozen WBM initial-
+    structure source and is the sole structure source used here.
+    """
 
     candidates: list[ObservableCandidate] = []
     anomalies = set(STEP3_ANOMALOUS_STRUCTURE_IDS)
@@ -87,13 +116,16 @@ def read_observable_candidates(
                 continue
             if not isinstance(entry, dict) or not isinstance(entry.get("composition"), dict):
                 raise ValueError(f"invalid WBM composition for {query_id}")
+            initial_structure = _extract_initial_structure(
+                structures.get(source_id), query_id=query_id
+            )
             composition = tuple(sorted((str(key), float(value)) for key, value in entry["composition"].items()))
             candidates.append(
                 ObservableCandidate(
                     query_id=query_id,
                     chemical_system=tuple(item[0] for item in composition),
                     composition=composition,
-                    exact_structure_sha256=_structure_checksum(entry.get("structure")),
+                    exact_structure_sha256=_structure_checksum(initial_structure),
                 )
             )
     if len({item.query_id for item in candidates}) != len(candidates):

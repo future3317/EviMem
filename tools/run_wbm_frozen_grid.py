@@ -44,6 +44,35 @@ def _sha256(path: Path) -> str:
     return "sha256:" + digest.hexdigest()
 
 
+def _read_calibration_freeze(
+    path: Path,
+    registered_config_path: Path,
+) -> dict[str, float]:
+    """Load the calibration-only probability-loss tolerances for this grid."""
+
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if payload.get("scope") != "disjoint_calibration_only_no_evaluation_results_accessed":
+        raise ValueError("grid requires a disjoint calibration-only freeze manifest")
+    if payload.get("evaluation_results_accessed") is not False:
+        raise ValueError("calibration freeze must attest that evaluation results were not accessed")
+    if payload.get("gp_parameter_status") != "frozen_on_disjoint_calibration_systems_v1":
+        raise ValueError("grid requires GP parameters frozen on disjoint calibration systems")
+    if payload.get("full_history_prequential_sanity", {}).get("passed") is not True:
+        raise ValueError("calibration full-history sanity gate did not pass")
+    if _sha256(registered_config_path) != payload.get("config_sha256"):
+        raise ValueError("registered configuration SHA does not match calibration freeze")
+    registered = json.loads(registered_config_path.read_text(encoding="utf-8"))
+    if registered.get("posterior") != payload.get("gp_config"):
+        raise ValueError("registered posterior differs from calibration-freeze GP configuration")
+    margins = {
+        "boundary_weighted_causal_brier": float(payload["brier_margin"]),
+        "boundary_weighted_causal_log_loss": float(payload["log_loss_margin"]),
+    }
+    if any(value < 0.0 for value in margins.values()):
+        raise ValueError("non-inferiority margins must be nonnegative")
+    return margins
+
+
 def _physical_groups() -> tuple[dict[str, Any], ...]:
     return (
         *(
@@ -85,6 +114,10 @@ def _run_physical_group(args: argparse.Namespace, group: dict[str, Any]) -> Path
         str(args.gate_audit),
         "--license-manifest",
         str(args.license_manifest),
+        "--calibration-freeze-manifest",
+        str(args.calibration_freeze),
+        "--registered-config",
+        str(args.registered_config),
         "--pool-manifest",
         str(args.grid_manifest),
         "--parity-audit",
@@ -132,6 +165,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--gate-audit", type=Path, required=True)
     parser.add_argument("--license-manifest", type=Path, required=True)
+    parser.add_argument("--calibration-freeze", type=Path, required=True)
+    parser.add_argument("--registered-config", type=Path, required=True)
     parser.add_argument("--grid-manifest", type=Path, required=True)
     parser.add_argument("--parity-audit", type=Path, required=True)
     parser.add_argument("--soap-cache", type=Path, required=True)
@@ -141,11 +176,19 @@ def main() -> None:
     parser.add_argument("--output-dir", type=Path, required=True)
     args = parser.parse_args()
     repo_root = Path(__file__).resolve().parents[1]
-    for value in vars(args).values():
-        if isinstance(value, Path) and value.resolve().is_relative_to(repo_root):
+    for name, value in vars(args).items():
+        if (
+            isinstance(value, Path)
+            and name != "registered_config"
+            and value.resolve().is_relative_to(repo_root)
+        ):
             raise ValueError("real WBM grid inputs and outputs must remain outside Git")
     if args.output_dir.exists():
         raise FileExistsError("frozen grid output directory is immutable")
+    noninferiority_margins = _read_calibration_freeze(
+        args.calibration_freeze,
+        args.registered_config,
+    )
     manifest = json.loads(args.grid_manifest.read_text(encoding="utf-8"))
     expected_cells = [item.model_dump(mode="json") for item in frozen_grid_cells()]
     if manifest["selection"]["grid"]["cells"] != expected_cells:
@@ -249,8 +292,9 @@ def main() -> None:
         "system_count": len(pools),
         "system_cell_rows": rows,
         "paired_system_clustered_bootstrap": comparisons,
-        "noninferiority_margins": None,
-        "paper_go_status": "blocked_until_disjoint_calibration_margins_are_frozen",
+        "calibration_freeze_sha256": _sha256(args.calibration_freeze),
+        "noninferiority_margins": noninferiority_margins,
+        "paper_go_status": "evaluation_complete_requires_predeclared_region_and_pareto_assessment",
         "physical_summaries": {
             name: {"path": str(path), "sha256": _sha256(path)}
             for name, path in summaries.items()
