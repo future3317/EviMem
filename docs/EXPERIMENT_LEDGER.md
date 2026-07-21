@@ -922,6 +922,42 @@ The external result schema stores these as `policy_decision_rounds`, separately
 from evaluator-only post-trace `rounds`, so neither record can overwrite the
 other.
 
+### E25. Frozen SARR MC8192 opportunity-cost audit (2026-07-22)
+
+**Authoritative numerical diagnostic; not a performance evaluation.** The
+precommitted plan selected 196 development-only pre-reveal states from the
+union of SARR deviations, positive-but-Bonferroni-unresolved fallbacks, final
+win/loss systems and pre-SARR MC512/MC1024 disagreements. Every state was
+replayed once at MC8192 with sixteen scrambled-Sobol blocks, using the original
+observable state checksum and selected-action-only reveal history. The output
+and its read-only summary verify the frozen plan, task and SARR checksums,
+exact 196-state coverage, and `evaluation_systems_accessed=false`.
+
+The accepted sixteen-block SARR deviations are numerically well supported: all
+87 have a positive independent high-precision advantage (minimum `0.00513`)
+and simultaneous lower bound (minimum `0.00171`); their mean high-precision
+selected-action opportunity cost is only `0.000925`, with a zero median. No
+selected SARR deviation has negative high-precision advantage. Thus the earlier
+action instability is not explained by accepted SARR actions being
+posterior-score reversals at MC8192.
+
+The conservative fallback is nevertheless materially active. Of the 74 frozen
+states that had a positive point advantage but failed the simultaneous gate at
+MC1024, 71 have a nonzero MC8192 source opportunity cost; its mean is
+`0.01768`, median `0.01074`, and 38 states are at least `0.01`. This is
+evidence that the Bonferroni fallback leaves posterior-model-relative rollout
+value on the table. It is **not** evidence that any unselected action has a
+positive high-confidence lower bound, nor evidence of an oracle-final gain.
+
+Decision: leave `source_rollout_delta_hull` unchanged and keep folds 1--5
+closed. The audit authorizes only a separately named, independently seeded
+two-stage numerical gate: screen a candidate with the current SARR estimate,
+then use an independent high-precision paired comparison for that single
+preselected candidate. Its calibration, configuration and all evaluation must
+use unused development folds; fold 0 cannot choose a threshold or support a
+superiority claim. The posterior, reward, source continuation and target
+oracle boundary remain frozen.
+
 ## Superseded, invalid and incomplete evidence
 
 | Evidence | Required treatment |

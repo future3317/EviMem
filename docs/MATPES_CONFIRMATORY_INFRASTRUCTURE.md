@@ -123,3 +123,22 @@ lower bounds, source/selected action, fallback reason, comparison count and
 horizon. These records are emitted before the selected-action-only reveal and
 do not expose unqueried target outcomes. They are stored as
 `policy_decision_rounds`, separately from post-trace evaluator rounds.
+
+## Completed MC8192 numerical audit
+
+The frozen 196-state development-only opportunity-cost replay is complete.
+Its plan/task/SARR checksums and exact state coverage were verified by the
+read-only summary; no evaluation system was accessed. The original SARR
+deviations are stable at MC8192: all 87 retain positive simultaneous lower
+bounds and their median selected-action opportunity cost is zero. Conversely,
+71 of 74 `positive_but_simultaneously_unresolved` source fallbacks have a
+positive high-precision source opportunity cost (mean `0.01768`, median
+`0.01074`).
+
+This result does not relax the current SARR gate and does not open folds 1--5.
+It isolates a next numerical-integration question: an independently seeded
+two-stage screen-and-confirm gate may test exactly one stage-one-selected
+candidate with a single paired high-precision bound. The stage-two data must be
+independent of the screen, all choices must be fixed before accessing an unused
+development fold, and its result remains a numerical diagnostic until it
+replicates across folds. Fold 0 is permanently diagnostic-only for this gate.
