@@ -91,6 +91,7 @@ class ExperimentConfig:
     prior_standard_deviation: float = 0.1
     boundary_temperature_ev_per_atom: float = 0.05
     posterior_sample_count: int = 16
+    posterior_diagnostic_sample_count: int = 0
     fantasy_count: int = 3
     hull_backend: Literal["pymatgen", "fixed_composition"] = "pymatgen"
     transport_family: Literal[
@@ -171,7 +172,7 @@ def _evaluate_action_trace(
     outcome_rows: dict[str, dict[str, Any]],
     initial_rows: list[dict[str, Any]],
     transport_model: FrozenProtocolRidgeTransport | None,
-    posterior_sample_count: int,
+    posterior_diagnostic_sample_count: int,
     seed: int,
 ) -> dict[str, Any]:
     """Open calibration outcomes only after a policy trace is complete."""
@@ -308,31 +309,38 @@ def _evaluate_action_trace(
             rounds[-1]["posterior_energy_90pct_coverage"] = float(
                 np.mean(np.abs(energy_errors) <= norm.ppf(0.95) * posterior_standard_deviation)
             )
-            causal_diagram = PhaseDiagram(entries)
-            summary = protocol_hull_posterior_summary(
-                posterior,
-                query_compositions=tuple(row["composition"] for row in query_rows),
-                reference_compositions=tuple(entry.composition.as_dict() for entry in entries),
-                reference_energies=np.asarray(
-                    [causal_diagram.get_form_energy_per_atom(entry) for entry in entries]
-                ),
-                posterior_sample_count=posterior_sample_count,
-                seed=seed + 1009 * round_index,
-            )
-            true_hull_formation_energies: list[float] = []
-            for composition in summary.evaluation_compositions:
-                parsed = Composition(composition)
-                total_per_atom = oracle_pool_diagram.get_hull_energy_per_atom(parsed)
-                hull_entry = ComputedEntry(parsed, total_per_atom * parsed.num_atoms)
-                true_hull_formation_energies.append(
-                    float(oracle_pool_diagram.get_form_energy_per_atom(hull_entry))
+            if posterior_diagnostic_sample_count:
+                causal_diagram = PhaseDiagram(entries)
+                summary = protocol_hull_posterior_summary(
+                    posterior,
+                    query_compositions=tuple(row["composition"] for row in query_rows),
+                    reference_compositions=tuple(
+                        entry.composition.as_dict() for entry in entries
+                    ),
+                    reference_energies=np.asarray(
+                        [causal_diagram.get_form_energy_per_atom(entry) for entry in entries]
+                    ),
+                    posterior_sample_count=posterior_diagnostic_sample_count,
+                    seed=seed + 1009 * round_index,
                 )
-            errors = np.asarray(summary.mean_hull_energies) - np.asarray(
-                true_hull_formation_energies
-            )
-            rounds[-1]["posterior_hull_bayes_risk"] = summary.bayes_risk
-            rounds[-1]["posterior_mean_hull_mae_ev_per_atom"] = float(np.mean(np.abs(errors)))
-            rounds[-1]["posterior_mean_hull_rmse_ev_per_atom"] = float(np.sqrt(np.mean(errors**2)))
+                true_hull_formation_energies: list[float] = []
+                for composition in summary.evaluation_compositions:
+                    parsed = Composition(composition)
+                    total_per_atom = oracle_pool_diagram.get_hull_energy_per_atom(parsed)
+                    hull_entry = ComputedEntry(parsed, total_per_atom * parsed.num_atoms)
+                    true_hull_formation_energies.append(
+                        float(oracle_pool_diagram.get_form_energy_per_atom(hull_entry))
+                    )
+                errors = np.asarray(summary.mean_hull_energies) - np.asarray(
+                    true_hull_formation_energies
+                )
+                rounds[-1]["posterior_hull_bayes_risk"] = summary.bayes_risk
+                rounds[-1]["posterior_mean_hull_mae_ev_per_atom"] = float(
+                    np.mean(np.abs(errors))
+                )
+                rounds[-1]["posterior_mean_hull_rmse_ev_per_atom"] = float(
+                    np.sqrt(np.mean(errors**2))
+                )
     final_causal_diagram = PhaseDiagram(entries)
     final_causal_confirmed_ids: list[str] = []
     oracle_pool_confirmed_ids: list[str] = []
@@ -375,22 +383,28 @@ def _evaluate_action_trace(
             causal_set - set(oracle_pool_confirmed_ids)
         ),
     }
+    posterior_rounds = [row for row in rounds if "posterior_energy_mae_ev_per_atom" in row]
+    if posterior_rounds:
+        result.update(
+            {
+                "prequential_posterior_energy_mae_ev_per_atom": float(
+                    np.mean([row["posterior_energy_mae_ev_per_atom"] for row in posterior_rounds])
+                ),
+                "prequential_posterior_energy_rmse_ev_per_atom": float(
+                    np.mean([row["posterior_energy_rmse_ev_per_atom"] for row in posterior_rounds])
+                ),
+                "prequential_posterior_energy_gaussian_nll": float(
+                    np.mean([row["posterior_energy_gaussian_nll"] for row in posterior_rounds])
+                ),
+                "prequential_posterior_energy_90pct_coverage": float(
+                    np.mean([row["posterior_energy_90pct_coverage"] for row in posterior_rounds])
+                ),
+            }
+        )
     hull_rounds = [row for row in rounds if "posterior_mean_hull_mae_ev_per_atom" in row]
     if hull_rounds:
         result.update(
             {
-                "prequential_posterior_energy_mae_ev_per_atom": float(
-                    np.mean([row["posterior_energy_mae_ev_per_atom"] for row in hull_rounds])
-                ),
-                "prequential_posterior_energy_rmse_ev_per_atom": float(
-                    np.mean([row["posterior_energy_rmse_ev_per_atom"] for row in hull_rounds])
-                ),
-                "prequential_posterior_energy_gaussian_nll": float(
-                    np.mean([row["posterior_energy_gaussian_nll"] for row in hull_rounds])
-                ),
-                "prequential_posterior_energy_90pct_coverage": float(
-                    np.mean([row["posterior_energy_90pct_coverage"] for row in hull_rounds])
-                ),
                 "prequential_posterior_mean_hull_mae_ev_per_atom": float(
                     np.mean([row["posterior_mean_hull_mae_ev_per_atom"] for row in hull_rounds])
                 ),
@@ -592,7 +606,9 @@ def run(
                     and set(system.split("-")) <= set(transport_model.fit_element_ids)
                     else None
                 ),
-                posterior_sample_count=config.posterior_sample_count,
+                posterior_diagnostic_sample_count=(
+                    config.posterior_diagnostic_sample_count
+                ),
                 seed=config.seed,
             )
             strategy_results[policy_name] = {
@@ -647,18 +663,18 @@ def run(
             ),
             "system_macro_wall_seconds": float(np.mean([row["wall_seconds"] for row in results])),
         }
-        hull_results = [
-            row for row in results if "prequential_posterior_mean_hull_mae_ev_per_atom" in row
+        posterior_results = [
+            row for row in results if "prequential_posterior_energy_mae_ev_per_atom" in row
         ]
-        if hull_results:
+        if posterior_results:
             aggregates[policy_name].update(
                 {
-                    "supported_system_count_for_hull_metrics": len(hull_results),
+                    "supported_system_count_for_posterior_metrics": len(posterior_results),
                     "system_macro_prequential_posterior_energy_mae_ev_per_atom": float(
                         np.mean(
                             [
                                 row["prequential_posterior_energy_mae_ev_per_atom"]
-                                for row in hull_results
+                                for row in posterior_results
                             ]
                         )
                     ),
@@ -666,7 +682,7 @@ def run(
                         np.mean(
                             [
                                 row["prequential_posterior_energy_rmse_ev_per_atom"]
-                                for row in hull_results
+                                for row in posterior_results
                             ]
                         )
                     ),
@@ -674,7 +690,7 @@ def run(
                         np.mean(
                             [
                                 row["prequential_posterior_energy_gaussian_nll"]
-                                for row in hull_results
+                                for row in posterior_results
                             ]
                         )
                     ),
@@ -682,10 +698,19 @@ def run(
                         np.mean(
                             [
                                 row["prequential_posterior_energy_90pct_coverage"]
-                                for row in hull_results
+                                for row in posterior_results
                             ]
                         )
                     ),
+                }
+            )
+        hull_results = [
+            row for row in results if "prequential_posterior_mean_hull_mae_ev_per_atom" in row
+        ]
+        if hull_results:
+            aggregates[policy_name].update(
+                {
+                    "supported_system_count_for_hull_metrics": len(hull_results),
                     "system_macro_prequential_posterior_mean_hull_mae_ev_per_atom": float(
                         np.mean(
                             [
@@ -805,6 +830,7 @@ def main() -> None:
     parser.add_argument("--prior-standard-deviation", type=float, default=0.1)
     parser.add_argument("--boundary-temperature", type=float, default=0.05)
     parser.add_argument("--posterior-sample-count", type=int, default=16)
+    parser.add_argument("--posterior-diagnostic-sample-count", type=int, default=0)
     parser.add_argument("--fantasy-count", type=int, default=3)
     parser.add_argument("--split", choices=("development", "confirmatory"), default="development")
     parser.add_argument("--transport-model", type=Path, default=None)
@@ -832,6 +858,7 @@ def main() -> None:
         prior_standard_deviation=args.prior_standard_deviation,
         boundary_temperature_ev_per_atom=args.boundary_temperature,
         posterior_sample_count=args.posterior_sample_count,
+        posterior_diagnostic_sample_count=args.posterior_diagnostic_sample_count,
         fantasy_count=args.fantasy_count,
         hull_backend=args.hull_backend,
         transport_family=args.transport_family,
@@ -847,6 +874,10 @@ def main() -> None:
         or config.prior_standard_deviation <= 0
         or config.boundary_temperature_ev_per_atom <= 0
         or config.posterior_sample_count < 4
+        or (
+            config.posterior_diagnostic_sample_count != 0
+            and config.posterior_diagnostic_sample_count < 4
+        )
         or config.fantasy_count < 1
         or not config.policies
         or len(set(config.policies)) != len(config.policies)
