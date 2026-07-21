@@ -3,7 +3,9 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.util
 import json
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -16,7 +18,17 @@ from matmem.protocol_closed_loop import (
 )
 from matmem.protocol_knowledge_gradient import FrozenProtocolRidgeTransport
 from matmem.protocols import ProtocolCertificate
-from tools.run_matpes_protocol_closed_loop_exploratory import _candidate, _initial_entries, _outcome
+
+
+def _runner_helpers():
+    path = Path(__file__).with_name("run_matpes_protocol_closed_loop_exploratory.py")
+    spec = importlib.util.spec_from_file_location("matpes_closed_loop_runner", path)
+    if spec is None or spec.loader is None:
+        raise ImportError("cannot load MatPES closed-loop runner")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module._candidate, module._initial_entries, module._outcome
 
 
 def _sha256(path: Path) -> str:
@@ -53,6 +65,7 @@ def run(*, task_path: Path, vault_path: Path, sarr_path: Path, plan_path: Path,
     if sarr["evaluation_systems_accessed"] or vault["target_outcomes"][0]["split"] != "development":
         raise ValueError("audit is development-only")
     model_payload = json.loads(transport_path.read_text())
+    candidate_from_row, initial_entries, outcome_from_rows = _runner_helpers()
     model = FrozenProtocolRidgeTransport.model_validate(model_payload.get("model", model_payload))
     outcomes = {row["pair_id"]: row for row in vault["target_outcomes"]}
     rows_by_system: dict[str, list[dict[str, Any]]] = {}
@@ -66,10 +79,10 @@ def run(*, task_path: Path, vault_path: Path, sarr_path: Path, plan_path: Path,
         rows = sorted(rows_by_system[system], key=lambda row: row["pair_id"])
         recorded = sarr["systems"][system]["strategies"]["source_rollout_delta_hull"]
         events = recorded["policy_decision_rounds"]
-        candidates = {_candidate(row, source_protocol=source_protocol, target_protocol=target_protocol).pair_id:
-                      _candidate(row, source_protocol=source_protocol, target_protocol=target_protocol) for row in rows}
+        candidates = {candidate_from_row(row, source_protocol=source_protocol, target_protocol=target_protocol).pair_id:
+                      candidate_from_row(row, source_protocol=source_protocol, target_protocol=target_protocol) for row in rows}
         row_by_id = {row["pair_id"]: row for row in rows}
-        hull = ProtocolCausalHull(_initial_entries(task["development_initial_phase_entries"][system]), chemical_system=tuple(system.split("-")))
+        hull = ProtocolCausalHull(initial_entries(task["development_initial_phase_entries"][system]), chemical_system=tuple(system.split("-")))
         history: list[RevealedProtocolObservation] = []
         recorded_worker = ProtocolPolicySubprocess("source_rollout_delta_hull", seed=int(sarr["config"]["seed"]),
             transport_model=model, posterior_sample_count=int(sarr["config"]["posterior_sample_count"]),
@@ -106,7 +119,7 @@ def run(*, task_path: Path, vault_path: Path, sarr_path: Path, plan_path: Path,
                         "selected_high_precision_advantage": diagnostic["mean_advantages_over_source"][selected_id],
                         "selected_high_precision_lower_bound": diagnostic["simultaneous_lower_bounds"][selected_id]})
                 chosen = candidates.pop(selected_id)
-                outcome = _outcome(row_by_id[selected_id], outcomes[selected_id])
+                outcome = outcome_from_rows(row_by_id[selected_id], outcomes[selected_id])
                 history.append(RevealedProtocolObservation(pair_id=selected_id, source_formation_energy_ev_per_atom=chosen.source_formation_energy_ev_per_atom,
                     revealed_target_formation_energy_ev_per_atom=outcome.target_formation_energy_ev_per_atom,
                     source_environment_embedding=chosen.source_environment_embedding, source_local_environment_embedding=chosen.source_local_environment_embedding))
