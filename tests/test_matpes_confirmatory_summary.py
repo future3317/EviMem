@@ -34,3 +34,21 @@ def test_paired_summary_keeps_exact_system_as_the_unit() -> None:
     assert summary["wins"] == 2
     assert summary["ties"] == 1
     assert summary["losses"] == 1
+    assert summary["sign_flip_method"] == "exact_complete_enumeration"
+
+
+def test_paired_summary_uses_deterministic_monte_carlo_for_continuous_metrics() -> None:
+    tool = _load_summary_tool()
+    values = np.asarray([0.125, -0.25, 0.375, -0.0625])
+    first = tool._paired_summary(
+        values,
+        bootstrap_seed=19,
+        bootstrap_replicates=1_000,
+    )
+    second = tool._paired_summary(
+        values,
+        bootstrap_seed=19,
+        bootstrap_replicates=1_000,
+    )
+    assert first["sign_flip_method"] == "deterministic_monte_carlo"
+    assert first["two_sided_sign_flip_p"] == second["two_sided_sign_flip_p"]

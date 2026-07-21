@@ -1,7 +1,8 @@
 # MatPES confirmatory infrastructure
 
-This note records the implementation boundary for the fresh Delta--Hull
-replication. It is infrastructure, not a positive result.
+This note records the implementation boundary and completed 48-system
+Delta--Hull repartition. The result is a method-level NO-GO, not a positive
+claim.
 
 ## Frozen method
 
@@ -11,9 +12,14 @@ No score blend, adaptive Monte Carlo, lookahead, top-k truncation, or new
 weight is introduced in this stage. The default hull backend is `pymatgen`.
 
 `fixed_composition` is an action-equivalent optimization only. It caches the
-composition geometry and reuses it for each posterior sample. It is disabled
-for claims or production runs until `tools/audit_matpes_fixed_hull_parity.py`
-reports zero action-trace and sample-membership mismatches.
+composition geometry and reuses it for each posterior sample. It is not the
+package default; a future claim-grade panel should first run
+`tools/audit_matpes_fixed_hull_parity.py` on its registered support.
+
+The completed run uses the cached backend after stable-mask property tests and
+full six-action agreement on the three real MC1024 systems completed by the
+original reference backend. The slow reference run is preserved as incomplete
+diagnostic evidence, not combined with the completed output.
 
 ## Fresh split contract
 
@@ -46,3 +52,17 @@ artifact and fails if a fit system intersects a query system.
 6. Only then run the frozen fresh replication and baselines.
 
 All raw task, oracle and experiment outputs remain outside Git.
+
+## Completed repartition result
+
+The 324 eligible systems are split into 276 transport-fit and 48 evaluation
+systems before refitting. Delta-Hull obtains 3.6250 oracle-final confirmations
+per system versus 3.5625 for source margin. The paired difference is +0.0625,
+bootstrap 95% CI [-0.1042,+0.2292], exact two-sided sign-flip p=0.6291. The
+48 evaluation systems are opened and must not be used for further tuning.
+
+The runner now separates policy execution from optional posterior-hull
+diagnostics. Setting `--posterior-diagnostic-sample-count 0` skips only the
+post-trace sampled-hull evaluator; it does not change the posterior used by an
+acquisition action, oracle reveal, causal hull, energy diagnostic or final
+discovery metric.

@@ -381,6 +381,17 @@ difference. MC1024 is therefore frozen for a fresh-split replication; no more
 posterior or acquisition tuning is authorized on these 24 systems. Current
 evidence remains development-only until that replication succeeds.
 
+The subsequent outcome-independent repartition reserves 48 exact systems and
+refits transport on the other 276. Delta-Hull obtains `3.6250` oracle-final
+confirmations/system versus `3.5625` for source margin: paired `+0.0625`, 95%
+CI `[-0.1042,+0.2292]`, exact two-sided `p=0.6291`. It differs from source on
+213/288 round actions, so the failure is not a degenerate selector. Instead,
+source margin already reaches the finite-pool budget ceiling in 24/48 systems;
+only 35 confirmations of total headroom remain and Delta-Hull recovers a net
+three. This closes Delta-Hull as a superiority method on the opened MatPES
+task. Further score, posterior, support or seed changes on these systems are
+not authorized as independent evidence.
+
 ## 9. Scope and literature boundary
 
 Decision-sufficient representations motivate preserving downstream decisions

@@ -49,6 +49,19 @@ def _paired_summary(
     rng = np.random.default_rng(bootstrap_seed)
     indices = rng.integers(0, len(values), size=(bootstrap_replicates, len(values)))
     bootstrap = values[indices].mean(axis=1)
+    integer_valued = bool(np.allclose(values, np.rint(values), atol=1e-12))
+    if integer_valued:
+        sign_flip_p = _exact_sign_flip_two_sided(values)
+        sign_flip_method = "exact_complete_enumeration"
+    else:
+        signs = rng.choice(
+            np.asarray([-1.0, 1.0]),
+            size=(bootstrap_replicates, len(values)),
+        )
+        observed = abs(float(np.sum(values)))
+        randomized = np.abs(np.sum(signs * values[None, :], axis=1))
+        sign_flip_p = float((np.sum(randomized >= observed) + 1) / (len(randomized) + 1))
+        sign_flip_method = "deterministic_monte_carlo"
     return {
         "system_count": len(values),
         "paired_mean_difference": float(values.mean()),
@@ -59,7 +72,8 @@ def _paired_summary(
         "wins": int(np.sum(values > 0)),
         "ties": int(np.sum(values == 0)),
         "losses": int(np.sum(values < 0)),
-        "exact_two_sided_sign_flip_p": _exact_sign_flip_two_sided(values),
+        "two_sided_sign_flip_p": sign_flip_p,
+        "sign_flip_method": sign_flip_method,
     }
 
 
@@ -74,6 +88,7 @@ def summarize(
         "ridge_predicted_final_margin",
     ),
     metric: str = "oracle_pool_confirmed_discoveries",
+    supported_only: bool = False,
     bootstrap_seed: int = 20270721,
     bootstrap_replicates: int = 50_000,
 ) -> dict[str, Any]:
@@ -85,7 +100,13 @@ def summarize(
     result = json.loads(result_path.read_text(encoding="utf-8"))
     if result.get("split") != "confirmatory" or not result.get("evaluation_systems_accessed"):
         raise ValueError("summary requires an opened confirmatory result")
-    systems = sorted(result["systems"])
+    systems = sorted(
+        system
+        for system, payload in result["systems"].items()
+        if not supported_only or payload.get("transport_element_support") is True
+    )
+    if not systems:
+        raise ValueError("no systems remain after applying the support filter")
     summaries: dict[str, Any] = {}
     for comparison in comparison_policies:
         differences = np.asarray(
@@ -121,6 +142,7 @@ def summarize(
         "result_sha256": _sha256(result_path),
         "primary_policy": primary_policy,
         "metric": metric,
+        "supported_only": supported_only,
         "bootstrap_seed": bootstrap_seed,
         "bootstrap_replicates": bootstrap_replicates,
         "comparisons": summaries,
@@ -142,6 +164,7 @@ def main() -> None:
         default=("source_margin", "ridge_margin", "ridge_predicted_final_margin"),
     )
     parser.add_argument("--metric", default="oracle_pool_confirmed_discoveries")
+    parser.add_argument("--supported-only", action="store_true")
     parser.add_argument("--bootstrap-seed", type=int, default=20270721)
     parser.add_argument("--bootstrap-replicates", type=int, default=50_000)
     args = parser.parse_args()
@@ -151,6 +174,7 @@ def main() -> None:
         primary_policy=args.primary_policy,
         comparison_policies=tuple(args.comparison_policies),
         metric=args.metric,
+        supported_only=args.supported_only,
         bootstrap_seed=args.bootstrap_seed,
         bootstrap_replicates=args.bootstrap_replicates,
     )

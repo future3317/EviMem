@@ -82,9 +82,12 @@ that invalidates its earliest closed-loop traces. On the corrected task, a
 composition-referenced hierarchical discrepancy posterior substantially
 improves energy and hull inference. Delta-Hull Active Search then shows a
 `+0.25` oracle-final confirmation signal on 24 development systems at MC1024.
-The effect is unchanged from MC512 and most action traces agree, but fresh-split
-replication remains absent. That signal is development-only and is not yet a
-paper-level method claim.
+The effect is unchanged from MC512, but an outcome-independent 48-system
+repartition with transport refitted on the other 276 systems shrinks the gain
+over source margin to `+0.0625`, CI `[-0.1042,+0.2292]`, exact two-sided
+`p=0.6291`. Delta-Hull is non-degenerate and improves over two posterior-margin
+baselines, but does not beat the strongest simple baseline. It is therefore a
+method-level NO-GO on the tested MatPES task.
 
 ## Current research decision (not an experiment)
 
@@ -146,7 +149,7 @@ paths and hashes appear in the numbered entries below.
 | CHIC action-driven loop | Exploratory negative | Selected actions are sole reveals; causal-hull lookahead improves pure influence but source margin remains stronger | Closed-loop superiority | Use only calibration/development systems until a new task has a real training bottleneck |
 | LeMat PBE/SCAN pair audit | Authoritative data-quality NO-GO | The downloaded Unique configs are intact but have zero ID/fingerprint overlap | Same-structure multi-protocol pairs | Do not pair by formula; use MatPES PBE--r2SCAN instead |
 | MatPES pair/task and stoichiometry audit | Authoritative infrastructure plus historical invalidation | Exact PBE--r2SCAN pairs exist at scale; action-driven reveal works after preserving cell stoichiometry | Any result from the old normalized-composition/total-energy path | Never cite pre-repair MatPES closed-loop traces |
-| Hierarchical MatPES posterior + Delta-Hull Active Search | Promising development signal | Composition/reference correction and a local Matern posterior are non-degenerate; on 24 systems MC512 and MC1024 both improve oracle-final confirmation by `+0.25` per system | Fresh-split superiority, exact trace convergence or a paper-level method claim | Freeze MC1024 and replicate on new exact systems; do not add score blends or tune the opened development panel |
+| Hierarchical MatPES posterior + Delta-Hull Active Search | Development mechanism followed by repartitioned NO-GO | Composition/reference correction and a local Matern posterior are non-degenerate; the 24-system signal is real on that panel | Superiority over source margin or a paper-level method claim | The 48-system repartition gives `+0.0625`, CI crossing zero and `p=0.6291`; do not tune Delta-Hull on the opened systems |
 
 ## Cross-iteration cause judgments
 
@@ -734,6 +737,56 @@ proposal-only. See E15.
   paper-level GO. Do not add an acquisition blend or tune posterior parameters;
   freeze MC1024 and test the unchanged method on a fresh exact-system split.
 
+### E22. Delta-Hull 48-system outcome-independent repartition
+
+- Split change: the 324 eligible MatPES exact systems are repartitioned before
+  refitting. SHA256 selection reserves 16 binary, 16 ternary and 16
+  quaternary-or-higher systems (1,524 candidates, one row per original MP
+  parent); the hierarchical transport is refitted on the remaining 276 systems
+  and 8,712 pairs. Selection does not use r2SCAN outcomes. Because the overall
+  corpus informed earlier development, this is called a repartitioned
+  replication rather than a pristine external confirmation.
+- Task SHA256
+  `2a8e09f2c77fe9a92ede60f02a3ee6a2cf7f1210c4c4fa94cc67890df02d6f36`;
+  oracle-vault SHA256
+  `ada607c5d041f64c621c5f1139d5c883c3ec983836d429354a9340305a912358`;
+  frozen transport checksum
+  `sha256:98a2e9f7ca6328e2ecf60294bec9f115a73d2939be107a51bafbfd12eae42f01`.
+  The kernel optimizer converges with status zero, gradient norm
+  `1.04668e-6`, no active bounds, length scale `1.77719`, signal variance
+  `0.00337948` and noise variance `0.000237849`.
+- The unchanged policy uses budget six, MC1024 and selected-action-only reveal.
+  Result SHA256
+  `d838a27a28e151870fc5cc908aaf4d3eed9939370b3e5397b9a30f3b0d74bc21`.
+  Delta-Hull obtains `3.6250` oracle-final confirmations/system versus
+  `3.5625` for source margin: paired `+0.0625`, bootstrap 95% CI
+  `[-0.1042,+0.2292]`, exact two-sided sign-flip `p=0.6291`, with 10 wins,
+  31 ties and 7 losses. The 45 transport-supported-system sensitivity is
+  `+0.0667`, CI `[-0.1111,+0.2444]`, with the same `p`-value. The three
+  unsupported binary systems (N--Pd, N--Re and O--U) correctly fall back to
+  source margin.
+- Delta-Hull significantly beats ridge margin (`+0.4792`, CI
+  `[+0.1875,+0.7708]`, `p=0.00301`) and posterior-mean final margin
+  (`+0.6042`, CI `[+0.2917,+0.9167]`, `p=0.000625`). These are weaker than
+  source margin and do not establish the paper hypothesis.
+- Mechanism diagnosis: source margin reaches the budget ceiling in 24/48
+  systems and leaves 35 total budget-feasible confirmations; Delta-Hull
+  recovers a net three (`8.57%`). It disagrees with source margin on 28/48
+  first actions, 45/48 full traces and 213/288 round actions, so the null is not
+  caused by selector collapse. Causal discoveries are slightly lower
+  (`-0.0417`/system), final-causal confirmations tie, and oracle invalidations
+  fall by `0.1042`/system, but all three paired intervals cross zero.
+- Engineering disposition: the first three complete MC1024 real-system traces
+  from the original pymatgen backend match the cached fixed-composition backend
+  action for action. Binary, ternary and duplicate-composition property tests
+  also match stable masks exactly. Removing repeated post-trace sampled-hull
+  diagnostics from every policy/round reduces the complete 48-system execution
+  to about 9.5 minutes; those diagnostics can be replayed offline. Online
+  Delta-Hull time is `5.07` seconds/system versus `1.93` for source margin.
+- Claim status: stopped/method-level NO-GO for superiority over source margin
+  on this task. All 48 systems are opened and development-closed. Do not tune
+  the kernel, Sobol seed, score, horizon or support filter on them.
+
 ## Superseded, invalid and incomplete evidence
 
 | Evidence | Required treatment |
@@ -807,11 +860,10 @@ it never refits on fresh systems. These tools have only passed fixture and unit
 tests so far. No fresh-system result, GO decision, or paper-level positive claim
 is implied by their existence.
 
-The remote raw MatPES rebuild currently yields 324 eligible exact systems
-(88 binary, 130 ternary, 100 quaternary and 6 higher-order). The registered
-development task/vault already consumes all 324 systems for transport fitting,
-so the fresh builder correctly fails closed with `no fresh exact systems
-satisfy the confirmatory pool gate`. This is a data-split blocker, not a
-method result: do not relabel a subset of those systems as fresh. A future
-replication must first register a new development/fitting split (or obtain an
-additional compatible dataset) and freeze transport again.
+The remote raw MatPES rebuild yields 324 eligible exact systems (88 binary,
+130 ternary, 100 quaternary and 6 higher-order). The first attempt correctly
+failed because the old transport fit consumed all 324. E22 resolves that
+engineering problem by reserving 48 systems first and refitting on 276. The
+opened result is negative against source margin, so data-split feasibility is
+no longer the blocker; decision headroom and discriminative posterior value
+are the measured limitations.

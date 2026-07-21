@@ -50,15 +50,27 @@ There is no paper-level positive result yet.
   their first actions agree in 23/24 systems, complete six-step traces in
   21/24, and individual rounds in 134/144. This is improved effect-level
   numerical stability, not exact trace convergence or a paper-level GO. The
-  next gate is replication on a fresh exact-system split with MC1024 frozen.
+  subsequent outcome-independent repartition reserves 48 systems (16 binary,
+  16 ternary and 16 higher-order) and refits transport on the other 276. On
+  this panel Delta-Hull obtains `3.6250` oracle-final confirmations versus
+  `3.5625` for source margin: paired difference `+0.0625`, bootstrap 95% CI
+  `[-0.1042,+0.2292]`, exact two-sided sign-flip `p=0.6291` (10 wins, 31 ties,
+  7 losses). The development signal therefore does not replicate strongly
+  enough for a superiority claim.
+- The main cause is limited decision headroom, not a constant selector.
+  Delta-Hull and source margin agree on only 75/288 round actions, but source
+  already reaches the budget ceiling on 24/48 systems. It leaves 35 total
+  confirmations and Delta-Hull recovers a net three (8.57%). Delta-Hull is
+  better than the two posterior-margin baselines, but source margin remains the
+  strongest comparator.
+- Cached fixed-composition hull propagation and separation of offline
+  posterior-hull diagnostics reduce the 48-system run to about 9.5 minutes.
+  The cached backend exactly matches all six Delta-Hull actions on the three
+  real MC1024 traces completed by the original pymatgen reference run, in
+  addition to the binary/ternary/duplicate-composition property tests.
 
-  The raw-data rebuild currently contains 324 eligible systems, all already
-  consumed by the registered development transport fit; therefore the fresh
-  builder fails closed rather than relabeling any of them as evaluation. A new
-  registered split or an additional compatible protocol dataset is required.
-
-No opened JARVIS--MP evaluation system is reused for current development, and
-no MatPES result above is a sealed confirmatory evaluation.
+No opened JARVIS--MP evaluation system is reused for current development. The
+48 MatPES systems are now opened and must not be used to tune Delta-Hull.
 
 ## Live architecture
 
