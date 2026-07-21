@@ -90,3 +90,28 @@ actions in 41/46, but complete traces agree in only 31/46 and individual
 actions in 220/276. Consequently folds 1--5 are paused. This is a numerical
 integration gate, not authorization to change the transport posterior,
 terminal reward, source continuation, or selection threshold.
+
+## Conformal One-Deviation Source-Rollout (development implementation)
+
+The live code now contains a separate `conformal_source_rollout_delta_hull`
+policy. It does not alter the frozen Source-Rollout objective or the SARR gate.
+On disjoint exact-system calibration traces, the helper
+`source_rollout_system_score` computes the nonconformity score
+
+\[
+S_s = \max_{t,x}\bigl[\widehat A_{s,t}(x)-A_{s,t}(x)\bigr]_+,
+\]
+
+and `fit_conformal_source_rollout_calibration` freezes the finite-sample
+system-clustered quantile. At deployment, a candidate can replace the source
+action only when its estimated source-relative advantage minus its RQMC
+standard-error radius is strictly larger than that frozen threshold. The
+runner records `conformal_deviation_used` in the policy state; after the first
+accepted deviation, every later round executes the source-margin policy. The
+source action remains in the legal action set and is the fail-closed fallback.
+
+The threshold is not a posterior standard deviation, and the calibration
+radius is not a blanket safety or superiority guarantee. This implementation
+is proposal/development infrastructure only: no calibration artifact or
+evaluation result has yet been produced, and the current SARR fold-0 rerun
+must be completed before this continuation is used for a paper-facing claim.

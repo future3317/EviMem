@@ -6,13 +6,16 @@ import pytest
 from matmem.protocol_knowledge_gradient import (
     FrozenProtocolRidgeTransport,
     ProtocolTargetEnergyPosterior,
+    conformal_one_deviation_source_rollout,
     delta_hull_active_search,
+    fit_conformal_source_rollout_calibration,
     fit_protocol_kernel_transport,
     fit_protocol_ridge_transport,
     protocol_hull_knowledge_gradient,
     protocol_hull_risk_reduction,
     protocol_target_energy_posterior,
     source_rollout_delta_hull,
+    source_rollout_system_score,
 )
 
 
@@ -118,6 +121,66 @@ def test_source_rollout_reports_simultaneous_candidate_count() -> None:
 
     assert result.sobol_scramble_count == 16
     assert result.simultaneous_comparison_count == 2
+
+
+def test_conformal_source_rollout_calibration_is_system_clustered() -> None:
+    score = source_rollout_system_score(
+        np.asarray([[0.2, 0.1], [0.0, -0.3]]),
+        np.asarray([[0.1, 0.2], [0.0, -0.4]]),
+    )
+    assert score == pytest.approx(0.1)
+    calibration = fit_conformal_source_rollout_calibration(
+        (0.1, 0.2, 0.3, 0.4),
+        system_ids=("s1", "s2", "s3", "s4"),
+        alpha=0.2,
+    )
+    assert calibration.order_statistic_one_based == 4
+    assert calibration.radius == pytest.approx(0.4)
+    assert calibration.identity_checksum.startswith("sha256:")
+    with pytest.raises(ValueError, match="too few exact systems"):
+        fit_conformal_source_rollout_calibration(
+            (0.1, 0.2), system_ids=("s1", "s2"), alpha=0.1
+        )
+
+
+def test_conformal_source_rollout_allows_only_one_deviation() -> None:
+    posterior = ProtocolTargetEnergyPosterior(
+        mean=(-0.2, -0.5, -0.5),
+        covariance=(
+            (1e-12, 0.0, 0.0),
+            (0.0, 1e-12, 0.0),
+            (0.0, 0.0, 1e-12),
+        ),
+        system_offset_mean=0.0,
+        system_offset_variance=0.0,
+        history_count=0,
+    )
+    kwargs = dict(
+        query_compositions=(
+            {"A": 0.5, "B": 0.5},
+            {"A": 0.25, "B": 0.75},
+            {"A": 0.75, "B": 0.25},
+        ),
+        query_source_energies=np.asarray([-0.45, -0.4, -0.4]),
+        query_ids=("source", "left", "right"),
+        reference_compositions=({"A": 1.0}, {"B": 1.0}),
+        reference_energies=np.zeros(2),
+        current_competing_hull_energies=np.zeros(3),
+        costs=np.ones(3),
+        remaining_budget=2.0,
+        conformal_radius=0.0,
+        posterior_sample_count=32,
+        seed=11,
+    )
+    first = conformal_one_deviation_source_rollout(posterior, **kwargs)
+    assert first.deviation_selected
+    assert first.selected_action_index == 1
+    second = conformal_one_deviation_source_rollout(
+        posterior, deviation_used=True, **kwargs
+    )
+    assert not second.deviation_selected
+    assert second.selected_action_index == second.source_action_index == 0
+    assert second.fallback_reason == "deviation_already_used"
 
 
 def _transport_model():

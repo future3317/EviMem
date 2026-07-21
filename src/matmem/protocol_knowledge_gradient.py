@@ -218,6 +218,63 @@ class SourceRolloutDeltaHullResult(BaseModel):
     horizon: int = Field(gt=0)
 
 
+class ConformalSourceRolloutCalibration(BaseModel):
+    """Exact-system calibration for a single source-relative deviation.
+
+    ``radius`` is an upper quantile of the system-level maximum rollout
+    over-estimation.  It is a deployment threshold, not a posterior standard
+    deviation or a guarantee for arbitrary adaptive policies.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    alpha: float = Field(gt=0, lt=1)
+    system_ids: tuple[str, ...]
+    system_scores: tuple[float, ...]
+    order_statistic_one_based: int = Field(gt=0)
+    radius: float = Field(ge=0)
+
+    @model_validator(mode="after")
+    def _calibration_dimensions(self) -> ConformalSourceRolloutCalibration:
+        if not self.system_ids or len(set(self.system_ids)) != len(self.system_ids):
+            raise ValueError("conformal rollout systems must be unique and nonempty")
+        if len(self.system_scores) != len(self.system_ids):
+            raise ValueError("conformal rollout scores and systems disagree")
+        if any(not math.isfinite(value) or value < 0 for value in self.system_scores):
+            raise ValueError("conformal rollout scores must be finite and non-negative")
+        if not 1 <= self.order_statistic_one_based <= len(self.system_ids):
+            raise ValueError("conformal rollout order statistic is out of range")
+        if not math.isfinite(self.radius):
+            raise ValueError("conformal rollout radius must be finite")
+        return self
+
+    @property
+    def identity_checksum(self) -> str:
+        payload = self.model_dump(mode="json")
+        encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+        return "sha256:" + hashlib.sha256(encoded.encode()).hexdigest()
+
+
+class ConformalSourceRolloutResult(BaseModel):
+    """One-deviation source-rollout decision and its numerical diagnostics."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    scores: tuple[float, ...]
+    paired_advantages_over_source: tuple[float, ...]
+    rqmc_radii: tuple[float, ...]
+    conformal_adjusted_advantages: tuple[float, ...]
+    source_action_index: int = Field(ge=0)
+    selected_action_index: int = Field(ge=0)
+    deviation_used_before: bool
+    deviation_selected: bool
+    fallback_reason: str | None = None
+    conformal_radius: float = Field(ge=0)
+    posterior_sample_count: int = Field(gt=0)
+    sobol_scramble_count: int = Field(gt=1)
+    horizon: int = Field(gt=0)
+
+
 @dataclass(frozen=True, slots=True)
 class FixedCompositionHullTemplate:
     """Cached composition geometry for an action-equivalent lower-hull solver.
@@ -1185,6 +1242,58 @@ def _simultaneous_paired_lower_bounds(
     return means - critical_value * standard_errors
 
 
+def source_rollout_system_score(
+    estimated_advantages: np.ndarray,
+    counterfactual_advantages: np.ndarray,
+) -> float:
+    """Return one exact-system conformal score for rollout over-estimation.
+
+    Both arrays contain source-relative advantages indexed by round and legal
+    first action.  Calibration must use exact-system counterfactual oracle
+    traces that are disjoint from deployment systems.  Clipping at zero makes
+    this an upper-error nonconformity score rather than a signed effect.
+    """
+
+    estimated = np.asarray(estimated_advantages, dtype=np.float64)
+    counterfactual = np.asarray(counterfactual_advantages, dtype=np.float64)
+    if estimated.shape != counterfactual.shape or estimated.ndim < 1:
+        raise ValueError("rollout advantage arrays must have the same nonempty shape")
+    if not np.isfinite(estimated).all() or not np.isfinite(counterfactual).all():
+        raise ValueError("rollout advantage arrays must be finite")
+    return float(max(0.0, np.max(estimated - counterfactual)))
+
+
+def fit_conformal_source_rollout_calibration(
+    system_scores: Sequence[float],
+    *,
+    system_ids: Sequence[str],
+    alpha: float = 0.1,
+) -> ConformalSourceRolloutCalibration:
+    """Fit a finite-sample exact-system split-conformal rollout threshold."""
+
+    scores = tuple(float(value) for value in system_scores)
+    identifiers = tuple(str(value) for value in system_ids)
+    if len(scores) != len(identifiers) or not identifiers:
+        raise ValueError("conformal rollout systems and scores disagree")
+    if any(not value for value in identifiers):
+        raise ValueError("conformal rollout system IDs must be nonempty")
+    if not 0 < alpha < 1:
+        raise ValueError("conformal rollout alpha must be in (0, 1)")
+    if any(not math.isfinite(value) or value < 0 for value in scores):
+        raise ValueError("conformal rollout scores must be finite and non-negative")
+    order = math.ceil((len(scores) + 1) * (1.0 - alpha))
+    if order > len(scores):
+        raise ValueError("too few exact systems for a finite conformal rollout threshold")
+    radius = sorted(scores)[order - 1]
+    return ConformalSourceRolloutCalibration(
+        alpha=alpha,
+        system_ids=identifiers,
+        system_scores=scores,
+        order_statistic_one_based=order,
+        radius=radius,
+    )
+
+
 def _fixed_evaluation_compositions(
     query_compositions: Sequence[dict[str, float]],
     reference_compositions: Sequence[dict[str, float]],
@@ -1471,6 +1580,98 @@ def source_rollout_delta_hull(
         sobol_scramble_count=sobol_scramble_count,
         simultaneous_comparison_count=max(size - 1, 1),
         horizon=horizon,
+    )
+
+
+def conformal_one_deviation_source_rollout(
+    posterior: ProtocolTargetEnergyPosterior,
+    *,
+    query_compositions: Sequence[dict[str, float]],
+    query_source_energies: np.ndarray,
+    query_ids: Sequence[str],
+    reference_compositions: Sequence[dict[str, float]],
+    reference_energies: np.ndarray,
+    current_competing_hull_energies: np.ndarray,
+    costs: np.ndarray,
+    remaining_budget: float,
+    conformal_radius: float,
+    deviation_used: bool = False,
+    posterior_sample_count: int = 1024,
+    seed: int = 0,
+    fixed_template: FixedCompositionHullTemplate | None = None,
+    sobol_scramble_count: int = 16,
+    integration_confidence: float = 0.95,
+) -> ConformalSourceRolloutResult:
+    """Allow at most one calibrated deviation from source continuation.
+
+    The rollout estimate is paired against the same source action and uses the
+    existing simultaneous RQMC lower-bound radius as ``c_RQMC(x)``.  A
+    non-source action is legal only when
+
+    ``estimated_advantage - c_RQMC(x) > conformal_radius``.
+
+    The conformal radius is calibrated on exact-system maxima of rollout
+    over-estimation.  This function therefore supplies a safe, source-anchored
+    policy rule; it does not turn posterior correctness into a distribution-free
+    guarantee.  Once ``deviation_used`` is true, callers must execute the source
+    policy directly for all remaining rounds.
+    """
+
+    radius = float(conformal_radius)
+    if not math.isfinite(radius) or radius < 0:
+        raise ValueError("conformal rollout radius must be finite and non-negative")
+    rollout = source_rollout_delta_hull(
+        posterior,
+        query_compositions=query_compositions,
+        query_source_energies=query_source_energies,
+        query_ids=query_ids,
+        reference_compositions=reference_compositions,
+        reference_energies=reference_energies,
+        current_competing_hull_energies=current_competing_hull_energies,
+        costs=costs,
+        remaining_budget=remaining_budget,
+        posterior_sample_count=posterior_sample_count,
+        seed=seed,
+        fixed_template=fixed_template,
+        sobol_scramble_count=sobol_scramble_count,
+        integration_confidence=integration_confidence,
+    )
+    advantages = np.asarray(rollout.paired_advantages_over_source, dtype=np.float64)
+    lower_bounds = np.asarray(rollout.paired_advantage_lower_bounds, dtype=np.float64)
+    rqmc_radii = np.maximum(advantages - lower_bounds, 0.0)
+    adjusted = advantages - rqmc_radii
+    source_index = rollout.source_action_index
+    adjusted[source_index] = 0.0
+    eligible = np.flatnonzero(adjusted > radius)
+    if deviation_used:
+        selected = source_index
+        selected_deviation = False
+        reason = "deviation_already_used"
+    elif len(eligible):
+        selected = min(
+            (int(index) for index in eligible),
+            key=lambda index: (-adjusted[index], str(query_ids[index])),
+        )
+        selected_deviation = selected != source_index
+        reason = None
+    else:
+        selected = source_index
+        selected_deviation = False
+        reason = "conformal_gate_not_positive"
+    return ConformalSourceRolloutResult(
+        scores=rollout.scores,
+        paired_advantages_over_source=rollout.paired_advantages_over_source,
+        rqmc_radii=tuple(float(value) for value in rqmc_radii),
+        conformal_adjusted_advantages=tuple(float(value) for value in adjusted),
+        source_action_index=source_index,
+        selected_action_index=selected,
+        deviation_used_before=deviation_used,
+        deviation_selected=selected_deviation,
+        fallback_reason=reason,
+        conformal_radius=radius,
+        posterior_sample_count=rollout.posterior_sample_count,
+        sobol_scramble_count=rollout.sobol_scramble_count,
+        horizon=rollout.horizon,
     )
 
 

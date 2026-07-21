@@ -109,6 +109,8 @@ from .protocol_closed_loop import (
     SecureProtocolQueryRunner,
 )
 from .protocol_knowledge_gradient import (
+    ConformalSourceRolloutCalibration,
+    ConformalSourceRolloutResult,
     DeltaHullActiveSearchResult,
     FixedCompositionHullTemplate,
     FrozenProtocolRidgeTransport,
@@ -117,7 +119,9 @@ from .protocol_knowledge_gradient import (
     ProtocolHullRiskReductionResult,
     ProtocolTargetEnergyPosterior,
     SourceRolloutDeltaHullResult,
+    conformal_one_deviation_source_rollout,
     delta_hull_active_search,
+    fit_conformal_source_rollout_calibration,
     fit_protocol_kernel_transport,
     fit_protocol_ridge_transport,
     fixed_composition_hull_membership,
@@ -127,6 +131,7 @@ from .protocol_knowledge_gradient import (
     protocol_target_energy_posterior,
     source_margin_action_indices,
     source_rollout_delta_hull,
+    source_rollout_system_score,
 )
 from .protocols import (
     CompatibilityKind,
@@ -400,7 +405,12 @@ __all__ = [
     "protocol_hull_posterior_summary",
     "protocol_hull_risk_reduction",
     "protocol_target_energy_posterior",
+    "ConformalSourceRolloutCalibration",
+    "ConformalSourceRolloutResult",
+    "conformal_one_deviation_source_rollout",
+    "fit_conformal_source_rollout_calibration",
     "source_margin_action_indices",
+    "source_rollout_system_score",
     "source_rollout_delta_hull",
     "SourceRolloutDeltaHullResult",
     "paired_system_improvement_bootstrap",

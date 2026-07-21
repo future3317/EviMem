@@ -71,6 +71,7 @@ POLICIES = (
     "ridge_predicted_final_margin",
     "delta_hull_active_search",
     "source_rollout_delta_hull",
+    "conformal_source_rollout_delta_hull",
     "protocol_hull_knowledge_gradient",
     "protocol_hull_risk_reduction",
 )
@@ -94,6 +95,7 @@ class ExperimentConfig:
     posterior_sample_count: int = 1024
     posterior_diagnostic_sample_count: int = 0
     fantasy_count: int = 3
+    conformal_threshold: float | None = None
     hull_backend: Literal["pymatgen", "fixed_composition"] = "pymatgen"
     transport_family: Literal[
         "ridge_random_intercept",
@@ -600,12 +602,14 @@ def run(
                 ),
                 posterior_sample_count=config.posterior_sample_count,
                 fantasy_count=config.fantasy_count,
+                conformal_threshold=config.conformal_threshold,
                 hull_backend=config.hull_backend,
                 selection_timeout_seconds=(
                     300.0
                     if policy_name
                     in {
                         "source_rollout_delta_hull",
+                        "conformal_source_rollout_delta_hull",
                         "protocol_hull_knowledge_gradient",
                         "protocol_hull_risk_reduction",
                     }
@@ -864,6 +868,7 @@ def main() -> None:
     parser.add_argument("--posterior-sample-count", type=int, default=1024)
     parser.add_argument("--posterior-diagnostic-sample-count", type=int, default=0)
     parser.add_argument("--fantasy-count", type=int, default=3)
+    parser.add_argument("--conformal-threshold", type=float, default=None)
     parser.add_argument("--split", choices=("development", "confirmatory"), default="development")
     parser.add_argument("--transport-model", type=Path, default=None)
     parser.add_argument(
@@ -910,6 +915,7 @@ def main() -> None:
         posterior_sample_count=args.posterior_sample_count,
         posterior_diagnostic_sample_count=args.posterior_diagnostic_sample_count,
         fantasy_count=args.fantasy_count,
+        conformal_threshold=args.conformal_threshold,
         hull_backend=args.hull_backend,
         transport_family=args.transport_family,
         split=args.split,
@@ -929,7 +935,10 @@ def main() -> None:
         or config.boundary_temperature_ev_per_atom <= 0
         or config.posterior_sample_count < 4
         or (
-            "source_rollout_delta_hull" in config.policies
+            (
+                "source_rollout_delta_hull" in config.policies
+                or "conformal_source_rollout_delta_hull" in config.policies
+            )
             and (
                 config.posterior_sample_count % 16
                 or config.posterior_sample_count // 16 < 2
@@ -942,6 +951,14 @@ def main() -> None:
             and config.posterior_diagnostic_sample_count < 4
         )
         or config.fantasy_count < 1
+        or (
+            "conformal_source_rollout_delta_hull" in config.policies
+            and (
+                config.conformal_threshold is None
+                or not math.isfinite(config.conformal_threshold)
+                or config.conformal_threshold < 0
+            )
+        )
         or not config.policies
         or len(set(config.policies)) != len(config.policies)
     ):

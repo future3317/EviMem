@@ -430,6 +430,21 @@ is not established. Folds 1--5 are therefore paused; no positive claim or
 cross-fold expansion is authorized before resolving integration stability
 without changing the posterior or acquisition objective.
 
+The report-motivated continuation is implemented separately as
+`conformal_source_rollout_delta_hull`. It calibrates an exact-system
+nonconformity score
+
+\[
+S_s=\max_{t,x}[\widehat A_{s,t}(x)-A_{s,t}(x)]_+
+\]
+
+and permits at most one source-relative deviation when the RQMC-adjusted
+advantage exceeds the frozen finite-sample radius. The runner explicitly
+records whether that deviation has been used and executes source margin
+thereafter. This is development infrastructure, not a new result: no
+calibration artifact or evaluation run exists, and it cannot be used to
+change the pending SARR fold-0 gate or support a positive claim.
+
 ## 9. Scope and literature boundary
 
 Decision-sufficient representations motivate preserving downstream decisions

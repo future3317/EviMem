@@ -302,6 +302,7 @@ def _protocol_transport_fixture():
     (
         "delta_hull_active_search",
         "source_rollout_delta_hull",
+        "conformal_source_rollout_delta_hull",
         "protocol_hull_knowledge_gradient",
     ),
 )
@@ -317,6 +318,46 @@ def test_source_rollout_rejects_non_blockable_sample_count() -> None:
             transport_model=_protocol_transport_fixture(),
             posterior_sample_count=24,
         )
+
+
+def test_conformal_source_rollout_requires_frozen_threshold() -> None:
+    with pytest.raises(ValueError, match="finite non-negative threshold"):
+        ProtocolPolicySubprocess(
+            "conformal_source_rollout_delta_hull",
+            transport_model=_protocol_transport_fixture(),
+            posterior_sample_count=32,
+        )
+
+
+def test_conformal_source_rollout_high_threshold_is_source_fallback(
+    tmp_path: Path,
+) -> None:
+    candidates, outcomes = _fixture()
+    vault = ProtocolOracleVault(outcomes, expected_split="fixture")
+    event_log = AppendOnlyProtocolEventLog(tmp_path / "conformal-source.jsonl")
+    runner = SecureProtocolQueryRunner(
+        candidates=candidates,
+        vault=vault,
+        causal_hull=ProtocolCausalHull(
+            (
+                ComputedEntry("Fe", 0.0, entry_id="Fe"),
+                ComputedEntry("Zr", 0.0, entry_id="Zr"),
+            ),
+            chemical_system=("Fe", "Zr"),
+        ),
+        policy=ProtocolPolicySubprocess(
+            "conformal_source_rollout_delta_hull",
+            transport_model=_protocol_transport_fixture(),
+            conformal_threshold=1e9,
+            posterior_sample_count=32,
+            fantasy_count=1,
+        ),
+        event_log=event_log,
+    )
+    result = runner.run(oracle_budget=2)
+    event_log.close()
+    assert result.selected_pair_ids == ("q2", "q1")
+    assert result.selected_pair_ids == result.revealed_pair_ids
 
 
 @pytest.mark.parametrize(

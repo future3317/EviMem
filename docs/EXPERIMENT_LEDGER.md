@@ -890,6 +890,27 @@ proposal-only. See E15.
   higher-integration fold is promising at the effect level but fails exact
   action-level convergence; cross-fold execution is paused.
 
+### E24. Conformal One-Deviation Source-Rollout implementation (2026-07-22)
+
+The report-motivated continuation is implemented as a distinct policy,
+`conformal_source_rollout_delta_hull`; it does not replace or relabel SARR.
+`source_rollout_system_score` computes the exact-system maximum positive
+over-estimation of rollout advantage, and
+`fit_conformal_source_rollout_calibration` uses the finite-sample order
+statistic over disjoint exact systems. Deployment compares each candidate's
+RQMC-adjusted advantage with the frozen radius, while retaining source in the
+legal action set. The closed-loop runner carries an explicit
+`conformal_deviation_used` bit and, after one accepted non-source action,
+returns to source margin for every remaining round.
+
+The implementation has unit and subprocess tests, including finite-quantile
+failure, one-deviation enforcement, high-threshold source fallback and exact
+reveal parity. It has no calibration artifact, no real-data run and no
+positive result yet. The method remains proposal/development infrastructure;
+the required first action is still the unchanged sixteen-block SARR fold-0
+rerun and numerical opportunity-cost audit. Do not tune the conformal radius
+or open new evaluation systems before that gate is resolved.
+
 ## Superseded, invalid and incomplete evidence
 
 | Evidence | Required treatment |

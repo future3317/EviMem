@@ -15,6 +15,7 @@ from chic import (
 from protocol_knowledge_gradient import (
     FixedCompositionHullTemplate,
     FrozenProtocolRidgeTransport,
+    conformal_one_deviation_source_rollout,
     delta_hull_active_search,
     protocol_hull_knowledge_gradient,
     protocol_hull_risk_reduction,
@@ -76,6 +77,7 @@ def select(
     transport_model: FrozenProtocolRidgeTransport | None = None,
     posterior_sample_count: int = 16,
     fantasy_count: int = 3,
+    conformal_threshold: float | None = None,
     hull_backend: str = "pymatgen",
 ) -> str:
     queries = list(payload["queries"])
@@ -96,6 +98,7 @@ def select(
         "ridge_predicted_final_margin",
         "delta_hull_active_search",
         "source_rollout_delta_hull",
+        "conformal_source_rollout_delta_hull",
         "protocol_hull_knowledge_gradient",
         "protocol_hull_risk_reduction",
     }:
@@ -125,7 +128,11 @@ def select(
             prior_standard_deviation=prior_standard_deviation,
             boundary_temperature=boundary_temperature,
         )
-        if policy in {"delta_hull_active_search", "source_rollout_delta_hull"} or policy.startswith(
+        if policy in {
+            "delta_hull_active_search",
+            "source_rollout_delta_hull",
+            "conformal_source_rollout_delta_hull",
+        } or policy.startswith(
             "protocol_hull_"
         ):
             if transport_model is None:
@@ -202,6 +209,19 @@ def select(
                     fantasy_count=fantasy_count,
                     seed=seed + 1009 * int(payload["round_index"]),
                 )
+                if policy == "conformal_source_rollout_delta_hull" and bool(
+                    payload.get("conformal_deviation_used", False)
+                ):
+                    source_index = int(
+                        source_margin_action_indices(
+                            source_energies=arguments["query_source_energies"],
+                            competing_hull_energies=arguments[
+                                "current_competing_hull_energies"
+                            ],
+                            query_ids=tuple(str(row["pair_id"]) for row in queries),
+                        )[0]
+                    )
+                    return str(queries[source_index]["pair_id"])
                 if policy == "delta_hull_active_search":
                     result = delta_hull_active_search(
                         posterior,
@@ -227,6 +247,27 @@ def select(
                         ],
                         costs=hull_arguments["costs"],
                         remaining_budget=float(payload["remaining_budget"]),
+                        posterior_sample_count=hull_arguments["posterior_sample_count"],
+                        seed=hull_arguments["seed"],
+                        fixed_template=fixed_template,
+                    )
+                    return str(queries[result.selected_action_index]["pair_id"])
+                elif policy == "conformal_source_rollout_delta_hull":
+                    if conformal_threshold is None:
+                        raise ValueError("conformal source rollout has no calibration threshold")
+                    result = conformal_one_deviation_source_rollout(
+                        posterior,
+                        query_compositions=hull_arguments["query_compositions"],
+                        query_source_energies=arguments["query_source_energies"],
+                        query_ids=tuple(str(row["pair_id"]) for row in queries),
+                        reference_compositions=hull_arguments["reference_compositions"],
+                        reference_energies=hull_arguments["reference_energies"],
+                        current_competing_hull_energies=arguments[
+                            "current_competing_hull_energies"
+                        ],
+                        costs=hull_arguments["costs"],
+                        remaining_budget=float(payload["remaining_budget"]),
+                        conformal_radius=conformal_threshold,
                         posterior_sample_count=hull_arguments["posterior_sample_count"],
                         seed=hull_arguments["seed"],
                         fixed_template=fixed_template,
@@ -327,6 +368,7 @@ def main() -> None:
             "ridge_predicted_final_margin",
             "delta_hull_active_search",
             "source_rollout_delta_hull",
+            "conformal_source_rollout_delta_hull",
             "protocol_hull_knowledge_gradient",
             "protocol_hull_risk_reduction",
         ),
@@ -338,6 +380,7 @@ def main() -> None:
     parser.add_argument("--boundary-temperature", type=float, default=0.05)
     parser.add_argument("--posterior-sample-count", type=int, default=16)
     parser.add_argument("--fantasy-count", type=int, default=3)
+    parser.add_argument("--conformal-threshold", type=float, default=None)
     parser.add_argument("--hull-backend", choices=("pymatgen", "fixed_composition"), default="pymatgen")
     parser.add_argument("--serve-jsonl", action="store_true")
     args = parser.parse_args()
@@ -359,6 +402,7 @@ def main() -> None:
                 transport_model=transport_model,
                 posterior_sample_count=args.posterior_sample_count,
                 fantasy_count=args.fantasy_count,
+                conformal_threshold=args.conformal_threshold,
                 hull_backend=args.hull_backend,
             ),
             flush=True,

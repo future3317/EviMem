@@ -30,14 +30,21 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from .identity import StructureArtifactIdentity, StructureStage
-from .protocol_knowledge_gradient import FrozenProtocolRidgeTransport
+from .protocol_knowledge_gradient import (
+    FrozenProtocolRidgeTransport,
+    source_margin_action_indices,
+)
 from .protocols import ProtocolCertificate
 
 
 def requires_protocol_transport(policy: str) -> bool:
     """Return whether a policy requires a frozen cross-protocol posterior."""
 
-    return policy in {"delta_hull_active_search", "source_rollout_delta_hull"} or policy.startswith(
+    return policy in {
+        "delta_hull_active_search",
+        "source_rollout_delta_hull",
+        "conformal_source_rollout_delta_hull",
+    } or policy.startswith(
         "protocol_hull_"
     )
 
@@ -247,6 +254,7 @@ class ProtocolPolicyState(BaseModel):
     queries: tuple[ObservableProtocolQuery, ...]
     causal_hull_phases: tuple[ObservableProtocolPhase, ...]
     revealed_history: tuple[RevealedProtocolObservation, ...]
+    conformal_deviation_used: bool = False
     policy_identity_checksum: str
     state_checksum: str
 
@@ -259,6 +267,7 @@ class ProtocolPolicyState(BaseModel):
         queries: Iterable[ObservableProtocolQuery],
         causal_hull_phases: Iterable[ObservableProtocolPhase],
         revealed_history: Iterable[RevealedProtocolObservation],
+        conformal_deviation_used: bool = False,
         policy_identity_checksum: str,
     ) -> ProtocolPolicyState:
         query_items = tuple(sorted(queries, key=lambda item: item.pair_id))
@@ -270,6 +279,7 @@ class ProtocolPolicyState(BaseModel):
             "queries": [item.model_dump(mode="json") for item in query_items],
             "causal_hull_phases": [item.model_dump(mode="json") for item in phases],
             "revealed_history": [item.model_dump(mode="json") for item in history],
+            "conformal_deviation_used": conformal_deviation_used,
             "policy_identity_checksum": policy_identity_checksum,
         }
         return cls(**content, state_checksum=_checksum(content))
@@ -498,6 +508,7 @@ class ProtocolPolicySubprocess:
             "ridge_predicted_final_margin",
             "delta_hull_active_search",
             "source_rollout_delta_hull",
+            "conformal_source_rollout_delta_hull",
             "protocol_hull_knowledge_gradient",
             "protocol_hull_risk_reduction",
         ],
@@ -509,6 +520,7 @@ class ProtocolPolicySubprocess:
         transport_model: FrozenProtocolRidgeTransport | None = None,
         posterior_sample_count: int = 16,
         fantasy_count: int = 3,
+        conformal_threshold: float | None = None,
         hull_backend: Literal["pymatgen", "fixed_composition"] = "pymatgen",
         selection_timeout_seconds: float = 30.0,
         worker_path: Path | None = None,
@@ -521,6 +533,7 @@ class ProtocolPolicySubprocess:
         self.transport_model = transport_model
         self.posterior_sample_count = posterior_sample_count
         self.fantasy_count = fantasy_count
+        self.conformal_threshold = conformal_threshold
         self.hull_backend = hull_backend
         self.selection_timeout_seconds = selection_timeout_seconds
         if (
@@ -536,7 +549,10 @@ class ProtocolPolicySubprocess:
             raise ValueError("protocol hull Monte Carlo settings are too small")
         if requires_protocol_transport(policy) and transport_model is None:
             raise ValueError("protocol hull policies require a frozen transport model")
-        if policy == "source_rollout_delta_hull":
+        if policy in {
+            "source_rollout_delta_hull",
+            "conformal_source_rollout_delta_hull",
+        }:
             rollout_block_size = posterior_sample_count // 16
             if (
                 posterior_sample_count % 16
@@ -546,6 +562,14 @@ class ProtocolPolicySubprocess:
                 raise ValueError(
                     "source rollout requires sixteen power-of-two Sobol blocks"
                 )
+        if policy == "conformal_source_rollout_delta_hull" and (
+            conformal_threshold is None
+            or not math.isfinite(conformal_threshold)
+            or conformal_threshold < 0
+        ):
+            raise ValueError(
+                "conformal source rollout requires a finite non-negative threshold"
+            )
         if hull_backend not in {"pymatgen", "fixed_composition"}:
             raise ValueError("unknown protocol hull backend")
         if not math.isfinite(selection_timeout_seconds) or selection_timeout_seconds <= 0:
@@ -574,6 +598,7 @@ class ProtocolPolicySubprocess:
                 ),
                 "posterior_sample_count": self.posterior_sample_count,
                 "fantasy_count": self.fantasy_count,
+                "conformal_threshold": self.conformal_threshold,
                 "hull_backend": self.hull_backend,
                 "execution_mode": (
                     "persistent_jsonl" if self._persistent else "one_shot_custom"
@@ -583,7 +608,7 @@ class ProtocolPolicySubprocess:
         )
 
     def _command(self) -> list[str]:
-        return [
+        command = [
             sys.executable,
             str(self.worker_path),
             "--policy",
@@ -603,6 +628,9 @@ class ProtocolPolicySubprocess:
             "--hull-backend",
             self.hull_backend,
         ]
+        if self.conformal_threshold is not None:
+            command.extend(["--conformal-threshold", str(self.conformal_threshold)])
+        return command
 
     def _serialized_request(self, state: ProtocolPolicyState) -> str:
         payload = json.loads(state.serialized_for_policy())
@@ -859,6 +887,7 @@ class SecureProtocolQueryRunner:
         events: list[ProtocolClosedLoopEvent] = []
         spent = 0.0
         round_index = 1
+        conformal_deviation_used = False
         while remaining:
             affordable = tuple(
                 candidate
@@ -873,9 +902,25 @@ class SecureProtocolQueryRunner:
                 queries=(self._observable_query(item) for item in affordable),
                 causal_hull_phases=self.causal_hull.observable_phases,
                 revealed_history=history,
+                conformal_deviation_used=conformal_deviation_used,
                 policy_identity_checksum=self.policy.identity_checksum,
             )
             selected_id = self.policy.select(state)
+            if self.policy.policy == "conformal_source_rollout_delta_hull":
+                source_index = int(
+                    source_margin_action_indices(
+                        source_energies=[
+                            item.source_formation_energy_ev_per_atom for item in state.queries
+                        ],
+                        competing_hull_energies=[
+                            item.current_competing_hull_ev_per_atom for item in state.queries
+                        ],
+                        query_ids=[item.pair_id for item in state.queries],
+                    )[0]
+                )
+                source_id = state.queries[source_index].pair_id
+                if selected_id != source_id:
+                    conformal_deviation_used = True
             authorization = self.event_log.append_action(
                 round_index=round_index,
                 selected_pair_id=selected_id,
