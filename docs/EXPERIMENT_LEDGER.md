@@ -810,9 +810,10 @@ proposal-only. See E15.
   the registered posterior and exact expectation, maximizing the rollout
   value is therefore no worse than continuing source margin. This is a
   model-relative policy-improvement statement, not a real-distribution safety
-  theorem. Eight paired scrambled-Sobol blocks supply only a numerical
-  integration safeguard: without a positive one-sided lower bound, the policy
-  falls back to source.
+  theorem. Sixteen paired scrambled-Sobol blocks supply a numerical
+  integration safeguard. A Bonferroni-simultaneous one-sided lower bound is
+  applied across all non-source candidates; without a positive bound, the
+  policy falls back to source.
 - Correctness evidence at commit `3078ea1` plus the immediately following
   test-hardening change: cached causal-hull energies match independent
   pymatgen phase diagrams for binary, ternary, quaternary and five-element
@@ -878,6 +879,12 @@ proposal-only. See E15.
   stopped pending a numerical-integration-only diagnosis. Do not tune the
   posterior, source continuation, terminal objective or acquisition threshold
   in response.
+- The above MC512/1024 artifacts were generated before the simultaneous-gate
+  correction, with eight marginal-comparison blocks. They remain useful
+  attribution diagnostics, but are not results for the current
+  Source-Anchored RQMC Racing (SARR) implementation. A fresh fold-0 run with
+  sixteen blocks and Bonferroni-simultaneous bounds is required before any
+  updated effect claim.
 - Claim status: implemented cross-fitted development method plus mechanism
   diagnostic. No superiority or paper-level positive claim. The first
   higher-integration fold is promising at the effect level but fails exact

@@ -91,7 +91,7 @@ class ExperimentConfig:
     ridge_penalty: float = 1.0
     prior_standard_deviation: float = 0.1
     boundary_temperature_ev_per_atom: float = 0.05
-    posterior_sample_count: int = 16
+    posterior_sample_count: int = 1024
     posterior_diagnostic_sample_count: int = 0
     fantasy_count: int = 3
     hull_backend: Literal["pymatgen", "fixed_composition"] = "pymatgen"
@@ -861,7 +861,7 @@ def main() -> None:
     parser.add_argument("--ridge-penalty", type=float, default=1.0)
     parser.add_argument("--prior-standard-deviation", type=float, default=0.1)
     parser.add_argument("--boundary-temperature", type=float, default=0.05)
-    parser.add_argument("--posterior-sample-count", type=int, default=16)
+    parser.add_argument("--posterior-sample-count", type=int, default=1024)
     parser.add_argument("--posterior-diagnostic-sample-count", type=int, default=0)
     parser.add_argument("--fantasy-count", type=int, default=3)
     parser.add_argument("--split", choices=("development", "confirmatory"), default="development")
@@ -928,6 +928,15 @@ def main() -> None:
         or config.prior_standard_deviation <= 0
         or config.boundary_temperature_ev_per_atom <= 0
         or config.posterior_sample_count < 4
+        or (
+            "source_rollout_delta_hull" in config.policies
+            and (
+                config.posterior_sample_count % 16
+                or config.posterior_sample_count // 16 < 2
+                or config.posterior_sample_count // 16
+                & (config.posterior_sample_count // 16 - 1)
+            )
+        )
         or (
             config.posterior_diagnostic_sample_count != 0
             and config.posterior_diagnostic_sample_count < 4

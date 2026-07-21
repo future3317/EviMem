@@ -38,6 +38,88 @@ def test_scrambled_sobol_gaussian_samples_are_deterministic_and_nested() -> None
     assert np.isfinite(large).all()
 
 
+def test_simultaneous_paired_bounds_apply_familywise_bonferroni_correction() -> None:
+    from matmem.protocol_knowledge_gradient import _simultaneous_paired_lower_bounds
+
+    block_differences = np.asarray(
+        [
+            [0.10, 0.30, -0.02],
+            [0.06, 0.28, 0.01],
+            [0.14, 0.35, -0.01],
+            [0.08, 0.25, 0.03],
+            [0.12, 0.32, -0.03],
+            [0.09, 0.29, 0.00],
+            [0.11, 0.31, 0.02],
+            [0.07, 0.27, -0.01],
+        ]
+    )
+    marginal = _simultaneous_paired_lower_bounds(
+        block_differences,
+        confidence=0.95,
+        comparison_count=1,
+    )
+    simultaneous = _simultaneous_paired_lower_bounds(
+        block_differences,
+        confidence=0.95,
+        comparison_count=3,
+    )
+
+    assert np.all(simultaneous <= marginal)
+    assert simultaneous[0] < marginal[0]
+    assert simultaneous[1] < marginal[1]
+
+    near_threshold = np.asarray(
+        [[-0.05, 0.0], [0.35, 0.0], [-0.05, 0.0], [0.35, 0.0]]
+        * 2
+    )
+    marginal_near_threshold = _simultaneous_paired_lower_bounds(
+        near_threshold,
+        confidence=0.95,
+        comparison_count=1,
+    )
+    simultaneous_near_threshold = _simultaneous_paired_lower_bounds(
+        near_threshold,
+        confidence=0.95,
+        comparison_count=3,
+    )
+    assert marginal_near_threshold[0] > 0
+    assert simultaneous_near_threshold[0] < 0
+
+
+def test_source_rollout_reports_simultaneous_candidate_count() -> None:
+    posterior = ProtocolTargetEnergyPosterior(
+        mean=(-0.2, -0.5, -0.5),
+        covariance=(
+            (1e-12, 0.0, 0.0),
+            (0.0, 1e-12, 0.0),
+            (0.0, 0.0, 1e-12),
+        ),
+        system_offset_mean=0.0,
+        system_offset_variance=0.0,
+        history_count=0,
+    )
+    result = source_rollout_delta_hull(
+        posterior,
+        query_compositions=(
+            {"A": 0.5, "B": 0.5},
+            {"A": 0.25, "B": 0.75},
+            {"A": 0.75, "B": 0.25},
+        ),
+        query_source_energies=np.asarray([-0.45, -0.4, -0.4]),
+        query_ids=("source", "left", "right"),
+        reference_compositions=({"A": 1.0}, {"B": 1.0}),
+        reference_energies=np.zeros(2),
+        current_competing_hull_energies=np.zeros(3),
+        costs=np.ones(3),
+        remaining_budget=2.0,
+        posterior_sample_count=32,
+        seed=11,
+    )
+
+    assert result.sobol_scramble_count == 16
+    assert result.simultaneous_comparison_count == 2
+
+
 def _transport_model():
     features = np.asarray(
         [

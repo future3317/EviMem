@@ -80,8 +80,9 @@ The rollout uses the same source-margin selector as the deployed baseline,
 adds each sampled target outcome to an exact cached composition-dependent
 causal hull, and evaluates terminal confirmations on the complete sampled
 final hull. The fixed-composition envelope has independent pymatgen parity
-tests. Its one-sided paired-Sobol fallback controls only numerical integration
-noise and must not be described as a calibrated policy-safety guarantee.
+tests. Its sixteen-block Bonferroni-simultaneous paired-Sobol fallback controls
+only numerical integration noise and must not be described as a calibrated
+policy-safety guarantee.
 
 The first 46-system cross-fit fold was evaluated at MC512 and MC1024 without
 changing the method. System-level effects agree in 45/46 systems and first

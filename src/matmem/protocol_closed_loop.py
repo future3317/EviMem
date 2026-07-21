@@ -534,22 +534,22 @@ class ProtocolPolicySubprocess:
             raise ValueError("protocol policy scales must be finite and positive")
         if posterior_sample_count < 4 or fantasy_count < 1:
             raise ValueError("protocol hull Monte Carlo settings are too small")
+        if requires_protocol_transport(policy) and transport_model is None:
+            raise ValueError("protocol hull policies require a frozen transport model")
         if policy == "source_rollout_delta_hull":
-            rollout_block_size = posterior_sample_count // 8
+            rollout_block_size = posterior_sample_count // 16
             if (
-                posterior_sample_count % 8
+                posterior_sample_count % 16
                 or rollout_block_size < 2
                 or rollout_block_size & (rollout_block_size - 1)
             ):
                 raise ValueError(
-                    "source rollout requires eight power-of-two Sobol blocks"
+                    "source rollout requires sixteen power-of-two Sobol blocks"
                 )
         if hull_backend not in {"pymatgen", "fixed_composition"}:
             raise ValueError("unknown protocol hull backend")
         if not math.isfinite(selection_timeout_seconds) or selection_timeout_seconds <= 0:
             raise ValueError("protocol policy timeout must be finite and positive")
-        if requires_protocol_transport(policy) and transport_model is None:
-            raise ValueError("protocol hull policies require a frozen transport model")
         self._persistent = worker_path is None
         self.worker_path = (worker_path or Path(__file__).with_name("protocol_policy_worker.py")).resolve()
         if not self.worker_path.is_file():

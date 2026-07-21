@@ -311,7 +311,7 @@ def test_protocol_hull_policy_requires_disjoint_transport_model(policy_name: str
 
 
 def test_source_rollout_rejects_non_blockable_sample_count() -> None:
-    with pytest.raises(ValueError, match="eight power-of-two Sobol blocks"):
+    with pytest.raises(ValueError, match="sixteen power-of-two Sobol blocks"):
         ProtocolPolicySubprocess(
             "source_rollout_delta_hull",
             transport_model=_protocol_transport_fixture(),
@@ -406,7 +406,7 @@ def test_source_rollout_drives_only_authorized_reveals(tmp_path: Path) -> None:
         policy=ProtocolPolicySubprocess(
             "source_rollout_delta_hull",
             transport_model=_protocol_transport_fixture(),
-            posterior_sample_count=16,
+            posterior_sample_count=32,
             hull_backend="fixed_composition",
         ),
         event_log=event_log,

@@ -409,9 +409,11 @@ model-relative rollout inequality
 \]
 
 This is not a guarantee under posterior misspecification. The implementation
-uses eight common-random-number scrambled-Sobol blocks and falls back to the
-source action unless the one-sided numerical-integration lower bound for a
-paired advantage is positive. That bound controls only integration noise.
+uses sixteen common-random-number scrambled-Sobol blocks and falls back to the
+source action unless the Bonferroni-simultaneous one-sided
+numerical-integration lower bound is positive for a candidate. The correction
+controls the family of non-source comparisons, while the bound itself controls
+only integration noise.
 The 276 former fit systems are partitioned outcome-independently into six
 cross-fit development folds; all 48 opened systems remain excluded from method
 development. On the first 46-system fold at budget six, the effect changes

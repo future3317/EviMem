@@ -214,6 +214,7 @@ class SourceRolloutDeltaHullResult(BaseModel):
     selected_action_index: int = Field(ge=0)
     posterior_sample_count: int = Field(gt=0)
     sobol_scramble_count: int = Field(gt=1)
+    simultaneous_comparison_count: int = Field(gt=0)
     horizon: int = Field(gt=0)
 
 
@@ -1151,6 +1152,39 @@ def _source_rollout_rewards(
     return rewards
 
 
+def _simultaneous_paired_lower_bounds(
+    block_differences: np.ndarray,
+    *,
+    confidence: float,
+    comparison_count: int,
+) -> np.ndarray:
+    """Return one-sided Bonferroni-t lower bounds for all paired advantages.
+
+    Rows are independent randomized-QMC blocks and columns are candidate
+    advantages against the same source action.  The correction is applied to
+    the non-source candidate family, so a positive returned bound supports a
+    simultaneous source-relative statement rather than a collection of
+    marginal tests.
+    """
+
+    values = np.asarray(block_differences, dtype=np.float64)
+    if values.ndim != 2 or values.shape[0] < 2 or values.shape[1] < 1:
+        raise ValueError("simultaneous bounds require a block-by-candidate matrix")
+    if not np.isfinite(values).all():
+        raise ValueError("simultaneous bound inputs must be finite")
+    if not 0.5 < confidence < 1.0:
+        raise ValueError("simultaneous bound confidence must lie in (0.5, 1)")
+    if comparison_count < 1:
+        raise ValueError("simultaneous bound comparison count must be positive")
+    alpha = (1.0 - confidence) / float(comparison_count)
+    critical_value = float(student_t.ppf(1.0 - alpha, values.shape[0] - 1))
+    if not math.isfinite(critical_value):
+        raise ValueError("simultaneous bound critical value is not finite")
+    means = values.mean(axis=0)
+    standard_errors = values.std(axis=0, ddof=1) / math.sqrt(values.shape[0])
+    return means - critical_value * standard_errors
+
+
 def _fixed_evaluation_compositions(
     query_compositions: Sequence[dict[str, float]],
     reference_compositions: Sequence[dict[str, float]],
@@ -1330,7 +1364,7 @@ def source_rollout_delta_hull(
     posterior_sample_count: int = 1024,
     seed: int = 0,
     fixed_template: FixedCompositionHullTemplate | None = None,
-    sobol_scramble_count: int = 8,
+    sobol_scramble_count: int = 16,
     integration_confidence: float = 0.95,
 ) -> SourceRolloutDeltaHullResult:
     """Improve source margin by a full-remaining-budget posterior rollout.
@@ -1338,10 +1372,10 @@ def source_rollout_delta_hull(
     Every candidate first action is followed by the deployed source-margin
     policy inside each complete target-energy sample. The sampled target
     energy of every simulated query is added to the composition-dependent
-    causal hull before choosing the next action. A paired scrambled-Sobol
-    lower bound prevents numerically unresolved gains from changing the strong
-    source action; it is only an integration safeguard, not a calibration or
-    real-world safety guarantee.
+    causal hull before choosing the next action. A Bonferroni-simultaneous
+    paired scrambled-Sobol lower bound prevents numerically unresolved gains
+    from changing the strong source action; it is only an integration
+    safeguard, not a calibration or real-world safety guarantee.
     """
 
     mean = np.asarray(posterior.mean, dtype=np.float64)
@@ -1411,9 +1445,11 @@ def source_rollout_delta_hull(
     )
     differences = block_scores - block_scores[:, [source_action]]
     mean_advantages = differences.mean(axis=0)
-    standard_errors = differences.std(axis=0, ddof=1) / math.sqrt(sobol_scramble_count)
-    critical_value = float(student_t.ppf(integration_confidence, sobol_scramble_count - 1))
-    lower_bounds = mean_advantages - critical_value * standard_errors
+    lower_bounds = _simultaneous_paired_lower_bounds(
+        differences,
+        confidence=integration_confidence,
+        comparison_count=max(size - 1, 1),
+    )
     lower_bounds[source_action] = 0.0
     improving = np.flatnonzero(lower_bounds > 0.0)
     if len(improving):
@@ -1433,6 +1469,7 @@ def source_rollout_delta_hull(
         selected_action_index=selected_action,
         posterior_sample_count=posterior_sample_count,
         sobol_scramble_count=sobol_scramble_count,
+        simultaneous_comparison_count=max(size - 1, 1),
         horizon=horizon,
     )
 
