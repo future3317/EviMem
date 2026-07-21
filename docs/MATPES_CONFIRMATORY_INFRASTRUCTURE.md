@@ -136,9 +136,10 @@ positive high-precision source opportunity cost (mean `0.01768`, median
 `0.01074`).
 
 This result does not relax the current SARR gate and does not open folds 1--5.
-It isolates a next numerical-integration question: an independently seeded
-two-stage screen-and-confirm gate may test exactly one stage-one-selected
-candidate with a single paired high-precision bound. The stage-two data must be
-independent of the screen, all choices must be fixed before accessing an unused
-development fold, and its result remains a numerical diagnostic until it
-replicates across folds. Fold 0 is permanently diagnostic-only for this gate.
+It isolates a next numerical-integration question: **Independent-Confirmation
+SARR (IC-SARR)** may test exactly one stage-one-selected candidate with a
+single paired high-precision bound. Its frozen protocol is in
+`docs/IC_SARR_NUMERICAL_GATE_PLAN.md`. Stage-two data must be independent of
+the screen, all choices must be fixed before accessing an unused development
+fold, and its result remains a numerical diagnostic until it replicates across
+folds. Fold 0 is permanently diagnostic-only for this gate.

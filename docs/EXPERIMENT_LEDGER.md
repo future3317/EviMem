@@ -950,13 +950,14 @@ value on the table. It is **not** evidence that any unselected action has a
 positive high-confidence lower bound, nor evidence of an oracle-final gain.
 
 Decision: leave `source_rollout_delta_hull` unchanged and keep folds 1--5
-closed. The audit authorizes only a separately named, independently seeded
-two-stage numerical gate: screen a candidate with the current SARR estimate,
-then use an independent high-precision paired comparison for that single
-preselected candidate. Its calibration, configuration and all evaluation must
-use unused development folds; fold 0 cannot choose a threshold or support a
-superiority claim. The posterior, reward, source continuation and target
-oracle boundary remain frozen.
+closed. The audit authorizes only **Independent-Confirmation SARR (IC-SARR)**,
+a separately named, independently seeded two-stage numerical gate: screen a
+candidate with the current SARR estimate, then use an independent
+high-precision paired comparison for that single preselected candidate. Its
+full frozen protocol is in `docs/IC_SARR_NUMERICAL_GATE_PLAN.md`; calibration,
+configuration and all evaluation must use unused development folds. Fold 0
+cannot choose a threshold or support a superiority claim. The posterior,
+reward, source continuation and target oracle boundary remain frozen.
 
 ## Superseded, invalid and incomplete evidence
 
