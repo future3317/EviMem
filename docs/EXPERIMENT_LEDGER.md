@@ -806,3 +806,12 @@ runner requires a frozen transport artifact and checks fit/query disjointness;
 it never refits on fresh systems. These tools have only passed fixture and unit
 tests so far. No fresh-system result, GO decision, or paper-level positive claim
 is implied by their existence.
+
+The remote raw MatPES rebuild currently yields 324 eligible exact systems
+(88 binary, 130 ternary, 100 quaternary and 6 higher-order). The registered
+development task/vault already consumes all 324 systems for transport fitting,
+so the fresh builder correctly fails closed with `no fresh exact systems
+satisfy the confirmatory pool gate`. This is a data-split blocker, not a
+method result: do not relabel a subset of those systems as fresh. A future
+replication must first register a new development/fitting split (or obtain an
+additional compatible dataset) and freeze transport again.
