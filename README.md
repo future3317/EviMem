@@ -52,6 +52,11 @@ There is no paper-level positive result yet.
   numerical stability, not exact trace convergence or a paper-level GO. The
   next gate is replication on a fresh exact-system split with MC1024 frozen.
 
+  The raw-data rebuild currently contains 324 eligible systems, all already
+  consumed by the registered development transport fit; therefore the fresh
+  builder fails closed rather than relabeling any of them as evaluation. A new
+  registered split or an additional compatible protocol dataset is required.
+
 No opened JARVIS--MP evaluation system is reused for current development, and
 no MatPES result above is a sealed confirmatory evaluation.
 
@@ -74,6 +79,14 @@ no MatPES result above is a sealed confirmatory evaluation.
   with a separate target oracle vault.
 - `tools/run_matpes_protocol_closed_loop_exploratory.py`: action-driven MatPES
   development runner and post-trace causal/final evaluator.
+- `tools/build_matpes_confirmatory_task.py`: outcome-independent fresh split
+  builder that excludes every development system and parent configuration.
+- `tools/freeze_matpes_transport_model.py`: immutable transport artifact with
+  optimizer metadata and fit-system checksums.
+- `tools/audit_matpes_fixed_hull_parity.py`: fail-closed action/sample parity
+  audit for the optional cached lower-hull backend.
+- `tools/audit_matpes_sobol_seed_stability.py`: independent-scramble seed
+  diagnostic for development systems.
 - `docs/EXPERIMENT_LEDGER.md`: authoritative history for valid, invalidated,
   incomplete and stopped evidence.
 - `docs/DECISION_SUFFICIENT_SCIENTIFIC_STATE.md`: no-deletion, null-regime and
