@@ -199,6 +199,11 @@ def test_builder_keeps_target_values_only_in_oracle_vault(tmp_path: Path) -> Non
         for values in experiment["systems"]["Fe-O"]["strategies"].values()
     )
     assert all(
+        len(values["policy_decision_rounds"]) == 1
+        and len(values["rounds"]) == 1
+        for values in experiment["systems"]["Fe-O"]["strategies"].values()
+    )
+    assert all(
         "oracle_pool_confirmed_discoveries" in values
         for values in experiment["systems"]["Fe-O"]["strategies"].values()
     )

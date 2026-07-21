@@ -121,4 +121,5 @@ observable pre-reveal decision diagnostics required for a numerical audit:
 candidate ordering, sixteen RQMC block scores, paired advantages, simultaneous
 lower bounds, source/selected action, fallback reason, comparison count and
 horizon. These records are emitted before the selected-action-only reveal and
-do not expose unqueried target outcomes.
+do not expose unqueried target outcomes. They are stored as
+`policy_decision_rounds`, separately from post-trace evaluator rounds.

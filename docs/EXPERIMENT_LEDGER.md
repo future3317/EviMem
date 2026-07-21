@@ -918,6 +918,9 @@ Bonferroni simultaneous lower bounds, source and selected actions, fallback
 reason, comparison count and horizon. This instrumentation is required for the
 registered numerical opportunity-cost audit; it does not alter the posterior,
 reward, source continuation, selection threshold or oracle boundary.
+The external result schema stores these as `policy_decision_rounds`, separately
+from evaluator-only post-trace `rounds`, so neither record can overwrite the
+other.
 
 ## Superseded, invalid and incomplete evidence
 
