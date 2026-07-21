@@ -26,6 +26,8 @@ def _sha(path: Path) -> str:
 def _plan() -> dict:
     return {
         "evaluation_systems_accessed": False,
+        "task_sha256": "task",
+        "sarr_result_sha256": "sarr",
         "state_count": 2,
         "states": [
             {"chemical_system": "A-B", "round_index": 1, "reasons": ["sarr_deviation"]},
@@ -73,3 +75,22 @@ def test_opportunity_summary_requires_exact_plan_coverage(tmp_path: Path) -> Non
     audit_path.write_text(json.dumps(audit))
     with pytest.raises(ValueError, match="exactly equal"):
         module.summarize(audit_path=audit_path, plan_path=plan_path, output_path=tmp_path / "bad.json")
+
+
+def test_opportunity_summary_rejects_task_or_sarr_provenance_mismatch(tmp_path: Path) -> None:
+    module = _load_summary()
+    plan_path = tmp_path / "plan.json"
+    audit_path = tmp_path / "audit.json"
+    plan_path.write_text(json.dumps(_plan()))
+    audit = _audit(_sha(plan_path))
+    audit["task_sha256"] = "wrong-task"
+    audit_path.write_text(json.dumps(audit))
+
+    with pytest.raises(ValueError, match="task checksum"):
+        module.summarize(audit_path=audit_path, plan_path=plan_path, output_path=tmp_path / "bad-task.json")
+
+    audit = _audit(_sha(plan_path))
+    audit["sarr_sha256"] = "wrong-sarr"
+    audit_path.write_text(json.dumps(audit))
+    with pytest.raises(ValueError, match="SARR checksum"):
+        module.summarize(audit_path=audit_path, plan_path=plan_path, output_path=tmp_path / "bad-sarr.json")

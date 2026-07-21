@@ -49,6 +49,10 @@ def summarize(*, audit_path: Path, plan_path: Path, output_path: Path) -> dict[s
         raise ValueError("frozen plan must be development-only")
     if audit.get("plan_sha256") != _sha256(plan_path):
         raise ValueError("audit plan checksum disagrees")
+    if audit.get("task_sha256") != plan.get("task_sha256"):
+        raise ValueError("audit task checksum disagrees with the frozen plan")
+    if audit.get("sarr_sha256") != plan.get("sarr_result_sha256"):
+        raise ValueError("audit SARR checksum disagrees with the frozen plan")
 
     planned = {
         (row["chemical_system"], int(row["round_index"])): tuple(row["reasons"])
