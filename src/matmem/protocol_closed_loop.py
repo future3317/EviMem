@@ -534,6 +534,16 @@ class ProtocolPolicySubprocess:
             raise ValueError("protocol policy scales must be finite and positive")
         if posterior_sample_count < 4 or fantasy_count < 1:
             raise ValueError("protocol hull Monte Carlo settings are too small")
+        if policy == "source_rollout_delta_hull":
+            rollout_block_size = posterior_sample_count // 8
+            if (
+                posterior_sample_count % 8
+                or rollout_block_size < 2
+                or rollout_block_size & (rollout_block_size - 1)
+            ):
+                raise ValueError(
+                    "source rollout requires eight power-of-two Sobol blocks"
+                )
         if hull_backend not in {"pymatgen", "fixed_composition"}:
             raise ValueError("unknown protocol hull backend")
         if not math.isfinite(selection_timeout_seconds) or selection_timeout_seconds <= 0:

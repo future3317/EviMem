@@ -104,6 +104,8 @@ class ExperimentConfig:
     policies: tuple[str, ...] = POLICIES
     query_systems: tuple[str, ...] | None = None
     fit_systems: tuple[str, ...] | None = None
+    crossfit_manifest_sha256: str | None = None
+    crossfit_fold_index: int | None = None
 
 
 def _sha256(path: Path) -> str:
@@ -883,6 +885,7 @@ def main() -> None:
     args = parser.parse_args()
     query_systems = None
     fit_systems = None
+    crossfit_manifest_sha256 = None
     if (args.crossfit_manifest is None) != (args.fold_index is None):
         raise ValueError("--crossfit-manifest and --fold-index must be provided together")
     if args.crossfit_manifest is not None:
@@ -895,8 +898,9 @@ def main() -> None:
         query_systems = tuple(folds[args.fold_index]["query_systems"])
         eligible_systems = set(manifest["eligible_systems"])
         fit_systems = tuple(sorted(eligible_systems - set(query_systems)))
+        crossfit_manifest_sha256 = _sha256(args.crossfit_manifest)
     config = ExperimentConfig(
-        max_systems=args.max_systems,
+        max_systems=(len(query_systems) if query_systems is not None else args.max_systems),
         minimum_candidates=args.minimum_candidates,
         maximum_budget=args.maximum_budget,
         seed=args.seed,
@@ -913,6 +917,8 @@ def main() -> None:
         policies=tuple(args.policies),
         query_systems=query_systems,
         fit_systems=fit_systems,
+        crossfit_manifest_sha256=crossfit_manifest_sha256,
+        crossfit_fold_index=args.fold_index,
     )
     if (
         config.max_systems < 1

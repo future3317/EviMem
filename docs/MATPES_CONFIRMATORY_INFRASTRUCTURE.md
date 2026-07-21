@@ -66,3 +66,26 @@ diagnostics. Setting `--posterior-diagnostic-sample-count 0` skips only the
 post-trace sampled-hull evaluator; it does not change the posterior used by an
 acquisition action, oracle reveal, causal hull, energy diagnostic or final
 discovery metric.
+
+## Post-replication development boundary
+
+The negative replication closes further tuning of myopic Delta-Hull on these
+48 systems. Source-Rollout Delta-Hull is a new finite-horizon policy and is
+developed only through six-fold cross-fitting on the former 276 transport-fit
+systems. The opened 48-system artifact may be read by the attribution-only
+horizon diagnostic, but it is not a development fold and cannot define a
+rollout parameter, posterior, threshold or score.
+
+The rollout uses the same source-margin selector as the deployed baseline,
+adds each sampled target outcome to an exact cached composition-dependent
+causal hull, and evaluates terminal confirmations on the complete sampled
+final hull. The fixed-composition envelope has independent pymatgen parity
+tests. Its one-sided paired-Sobol fallback controls only numerical integration
+noise and must not be described as a calibrated policy-safety guarantee.
+
+The first 46-system cross-fit fold was evaluated at MC512 and MC1024 without
+changing the method. System-level effects agree in 45/46 systems and first
+actions in 41/46, but complete traces agree in only 31/46 and individual
+actions in 220/276. Consequently folds 1--5 are paused. This is a numerical
+integration gate, not authorization to change the transport posterior,
+terminal reward, source continuation, or selection threshold.

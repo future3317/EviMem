@@ -1,10 +1,11 @@
-"""Delta-Hull Active Search and protocol-conditioned hull diagnostics.
+"""Myopic and source-rollout Delta-Hull active search.
 
 The target is the final target-protocol hull over the visible fixed pool, not
 the transient causal hull.  A transport model is fitted on disjoint exact
 chemical systems.  Every target outcome revealed in the current system then
 updates a hierarchical discrepancy posterior; no outcome is selected out of
-the scientific state.
+the scientific state. Source-Rollout uses the strong source-margin policy as a
+full-remaining-budget continuation rather than replacing it with a score mix.
 """
 
 from __future__ import annotations

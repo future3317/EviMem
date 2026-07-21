@@ -68,6 +68,28 @@ There is no paper-level positive result yet.
   The cached backend exactly matches all six Delta-Hull actions on the three
   real MC1024 traces completed by the original pymatgen reference run, in
   addition to the binary/ternary/duplicate-composition property tests.
+- The live continuation is now **Source-Rollout Delta-Hull**, not another
+  myopic score. For every candidate first action, it samples a complete target
+  energy vector, updates the simulated causal hull with that sampled outcome,
+  and uses the deployed source-margin policy for every remaining budget step.
+  It deviates from source only when eight paired scrambled-Sobol blocks give a
+  positive one-sided numerical-integration lower bound. This is a
+  posterior-relative rollout improvement mechanism, not a real-distribution
+  safety guarantee.
+- The 276 transport-fit systems are assigned outcome-independently to six
+  cross-fit folds of 46 systems each; every fold contains 12 binary, 19
+  ternary and 15 higher-order systems. The 48 opened systems are excluded.
+  Existing opened traces are used only for horizon attribution: five of the
+  seven final Delta-Hull losses become persistent only in rounds 5 or 6,
+  consistent with a finite-horizon mismatch but not sufficient to prove it.
+  On the first 46-system out-of-fold budget-six panel at MC1024,
+  Source-Rollout improves over source by `+0.1739` confirmations/system (11
+  wins, 30 ties, 5 losses), with bootstrap 95% interval
+  `[-0.0217,+0.3696]`. On the 22 systems where source leaves headroom, the
+  difference is `+0.5455`. MC512/1024 agree on 45/46 system-level effects and
+  41/46 first actions, but only 31/46 complete traces and 220/276 individual
+  rounds. The mechanism remains promising development evidence; folds 1--5
+  are paused because action-level numerical convergence is not yet adequate.
 
 No opened JARVIS--MP evaluation system is reused for current development. The
 48 MatPES systems are now opened and must not be used to tune Delta-Hull.
@@ -79,8 +101,9 @@ No opened JARVIS--MP evaluation system is reused for current development. The
   causal hull, and selected-action-only reveal execution.
 - `src/matmem/protocol_knowledge_gradient.py`: system-balanced transport,
   hierarchical local discrepancy posterior, nested scrambled-Sobol final-hull
-  integration, Delta-Hull Active Search, two-step knowledge-gradient and
-  continuous hull-risk diagnostics.
+  integration, exact cached causal-hull envelopes, myopic Delta-Hull,
+  full-budget Source-Rollout, two-step knowledge-gradient and continuous
+  hull-risk diagnostics.
 - `src/matmem/protocol_policy_worker.py`: oracle-free source, ridge, CHIC and
   protocol-hull policies in a persistent subprocess.
 - `src/matmem/matpes_data.py`: protocol-neutral MatPES identities and strict
@@ -99,6 +122,10 @@ No opened JARVIS--MP evaluation system is reused for current development. The
   audit for the optional cached lower-hull backend.
 - `tools/audit_matpes_sobol_seed_stability.py`: independent-scramble seed
   diagnostic for development systems.
+- `tools/build_matpes_source_rollout_crossfit.py`: outcome-independent six-fold
+  development plan excluding all opened MatPES evaluation systems.
+- `tools/diagnose_matpes_horizon_mismatch.py`: attribution-only prefix analysis
+  of the already opened myopic/source traces.
 - `docs/EXPERIMENT_LEDGER.md`: authoritative history for valid, invalidated,
   incomplete and stopped evidence.
 - `docs/DECISION_SUFFICIENT_SCIENTIFIC_STATE.md`: no-deletion, null-regime and

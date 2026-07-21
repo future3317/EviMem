@@ -310,6 +310,15 @@ def test_protocol_hull_policy_requires_disjoint_transport_model(policy_name: str
         ProtocolPolicySubprocess(policy_name)
 
 
+def test_source_rollout_rejects_non_blockable_sample_count() -> None:
+    with pytest.raises(ValueError, match="eight power-of-two Sobol blocks"):
+        ProtocolPolicySubprocess(
+            "source_rollout_delta_hull",
+            transport_model=_protocol_transport_fixture(),
+            posterior_sample_count=24,
+        )
+
+
 @pytest.mark.parametrize(
     "policy_name",
     ("protocol_hull_knowledge_gradient", "protocol_hull_risk_reduction"),

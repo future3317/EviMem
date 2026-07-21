@@ -1,8 +1,8 @@
 # Decision-Sufficient Scientific State
 
-**Status (2026-07-21): v4 and CHIC are negative; a composition-referenced
-hierarchical MatPES protocol posterior is under development with no paper-level
-positive result yet.** The all-outcome state, fail-closed protocol activation,
+**Status (2026-07-21): v4, CHIC and myopic Delta-Hull are negative; a
+source-relative full-budget MatPES rollout is under development with no
+paper-level positive result yet.** The all-outcome state, fail-closed protocol activation,
 source-environment transport and robust hull-decision certificate are
 implemented and pass replay, no-deletion, self-removal and interval-soundness
 tests. The real JARVIS--MP v1, v3 and fresh v4 gates are all NO-GO. V4's
@@ -391,6 +391,42 @@ only 35 confirmations of total headroom remain and Delta-Hull recovers a net
 three. This closes Delta-Hull as a superiority method on the opened MatPES
 task. Further score, posterior, support or seed changes on these systems are
 not authorized as independent evidence.
+
+The next method changes the measured horizon assumption rather than the score.
+For remaining budget `b`, **Source-Rollout Delta-Hull** evaluates every legal
+first action under a complete target-energy posterior sample and then executes
+the deployed source-margin policy for the other `b-1` simulated queries. Every
+sampled reveal is inserted into its composition-dependent simulated causal
+hull. Terminal reward is the number of simulated queries that belong to that
+sample's complete final target hull. Because the source action is itself in
+the first-action set, exact posterior expectation gives the standard
+model-relative rollout inequality
+
+\[
+\max_x Q_b^{\pi_{\rm src}}(x\mid O_t)
+\ge Q_b^{\pi_{\rm src}}(x_{\rm src}\mid O_t)
+=V_b^{\pi_{\rm src}}(O_t).
+\]
+
+This is not a guarantee under posterior misspecification. The implementation
+uses eight common-random-number scrambled-Sobol blocks and falls back to the
+source action unless the one-sided numerical-integration lower bound for a
+paired advantage is positive. That bound controls only integration noise.
+The 276 former fit systems are partitioned outcome-independently into six
+cross-fit development folds; all 48 opened systems remain excluded from method
+development. On the first 46-system fold at budget six, the effect changes
+from `+0.1522` at MC512 to `+0.1739` confirmations/system at MC1024. The latter
+has 11 wins, 30 ties and 5 losses, bootstrap 95% interval
+`[-0.0217,+0.3696]`, and exact two-sided sign-flip `p=0.1351`. On the 22
+systems where source leaves budget-feasible headroom, the effect is `+0.5455`
+with interval `[+0.2273,+0.8636]`. Binary, ternary and higher-order stratum
+means are respectively `+0.0833`, `+0.2105` and `+0.2000`. MC512 and MC1024
+agree on 45/46 system-level effects and 41/46 first actions, but only 31/46
+complete traces and 220/276 individual actions. The outcome signal is stable
+enough to reject simple effect collapse, but action-level numerical convergence
+is not established. Folds 1--5 are therefore paused; no positive claim or
+cross-fold expansion is authorized before resolving integration stability
+without changing the posterior or acquisition objective.
 
 ## 9. Scope and literature boundary
 

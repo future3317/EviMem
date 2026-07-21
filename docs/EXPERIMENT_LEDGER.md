@@ -1,7 +1,7 @@
 # Authoritative experiment and decision ledger
 
-**Status: active hierarchical MatPES protocol-posterior exploration after the
-completed v4 and CHIC NO-GOs (2026-07-21).** There is still no paper-level
+**Status: active source-relative full-budget MatPES rollout development after
+the completed v4, CHIC and myopic Delta-Hull NO-GOs (2026-07-21).** There is still no paper-level
 positive method. This is the first file
 a future maintainer or coding agent should read before changing the method or
 launching another experiment. It records why the research moved from CAW-Joint to DACC,
@@ -87,16 +87,24 @@ repartition with transport refitted on the other 276 systems shrinks the gain
 over source margin to `+0.0625`, CI `[-0.1042,+0.2292]`, exact two-sided
 `p=0.6291`. Delta-Hull is non-degenerate and improves over two posterior-margin
 baselines, but does not beat the strongest simple baseline. It is therefore a
-method-level NO-GO on the tested MatPES task.
+method-level NO-GO on the tested MatPES task. Source-Rollout Delta-Hull changes
+the failed one-step horizon assumption: it evaluates each first action under a
+complete posterior energy sample and then uses source margin as continuation
+for the remaining budget. It is implemented and the first 46-system
+cross-fitted fold remains positive from MC512 to MC1024 at the effect level,
+but only 31/46 complete traces agree. The other folds are paused for a
+numerical-integration-only diagnosis; no paper-level positive result is
+claimed.
 
 ## Current research decision (not an experiment)
 
 The stopping chain does not authorize another outcome-selected posterior
 approximation. CHIC tested a real optimizer-input constraint without deleting
 outcomes, but its JARVIS task did not show an advantage. The active development
-hypothesis is now a scientifically different object: a composition-referenced,
-hierarchical PBE--r2SCAN discrepancy posterior on exact same-configuration
-MatPES pairs, followed by final-target-hull probability. Every paid target
+hypothesis is now a scientifically different object: nonmyopic active search
+with delayed convex-hull labels and source margin as a strong continuation
+policy. It retains the composition-referenced hierarchical PBE--r2SCAN
+posterior on exact same-configuration MatPES pairs. Every paid target
 outcome remains in the archive and conditions the posterior. WBM remains the
 homogeneous low-compute null, and opened JARVIS evaluation systems remain
 closed to development. The decision-sufficient-state definition still governs
@@ -126,7 +134,7 @@ supported.
 
 ## Evidence-adjudication matrix
 
-This table is the compact judgment layer over experiments E0--E21. Detailed
+This table is the compact judgment layer over experiments E0--E23. Detailed
 paths and hashes appear in the numbered entries below.
 
 | Stage | Evidence disposition | What is established | What is not established | Rerun/continuation rule |
@@ -150,6 +158,7 @@ paths and hashes appear in the numbered entries below.
 | LeMat PBE/SCAN pair audit | Authoritative data-quality NO-GO | The downloaded Unique configs are intact but have zero ID/fingerprint overlap | Same-structure multi-protocol pairs | Do not pair by formula; use MatPES PBE--r2SCAN instead |
 | MatPES pair/task and stoichiometry audit | Authoritative infrastructure plus historical invalidation | Exact PBE--r2SCAN pairs exist at scale; action-driven reveal works after preserving cell stoichiometry | Any result from the old normalized-composition/total-energy path | Never cite pre-repair MatPES closed-loop traces |
 | Hierarchical MatPES posterior + Delta-Hull Active Search | Development mechanism followed by repartitioned NO-GO | Composition/reference correction and a local Matern posterior are non-degenerate; the 24-system signal is real on that panel | Superiority over source margin or a paper-level method claim | The 48-system repartition gives `+0.0625`, CI crossing zero and `p=0.6291`; do not tune Delta-Hull on the opened systems |
+| Source-Rollout Delta-Hull | Implemented development method with an unresolved numerical gate | Full-budget posterior rollout, exact simulated causal-hull updates and source continuation pass independent pymatgen and reveal-boundary tests; fold-0 system effects agree 45/46 from MC512 to MC1024 | Cross-fitted superiority, action-level numerical convergence or a paper-level positive claim | Pause folds 1--5; diagnose integration only on the 276-system cross-fit partition and never use the 48 opened systems for development |
 
 ## Cross-iteration cause judgments
 
@@ -176,6 +185,7 @@ tested rather than inferred from a negative headline.
 | Element reference and local discrepancy are irrelevant | Rejected in development | Element fractions reduce between-system variance and a local Matern posterior materially improves energy and hull errors; claim remains development-only |
 | Source margin leaves no active-search headroom | Rejected on the 24-system development panel | The finite-pool oracle ceiling contains 19 additional budget-feasible confirmations; Delta-Hull recovers six | That the same headroom or capture ratio generalizes to a fresh split | Report ceiling and captured headroom with every future result |
 | MC1024 exactly resolves the derived hull probability | Not established, but effect-level stability improved | MC512/1024 have identical discovery effects; first actions agree in 23/24 systems, complete traces in 21/24 and rounds in 134/144 | Exact trace convergence or fresh-split superiority | Freeze MC1024; carry the residual numerical limitation into fresh-split replication |
+| The budget-six failure is entirely a one-step-horizon mismatch | Plausible but not established | On the opened 48-system attribution trace, five of seven persistent final losses begin only in rounds 5 or 6; the round-prefix effect is non-monotone | That full-budget rollout improves new systems | Test Source-Rollout only by out-of-fold development on the disjoint 276-system set |
 
 ## Manuscript treatment versus evidence preservation
 
@@ -786,6 +796,92 @@ proposal-only. See E15.
 - Claim status: stopped/method-level NO-GO for superiority over source margin
   on this task. All 48 systems are opened and development-closed. Do not tune
   the kernel, Sobol seed, score, horizon or support filter on them.
+
+### E23. Horizon attribution and Source-Rollout Delta-Hull
+
+- Failed assumption changed: repeated myopic final-membership maximization is
+  only the exact Bayes action at remaining budget one, while the deployed task
+  has budget six. The new method is not a score blend. For every candidate
+  first action and complete posterior energy sample, it inserts the sampled
+  target energy into a simulated composition-dependent causal hull and runs
+  the deployed source-margin policy for every remaining step. Terminal reward
+  counts selected phases on that sample's complete final target hull.
+- The source action is explicitly included in the rollout action class. Under
+  the registered posterior and exact expectation, maximizing the rollout
+  value is therefore no worse than continuing source margin. This is a
+  model-relative policy-improvement statement, not a real-distribution safety
+  theorem. Eight paired scrambled-Sobol blocks supply only a numerical
+  integration safeguard: without a positive one-sided lower bound, the policy
+  falls back to source.
+- Correctness evidence at commit `3078ea1` plus the immediately following
+  test-hardening change: cached causal-hull energies match independent
+  pymatgen phase diagrams for binary, ternary, quaternary and five-element
+  sampled states;
+  every candidate's complete rollout action sequence and terminal reward match
+  an independent pymatgen implementation; a constructed horizon-two case
+  improves reward from one to two; and the subprocess reveal boundary still
+  exposes only the persisted selected action. Full suite: 182 tests, Ruff
+  clean.
+- Attribution-only result:
+  `E:\DATA\EviMem-RL\results\matpes-repartition-v1-horizon-diagnostic.json`,
+  SHA256 `2d29072617b82247d8840f104ccbd8c0c71ce82ae7a38d705cc969eae41eb501`.
+  Prefix Delta-minus-source confirmation means by round are `0`, `-0.0417`,
+  `+0.1458`, `+0.1667`, `+0.1042`, `+0.0625`. Five of the seven persistent
+  final losses begin only in rounds five or six. On the 24 nonzero-headroom
+  systems the descriptive final difference is `+0.2917`. These opened traces
+  motivate the horizon test but cannot establish rollout performance.
+- Outcome-independent development plan SHA256
+  `a76a10a60c021cdf9bcfe922c457ee4809054da99e3e2b7debe5be8d29be5afa`:
+  the 276 former transport-fit systems are split into six folds of 46, each
+  containing 12 binary, 19 ternary and 15 higher-order systems. All 48 opened
+  systems are excluded; each fold posterior uses only the other five folds.
+- Development continuation requires all of: mean gain over source above
+  `0.15` confirmations/system, losses no more than half the wins, a clearly
+  positive nonzero-headroom effect, positive effects in at least two
+  complexity strata, stable higher-integration rollout actions/effects, and
+  runtime small relative to a target DFT query. Failure stops this method
+  without adding a blend, temperature or posterior change.
+- First engineering smoke uses fold 0, budget two and MC16; result SHA256
+  `9ad76c6238fbf15775ba6a18253f7f177772b2f454a13c80d8214203f905a548`.
+  Source-Rollout minus source is `+0.0652` confirmations/system with 7 wins,
+  35 ties and 4 losses; myopic Delta-Hull is `+0.0217` with 10/29/7. This
+  validates real-data execution and the expected loss-reduction mechanism at
+  deliberately low integration fidelity. It is not a GO result and cannot be
+  used to tune the method.
+- The first budget-six fold-0 pilot uses MC128 without changing the method;
+  result SHA256
+  `705ea89e00e31ecdb3a5ab7211cff1b666a2874c703c69ad24f3e77e66b70fca`.
+  Source-Rollout minus source is `+0.1957` confirmations/system, bootstrap 95%
+  interval `[0,+0.4130]`, exact sign-flip `p=0.1245`, with 9 wins, 33 ties and
+  4 losses. On the 22 nonzero-headroom systems it is `+0.5455` with 9/12/1;
+  ternary and higher-order strata are positive while binary is zero. Runtime
+  is 6.60 versus 2.08 seconds/system. The mean, loss/win, headroom and
+  two-stratum development signals pass, but one fold and MC128 cannot establish
+  numerical convergence or cross-fold replication.
+- The unchanged higher-integration fold-0 runs are:
+  MC512 SHA256
+  `6ea74f54d7e6e90d92c7be83cf3aadbcf6f959161378a2eff58f0b049e789390`
+  and MC1024 SHA256
+  `58fc2403c649cd6e32484535b074da7d45e6019d2da8397643045f43681710e2`.
+  At MC512 the paired effect is `+0.1522`, bootstrap interval
+  `[-0.0217,+0.3478]`, exact sign-flip `p=0.1923`, and 10/31/5
+  wins/ties/losses. At MC1024 it is `+0.1739`, interval
+  `[-0.0217,+0.3696]`, `p=0.1351`, and 11/30/5. The MC1024 effect on the 22
+  nonzero-headroom systems is `+0.5455`, interval `[+0.2273,+0.8636]`, with
+  11/10/1; binary, ternary and higher-order means are `+0.0833`, `+0.2105`
+  and `+0.2000`. Mean online times are 20.02 versus 2.81 seconds/system for
+  rollout and source at MC1024.
+- MC512/1024 agree on 41/46 first actions, 31/46 complete traces, 220/276
+  individual actions and 45/46 system-level effects. Thus the scientific
+  effect direction is not collapsing at the higher integration level, but the
+  action sequence has not met a defensible convergence gate. Folds 1--5 are
+  stopped pending a numerical-integration-only diagnosis. Do not tune the
+  posterior, source continuation, terminal objective or acquisition threshold
+  in response.
+- Claim status: implemented cross-fitted development method plus mechanism
+  diagnostic. No superiority or paper-level positive claim. The first
+  higher-integration fold is promising at the effect level but fails exact
+  action-level convergence; cross-fold execution is paused.
 
 ## Superseded, invalid and incomplete evidence
 
