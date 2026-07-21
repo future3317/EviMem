@@ -362,6 +362,16 @@ from `0.8750` to `0.6250`, while wall time rises from `1.99` to `22.13` seconds
 per system. Thus the mechanism is more precise final-hull targeting, not more
 transient causal discoveries or cheaper inference.
 
+The added cost is not a large-GP effect at the present pool sizes. The current
+reference implementation propagates each joint target-energy sample through a
+fresh composition-dependent `PhaseDiagram`. At budget six and MC1024 that is
+6,144 phase-diagram constructions per system. A one-system diagnostic profile
+at commit `090b4cb` assigns essentially all worker cumulative time to this
+final-hull propagation, while posterior conditioning and Gaussian sampling are
+negligible at that scale. The profiler inflates Python-heavy absolute time, so
+only the bottleneck attribution is retained; scientific timing remains the
+unprofiled closed-loop measurement above.
+
 The higher integration level resolves the effect-level concern without proving
 exact trace convergence. MC512 and MC1024 have the same `+0.2500` discovery
 difference, interval and win/tie/loss counts. They agree on the first action in

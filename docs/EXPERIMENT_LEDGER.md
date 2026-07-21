@@ -714,6 +714,18 @@ proposal-only. See E15.
   invalidation is `0.6250` versus `0.8750`. Prequential energy MAE is worse by
   `+0.00376` eV/atom, while prequential mean-hull MAE improves by `-0.00145`
   eV/atom. Wall time is `22.13` versus `1.99` seconds per system.
+- A diagnostic worker profile at commit `090b4cb` localizes this cost rather
+  than treating it as GP training overhead. On the 64-candidate Co-F-Li-O
+  development system, six rounds at MC1024 invoke 6,144 complete phase
+  diagrams, each with 68 total candidate/reference entries. Under `cProfile`,
+  final-hull propagation accounts for 175.73 of 175.85 worker cumulative
+  seconds, including 167.89 seconds in `PhaseDiagram` construction; posterior
+  conditioning and Gaussian sampling account for only 0.052 and 0.057 seconds.
+  Profiling magnifies Python-call overhead, so these absolute numbers are
+  bottleneck-localization evidence only. The unprofiled MC512-to-MC1024 increase
+  from `14.02` to `22.13` seconds/system independently supports sample-wise
+  hull propagation as the added online cost. The reported online wall time
+  excludes the once-per-panel transport fit and the post-trace evaluator.
 - The MC512 effect survives MC1024, so ordinary finite-sample integration noise
   is no longer the leading explanation for the discovery signal. Exact trace
   convergence is still false, and the same development systems supplied both
