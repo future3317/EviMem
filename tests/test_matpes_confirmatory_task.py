@@ -75,3 +75,52 @@ def test_confirmatory_builder_excludes_development_and_is_outcome_independent(tm
     assert set(fresh_task["confirmatory_systems"]) == set(systems[1:])
     assert all(row["split"] == "confirmatory" for row in fresh_vault["target_outcomes"])
     assert result["oracle_values_used_for_selection"] is False
+
+
+def test_confirmatory_builder_can_reserve_before_transport_fit(tmp_path: Path) -> None:
+    builder = _load_builder()
+    systems = ["A-B", "C-D", "E-F"]
+    rows = [row for system in systems for row in (_row(system, i) for i in range(4))]
+    task = {
+        "schema_version": 1,
+        "release_id": "fixture-release",
+        "source_protocol": {},
+        "target_protocol": {},
+        "development_pairs": rows,
+        "development_initial_phase_entries": {},
+        "development_systems": systems,
+    }
+    vault = {
+        "schema_version": 1,
+        "release_id": "fixture-release",
+        "target_outcomes": [
+            {
+                "pair_id": row["pair_id"],
+                "composition": row["composition"],
+                "target_corrected_total_energy_ev": -1.0,
+                "target_formation_energy_ev_per_atom": -0.1,
+                "split": "development",
+            }
+            for row in rows
+        ],
+    }
+    task_path = tmp_path / "all-task.json"
+    vault_path = tmp_path / "all-vault.json"
+    task_path.write_text(json.dumps(task), encoding="utf-8")
+    vault_path.write_text(json.dumps(vault), encoding="utf-8")
+    out_task = tmp_path / "fresh-task.json"
+    out_vault = tmp_path / "fresh-vault.json"
+    result = builder.build(
+        all_task_path=task_path,
+        all_vault_path=vault_path,
+        development_task_path=None,
+        task_output=out_task,
+        vault_output=out_vault,
+        max_systems_per_stratum=2,
+        minimum_candidates=4,
+    )
+    fresh_task = json.loads(out_task.read_text(encoding="utf-8"))
+    assert result["split_mode"] == "new_outcome_independent_repartition"
+    assert len(fresh_task["confirmatory_systems"]) == 2
+    assert "development_pairs" not in fresh_task
+    assert fresh_task["development_exclusion"]["systems"] == []

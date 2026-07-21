@@ -37,7 +37,7 @@ def build(
     *,
     all_task_path: Path,
     all_vault_path: Path,
-    development_task_path: Path,
+    development_task_path: Path | None,
     task_output: Path,
     vault_output: Path,
     max_systems_per_stratum: int = 8,
@@ -54,7 +54,11 @@ def build(
 
     all_task = json.loads(all_task_path.read_text(encoding="utf-8"))
     all_vault = json.loads(all_vault_path.read_text(encoding="utf-8"))
-    development_task = json.loads(development_task_path.read_text(encoding="utf-8"))
+    development_task = (
+        {}
+        if development_task_path is None
+        else json.loads(development_task_path.read_text(encoding="utf-8"))
+    )
     pair_key = "confirmatory_pairs" if "confirmatory_pairs" in all_task else "development_pairs"
     initial_key = (
         "confirmatory_initial_phase_entries"
@@ -125,8 +129,22 @@ def build(
         )
         for system in selected
     }
+    retired_split_fields = {
+        "development_pairs",
+        "development_systems",
+        "development_initial_phase_entries",
+        "confirmatory_pairs",
+        "confirmatory_systems",
+        "confirmatory_initial_phase_entries",
+        "system_summary",
+        "selected_pair_id_set_sha256",
+        "selection_rule",
+        "status",
+        "development_exclusion",
+        "selection_by_stratum",
+    }
     task = {
-        **all_task,
+        **{key: value for key, value in all_task.items() if key not in retired_split_fields},
         "schema_version": max(int(all_task.get("schema_version", 1)), 2),
         "status": "confirmatory_fresh_task_frozen_selection",
         "confirmatory_systems": selected,
@@ -134,12 +152,19 @@ def build(
         "confirmatory_initial_phase_entries": initial_entries,
         "selected_pair_id_set_sha256": selected_id_checksum,
         "selection_rule": (
-            "exclude every development system and pair; retain exact-system pools with "
+            (
+                "exclude every historical development system and pair; "
+                if development_task_path is not None
+                else "reserve evaluation systems before transport fitting; "
+            )
+            + "retain exact-system pools with "
             "candidate/parent gates; SHA256(release, confirmatory-fresh-v1, system) "
             "within binary/ternary/quaternary strata; no outcome used"
         ),
         "development_exclusion": {
-            "task_sha256": _sha256(development_task_path),
+            "task_sha256": (
+                None if development_task_path is None else _sha256(development_task_path)
+            ),
             "systems": sorted(excluded_systems),
             "pair_count": len(excluded_ids),
         },
@@ -162,7 +187,14 @@ def build(
     manifest = {
         "task_sha256": _sha256(task_output),
         "vault_sha256": _sha256(vault_output),
-        "development_exclusion_sha256": _sha256(development_task_path),
+        "development_exclusion_sha256": (
+            None if development_task_path is None else _sha256(development_task_path)
+        ),
+        "split_mode": (
+            "fresh_beyond_historical_development"
+            if development_task_path is not None
+            else "new_outcome_independent_repartition"
+        ),
         "selected_systems": selected,
         "selected_pair_count": len(selected_rows),
         "selection_by_stratum": selection_by_stratum,
@@ -176,7 +208,7 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--all-task", type=Path, required=True)
     parser.add_argument("--all-vault", type=Path, required=True)
-    parser.add_argument("--development-task", type=Path, required=True)
+    parser.add_argument("--development-task", type=Path, default=None)
     parser.add_argument("--task-output", type=Path, required=True)
     parser.add_argument("--vault-output", type=Path, required=True)
     parser.add_argument("--max-systems-per-stratum", type=int, default=8)
