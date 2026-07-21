@@ -504,6 +504,7 @@ def run(
         )
         if set(transport_model.fit_system_ids) & set(query_systems):
             raise AssertionError("frozen transport fit and query systems overlap")
+        fit_systems = transport_model.fit_system_ids
     elif expected_split == "development" and len(fit_systems) >= 2:
         transport_model = fit_transport_model_for_task(
             task=task,
@@ -715,7 +716,10 @@ def run(
         ),
         "estimand": "action_driven_closed_loop_query_selection",
         "task_sha256": _sha256(task_path),
-        "development_vault_sha256": _sha256(development_vault_path),
+        "oracle_vault_sha256": _sha256(development_vault_path),
+        "development_vault_sha256": (
+            _sha256(development_vault_path) if expected_split == "development" else None
+        ),
         "script_sha256": _sha256(Path(__file__)),
         "code_provenance": {
             "protocol_policy_worker_sha256": _sha256(
@@ -740,7 +744,7 @@ def run(
                 "NUMEXPR_NUM_THREADS",
             )
         },
-        "evaluation_systems_accessed": False,
+        "evaluation_systems_accessed": expected_split == "confirmatory",
         "transport_fit_systems": fit_systems,
         "transport_fit_system_count": len(fit_systems),
         "transport_fit_row_count": (
