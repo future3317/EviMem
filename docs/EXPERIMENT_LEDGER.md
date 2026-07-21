@@ -911,6 +911,14 @@ the required first action is still the unchanged sixteen-block SARR fold-0
 rerun and numerical opportunity-cost audit. Do not tune the conformal radius
 or open new evaluation systems before that gate is resolved.
 
+Before that rerun, the closed-loop audit path was extended without changing a
+policy decision: every Source-Rollout round now preserves the pre-reveal
+candidate ordering, all sixteen block rollout scores, paired mean advantages,
+Bonferroni simultaneous lower bounds, source and selected actions, fallback
+reason, comparison count and horizon. This instrumentation is required for the
+registered numerical opportunity-cost audit; it does not alter the posterior,
+reward, source continuation, selection threshold or oracle boundary.
+
 ## Superseded, invalid and incomplete evidence
 
 | Evidence | Required treatment |

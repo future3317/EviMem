@@ -649,6 +649,7 @@ def run(
             )
             strategy_results[policy_name] = {
                 "selected_pair_ids": result.selected_pair_ids,
+                "rounds": [event.model_dump(mode="json") for event in result.events],
                 "trace_checksum": result.trace_checksum,
                 "event_log_sha256": _sha256(log_path),
                 "wall_seconds": elapsed,

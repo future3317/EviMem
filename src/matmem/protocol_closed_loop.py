@@ -581,6 +581,19 @@ class ProtocolPolicySubprocess:
         self._process: subprocess.Popen[str] | None = None
         self._responses: queue.Queue[str | None] = queue.Queue()
         self._stderr: deque[str] = deque(maxlen=50)
+        self._last_selection_diagnostics: dict[str, Any] | None = None
+
+    @property
+    def last_selection_diagnostics(self) -> dict[str, Any] | None:
+        """Observable policy-side diagnostics for the most recent selection.
+
+        These values are computed before the reveal boundary. They are kept
+        separately from the append-only action/reveal log so an audit can
+        inspect numerical decision evidence without granting oracle access to
+        the policy subprocess.
+        """
+
+        return self._last_selection_diagnostics
 
     @property
     def identity_checksum(self) -> str:
@@ -708,11 +721,25 @@ class ProtocolPolicySubprocess:
         return selected.strip()
 
     def select(self, state: ProtocolPolicyState) -> str:
-        selected = (
+        response = (
             self._select_persistent(state)
             if self._persistent
             else self._select_one_shot(state)
         )
+        self._last_selection_diagnostics = None
+        try:
+            payload = json.loads(response)
+        except json.JSONDecodeError:
+            selected = response.strip()
+        else:
+            if not isinstance(payload, dict) or not isinstance(payload.get("selected_pair_id"), str):
+                raise RuntimeError("protocol policy subprocess returned an invalid response")
+            selected = payload["selected_pair_id"]
+            diagnostics = payload.get("diagnostics")
+            if diagnostics is not None:
+                if not isinstance(diagnostics, dict):
+                    raise RuntimeError("protocol policy diagnostics must be an object")
+                self._last_selection_diagnostics = diagnostics
         if selected not in {item.pair_id for item in state.queries}:
             raise RuntimeError("protocol policy subprocess returned an unknown pair ID")
         return selected
@@ -810,6 +837,7 @@ class ProtocolClosedLoopEvent(BaseModel):
     reveal_checksum: str
     post_reveal_hull_checksum: str
     archive_checksum: str
+    selection_diagnostics: dict[str, Any] | None = None
 
 
 class ProtocolClosedLoopResult(BaseModel):
@@ -906,6 +934,7 @@ class SecureProtocolQueryRunner:
                 policy_identity_checksum=self.policy.identity_checksum,
             )
             selected_id = self.policy.select(state)
+            selection_diagnostics = self.policy.last_selection_diagnostics
             if self.policy.policy == "conformal_source_rollout_delta_hull":
                 source_index = int(
                     source_margin_action_indices(
@@ -969,6 +998,7 @@ class SecureProtocolQueryRunner:
                     reveal_checksum=reveal.reveal_checksum,
                     post_reveal_hull_checksum=self.causal_hull.phase_set_checksum,
                     archive_checksum=archive_checksum,
+                    selection_diagnostics=selection_diagnostics,
                 )
             )
             round_index += 1

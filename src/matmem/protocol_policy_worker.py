@@ -79,6 +79,7 @@ def select(
     fantasy_count: int = 3,
     conformal_threshold: float | None = None,
     hull_backend: str = "pymatgen",
+    diagnostics: dict[str, object] | None = None,
 ) -> str:
     queries = list(payload["queries"])
     history = list(payload["revealed_history"])
@@ -251,6 +252,41 @@ def select(
                         seed=hull_arguments["seed"],
                         fixed_template=fixed_template,
                     )
+                    if diagnostics is not None:
+                        query_ids = tuple(str(row["pair_id"]) for row in queries)
+                        diagnostics.update(
+                            {
+                                "diagnostic_schema_version": 1,
+                                "kind": "source_rollout_sarr",
+                                "candidate_pair_ids": query_ids,
+                                "block_scores": result.block_scores,
+                                "mean_advantages_over_source": {
+                                    pair_id: advantage
+                                    for pair_id, advantage in zip(
+                                        query_ids,
+                                        result.paired_advantages_over_source,
+                                        strict=True,
+                                    )
+                                },
+                                "simultaneous_lower_bounds": {
+                                    pair_id: lower_bound
+                                    for pair_id, lower_bound in zip(
+                                        query_ids,
+                                        result.paired_advantage_lower_bounds,
+                                        strict=True,
+                                    )
+                                },
+                                "source_pair_id": query_ids[result.source_action_index],
+                                "selected_pair_id": query_ids[result.selected_action_index],
+                                "fallback_reason": result.fallback_reason,
+                                "simultaneous_comparison_count": (
+                                    result.simultaneous_comparison_count
+                                ),
+                                "posterior_sample_count": result.posterior_sample_count,
+                                "sobol_scramble_count": result.sobol_scramble_count,
+                                "horizon": result.horizon,
+                            }
+                        )
                     return str(queries[result.selected_action_index]["pair_id"])
                 elif policy == "conformal_source_rollout_delta_hull":
                     if conformal_threshold is None:
@@ -391,19 +427,29 @@ def main() -> None:
             if model_payload is None
             else FrozenProtocolRidgeTransport.model_validate(model_payload)
         )
+        diagnostics: dict[str, object] = {}
+        selected_pair_id = select(
+            payload,
+            policy=args.policy,
+            seed=args.seed,
+            ridge_penalty=args.ridge_penalty,
+            prior_standard_deviation=args.prior_standard_deviation,
+            boundary_temperature=args.boundary_temperature,
+            transport_model=transport_model,
+            posterior_sample_count=args.posterior_sample_count,
+            fantasy_count=args.fantasy_count,
+            conformal_threshold=args.conformal_threshold,
+            hull_backend=args.hull_backend,
+            diagnostics=diagnostics,
+        )
         print(
-            select(
-                payload,
-                policy=args.policy,
-                seed=args.seed,
-                ridge_penalty=args.ridge_penalty,
-                prior_standard_deviation=args.prior_standard_deviation,
-                boundary_temperature=args.boundary_temperature,
-                transport_model=transport_model,
-                posterior_sample_count=args.posterior_sample_count,
-                fantasy_count=args.fantasy_count,
-                conformal_threshold=args.conformal_threshold,
-                hull_backend=args.hull_backend,
+            json.dumps(
+                {
+                    "selected_pair_id": selected_pair_id,
+                    "diagnostics": diagnostics or None,
+                },
+                sort_keys=True,
+                separators=(",", ":"),
             ),
             flush=True,
         )

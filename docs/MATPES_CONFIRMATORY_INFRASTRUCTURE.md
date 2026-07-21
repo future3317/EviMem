@@ -115,3 +115,10 @@ radius is not a blanket safety or superiority guarantee. This implementation
 is proposal/development infrastructure only: no calibration artifact or
 evaluation result has yet been produced, and the current SARR fold-0 rerun
 must be completed before this continuation is used for a paper-facing claim.
+
+For the pending SARR fold-0 rerun, the external result record contains the
+observable pre-reveal decision diagnostics required for a numerical audit:
+candidate ordering, sixteen RQMC block scores, paired advantages, simultaneous
+lower bounds, source/selected action, fallback reason, comparison count and
+horizon. These records are emitted before the selected-action-only reveal and
+do not expose unqueried target outcomes.

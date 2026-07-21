@@ -121,6 +121,9 @@ def test_source_rollout_reports_simultaneous_candidate_count() -> None:
 
     assert result.sobol_scramble_count == 16
     assert result.simultaneous_comparison_count == 2
+    assert len(result.block_scores) == 16
+    assert all(len(block) == 3 for block in result.block_scores)
+    assert result.fallback_reason in {None, "no_positive_simultaneous_lower_bound"}
 
 
 def test_conformal_source_rollout_calibration_is_system_clustered() -> None:

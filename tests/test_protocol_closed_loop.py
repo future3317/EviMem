@@ -457,6 +457,21 @@ def test_source_rollout_drives_only_authorized_reveals(tmp_path: Path) -> None:
     assert len(result.selected_pair_ids) == 2
     assert result.selected_pair_ids == result.revealed_pair_ids
     assert result.selected_pair_ids == vault.revealed_pair_ids
+    for event in result.events:
+        diagnostics = event.selection_diagnostics
+        assert diagnostics is not None
+        assert diagnostics["kind"] == "source_rollout_sarr"
+        assert diagnostics["selected_pair_id"] == event.selected_pair_id
+        assert diagnostics["source_pair_id"] in diagnostics["candidate_pair_ids"]
+        assert len(diagnostics["block_scores"]) == 16
+        assert all(
+            len(block) == len(diagnostics["candidate_pair_ids"])
+            for block in diagnostics["block_scores"]
+        )
+        assert diagnostics["simultaneous_comparison_count"] == max(
+            len(diagnostics["candidate_pair_ids"]) - 1,
+            1,
+        )
 
 
 def test_protocol_hull_policy_falls_back_on_unseen_elements(tmp_path: Path) -> None:

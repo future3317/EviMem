@@ -207,6 +207,7 @@ class SourceRolloutDeltaHullResult(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     scores: tuple[float, ...]
+    block_scores: tuple[tuple[float, ...], ...]
     final_stability_probabilities: tuple[float, ...]
     paired_advantages_over_source: tuple[float, ...]
     paired_advantage_lower_bounds: tuple[float, ...]
@@ -216,6 +217,7 @@ class SourceRolloutDeltaHullResult(BaseModel):
     sobol_scramble_count: int = Field(gt=1)
     simultaneous_comparison_count: int = Field(gt=0)
     horizon: int = Field(gt=0)
+    fallback_reason: str | None = None
 
 
 class ConformalSourceRolloutCalibration(BaseModel):
@@ -1566,11 +1568,20 @@ def source_rollout_delta_hull(
             (int(index) for index in improving),
             key=lambda index: (-scores[index], str(query_ids[index])),
         )
+        fallback_reason = None
     else:
         selected_action = source_action
+        fallback_reason = (
+            "source_is_only_legal_action"
+            if size == 1
+            else "no_positive_simultaneous_lower_bound"
+        )
     probabilities = labels.mean(axis=0)
     return SourceRolloutDeltaHullResult(
         scores=tuple(float(value) for value in scores),
+        block_scores=tuple(
+            tuple(float(value) for value in row) for row in block_scores
+        ),
         final_stability_probabilities=tuple(float(value) for value in probabilities),
         paired_advantages_over_source=tuple(float(value) for value in mean_advantages),
         paired_advantage_lower_bounds=tuple(float(value) for value in lower_bounds),
@@ -1580,6 +1591,7 @@ def source_rollout_delta_hull(
         sobol_scramble_count=sobol_scramble_count,
         simultaneous_comparison_count=max(size - 1, 1),
         horizon=horizon,
+        fallback_reason=fallback_reason,
     )
 
 
