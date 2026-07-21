@@ -34,6 +34,12 @@ from .protocol_knowledge_gradient import FrozenProtocolRidgeTransport
 from .protocols import ProtocolCertificate
 
 
+def requires_protocol_transport(policy: str) -> bool:
+    """Return whether a policy requires a frozen cross-protocol posterior."""
+
+    return policy == "delta_hull_active_search" or policy.startswith("protocol_hull_")
+
+
 def _checksum(payload: object) -> str:
     encoded = json.dumps(
         payload,
@@ -498,6 +504,7 @@ class ProtocolPolicySubprocess:
         transport_model: FrozenProtocolRidgeTransport | None = None,
         posterior_sample_count: int = 16,
         fantasy_count: int = 3,
+        hull_backend: Literal["pymatgen", "fixed_composition"] = "pymatgen",
         selection_timeout_seconds: float = 30.0,
         worker_path: Path | None = None,
     ) -> None:
@@ -509,6 +516,7 @@ class ProtocolPolicySubprocess:
         self.transport_model = transport_model
         self.posterior_sample_count = posterior_sample_count
         self.fantasy_count = fantasy_count
+        self.hull_backend = hull_backend
         self.selection_timeout_seconds = selection_timeout_seconds
         if (
             not math.isfinite(ridge_penalty)
@@ -521,9 +529,11 @@ class ProtocolPolicySubprocess:
             raise ValueError("protocol policy scales must be finite and positive")
         if posterior_sample_count < 4 or fantasy_count < 1:
             raise ValueError("protocol hull Monte Carlo settings are too small")
+        if hull_backend not in {"pymatgen", "fixed_composition"}:
+            raise ValueError("unknown protocol hull backend")
         if not math.isfinite(selection_timeout_seconds) or selection_timeout_seconds <= 0:
             raise ValueError("protocol policy timeout must be finite and positive")
-        if policy.startswith("protocol_hull_") and transport_model is None:
+        if requires_protocol_transport(policy) and transport_model is None:
             raise ValueError("protocol hull policies require a frozen transport model")
         self._persistent = worker_path is None
         self.worker_path = (worker_path or Path(__file__).with_name("protocol_policy_worker.py")).resolve()
@@ -549,6 +559,7 @@ class ProtocolPolicySubprocess:
                 ),
                 "posterior_sample_count": self.posterior_sample_count,
                 "fantasy_count": self.fantasy_count,
+                "hull_backend": self.hull_backend,
                 "execution_mode": (
                     "persistent_jsonl" if self._persistent else "one_shot_custom"
                 ),
@@ -574,12 +585,15 @@ class ProtocolPolicySubprocess:
             str(self.posterior_sample_count),
             "--fantasy-count",
             str(self.fantasy_count),
+            "--hull-backend",
+            self.hull_backend,
         ]
 
     def _serialized_request(self, state: ProtocolPolicyState) -> str:
         payload = json.loads(state.serialized_for_policy())
         if self.transport_model is not None:
             payload["transport_model"] = self.transport_model.model_dump(mode="json")
+        payload["hull_backend"] = self.hull_backend
         return json.dumps(payload, sort_keys=True, separators=(",", ":"))
 
     def _start_persistent(self) -> None:

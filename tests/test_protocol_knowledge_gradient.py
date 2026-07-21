@@ -91,6 +91,10 @@ def test_hierarchical_kernel_transport_fits_only_registered_systems() -> None:
     assert model.local_kernel_signal_variance > 0
     assert model.local_kernel_noise_variance > 0
     assert model.local_kernel_nll_per_row is not None
+    assert model.local_kernel_optimizer_success is True
+    assert model.local_kernel_optimizer_status is not None
+    assert model.local_kernel_optimizer_message
+    assert model.local_kernel_optimizer_gradient_norm is not None
 
 
 def test_local_discrepancy_reveal_updates_nearby_candidate_more() -> None:
@@ -271,6 +275,62 @@ def test_delta_hull_scores_equal_manual_joint_final_membership_probability() -> 
     ).mean(axis=0)
     assert result.scores == pytest.approx(manual)
     assert result.final_stability_probabilities == pytest.approx(manual)
+
+
+@pytest.mark.parametrize(
+    ("query_compositions", "reference_compositions"),
+    (
+        (
+            (
+                {"A": 0.5, "B": 0.5},
+                {"A": 0.25, "B": 0.75},
+                {"A": 0.75, "B": 0.25},
+                {"A": 0.5, "B": 0.5},
+            ),
+            ({"A": 1.0}, {"B": 1.0}),
+        ),
+        (
+            (
+                {"A": 0.5, "B": 0.5},
+                {"A": 0.5, "C": 0.5},
+                {"B": 0.5, "C": 0.5},
+                {"A": 0.333333333333, "B": 0.333333333333, "C": 0.333333333334},
+                {"A": 0.25, "B": 0.25, "C": 0.5},
+            ),
+            ({"A": 1.0}, {"B": 1.0}, {"C": 1.0}),
+        ),
+    ),
+)
+def test_fixed_composition_hull_backend_matches_pymatgen(
+    query_compositions: tuple[dict[str, float], ...],
+    reference_compositions: tuple[dict[str, float], ...],
+) -> None:
+    from matmem.protocol_knowledge_gradient import (
+        FixedCompositionHullTemplate,
+        _final_hull_membership,
+    )
+
+    rng = np.random.default_rng(20260721)
+    sampled = rng.normal(-0.05, 0.25, size=(24, len(query_compositions)))
+    references = np.zeros(len(reference_compositions), dtype=float)
+    template = FixedCompositionHullTemplate.from_compositions(
+        query_compositions=query_compositions,
+        reference_compositions=reference_compositions,
+    )
+    pymatgen_labels = _final_hull_membership(
+        query_compositions=query_compositions,
+        sampled_query_energies=sampled,
+        reference_compositions=reference_compositions,
+        reference_energies=references,
+    )
+    fixed_labels = _final_hull_membership(
+        query_compositions=query_compositions,
+        sampled_query_energies=sampled,
+        reference_compositions=reference_compositions,
+        reference_energies=references,
+        fixed_template=template,
+    )
+    np.testing.assert_array_equal(fixed_labels, pymatgen_labels)
 
 
 def test_two_step_protocol_hull_policy_rejects_nonuniform_costs() -> None:

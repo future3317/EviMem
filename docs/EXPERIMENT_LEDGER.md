@@ -792,3 +792,17 @@ executors back into `src/matmem`.
 8. A conformal absolute-error radius is not a Gaussian standard deviation.
    Any Gaussian working likelihood using that number is a modeling heuristic,
    not a distribution-free calibration theorem.
+
+## Confirmatory infrastructure status (2026-07-21)
+
+The current code adds fail-closed wiring for the frozen Delta--Hull transport,
+optimizer provenance fields, and an optional fixed-composition lower-hull
+backend. The latter is an implementation optimization, not a new method, and
+is not authorized until the independent parity audit has zero mismatches.
+Fresh split construction and transport freezing are separate tools. The fresh
+builder excludes every development system and pair and performs
+outcome-independent SHA-256 selection by composition stratum. The confirmatory
+runner requires a frozen transport artifact and checks fit/query disjointness;
+it never refits on fresh systems. These tools have only passed fixture and unit
+tests so far. No fresh-system result, GO decision, or paper-level positive claim
+is implied by their existence.

@@ -14,11 +14,13 @@ import json
 import math
 from collections import Counter
 from collections.abc import Sequence
+from dataclasses import dataclass
 from typing import Literal
 
 import numpy as np
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from scipy.optimize import minimize
+from scipy.spatial import ConvexHull, QhullError
 from scipy.special import ndtri
 from scipy.stats import qmc
 
@@ -44,6 +46,11 @@ class FrozenProtocolRidgeTransport(BaseModel):
     local_kernel_length_scale: float = Field(default=1.0, gt=0)
     local_kernel_fit_system_count: int = Field(default=0, ge=0)
     local_kernel_nll_per_row: float | None = None
+    local_kernel_optimizer_success: bool | None = None
+    local_kernel_optimizer_status: int | None = None
+    local_kernel_optimizer_message: str | None = None
+    local_kernel_optimizer_gradient_norm: float | None = Field(default=None, ge=0)
+    local_kernel_optimizer_bounds_active: tuple[str, ...] = ()
     kernel_feature_mean: tuple[float, ...] = ()
     kernel_feature_scale: tuple[float, ...] = ()
     kernel_feature_encoder: str | None = None
@@ -189,6 +196,200 @@ class ProtocolHullPosteriorSummary(BaseModel):
     hull_variances: tuple[float, ...]
     bayes_risk: float = Field(ge=0)
     posterior_sample_count: int = Field(gt=0)
+
+
+@dataclass(frozen=True, slots=True)
+class FixedCompositionHullTemplate:
+    """Cached composition geometry for an action-equivalent lower-hull solver.
+
+    The template contains no energies.  It can therefore be built before any
+    oracle reveal and reused for every posterior sample and round whose union
+    of candidate/reference compositions is unchanged.  Stability is computed
+    from the same reduced-composition grouping, elemental-reference handling,
+    formation-energy filter and Qhull convention as ``pymatgen.PhaseDiagram``.
+    """
+
+    elements: tuple[str, ...]
+    normalized_composition_matrix: tuple[tuple[float, ...], ...]
+    atom_counts: tuple[float, ...]
+    candidate_indices: tuple[int, ...]
+    reference_indices: tuple[int, ...]
+    duplicate_composition_groups: tuple[tuple[int, ...], ...]
+    element_reference_indices: tuple[tuple[str, int], ...]
+    entry_names: tuple[str, ...]
+    numerical_tolerance: float = 1e-11
+
+    @classmethod
+    def from_compositions(
+        cls,
+        *,
+        query_compositions: Sequence[dict[str, float]],
+        reference_compositions: Sequence[dict[str, float]],
+        numerical_tolerance: float = 1e-11,
+    ) -> FixedCompositionHullTemplate:
+        from pymatgen.core import Composition
+
+        if not query_compositions or not reference_compositions:
+            raise ValueError("fixed-composition hull requires nonempty query and reference sets")
+        parsed = [Composition(value) for value in reference_compositions] + [
+            Composition(value) for value in query_compositions
+        ]
+        elements = tuple(sorted({str(element) for composition in parsed for element in composition.elements}))
+        if len(elements) < 1:
+            raise ValueError("fixed-composition hull requires at least one element")
+        matrix = tuple(
+            tuple(float(composition.get_atomic_fraction(element)) for element in elements)
+            for composition in parsed
+        )
+        atom_counts = tuple(float(composition.num_atoms) for composition in parsed)
+        entry_names = tuple(
+            [f"reference:{index}" for index in range(len(reference_compositions))]
+            + [f"query:{index}" for index in range(len(query_compositions))]
+        )
+
+        def composition_key(composition: Composition) -> tuple[tuple[str, float], ...]:
+            reduced = composition.reduced_composition
+            return tuple(
+                (str(element), round(float(amount), 12))
+                for element, amount in sorted(reduced.as_dict().items())
+            )
+
+        grouped: dict[tuple[tuple[str, float], ...], list[int]] = {}
+        for index, composition in enumerate(parsed):
+            grouped.setdefault(composition_key(composition), []).append(index)
+        duplicate_groups = tuple(
+            tuple(indices) for indices in sorted(grouped.values(), key=lambda group: group[0])
+        )
+        elemental: list[tuple[str, int]] = []
+        for element in elements:
+            candidates = [
+                index
+                for index, composition in enumerate(parsed)
+                if composition.is_element and str(composition.elements[0]) == element
+            ]
+            if not candidates:
+                raise ValueError(f"fixed-composition hull is missing elemental reference {element}")
+            elemental.append((element, candidates[0]))
+        return cls(
+            elements=elements,
+            normalized_composition_matrix=matrix,
+            atom_counts=atom_counts,
+            candidate_indices=tuple(range(len(reference_compositions), len(parsed))),
+            reference_indices=tuple(range(len(reference_compositions))),
+            duplicate_composition_groups=duplicate_groups,
+            element_reference_indices=tuple(elemental),
+            entry_names=entry_names,
+            numerical_tolerance=float(numerical_tolerance),
+        )
+
+    @property
+    def entry_count(self) -> int:
+        return len(self.normalized_composition_matrix)
+
+    def stable_candidate_mask(
+        self,
+        *,
+        query_energies: np.ndarray,
+        reference_energies: np.ndarray,
+    ) -> np.ndarray:
+        """Return the candidate stable mask for one complete energy vector."""
+
+        values = np.concatenate(
+            (
+                np.asarray(reference_energies, dtype=np.float64).reshape(-1),
+                np.asarray(query_energies, dtype=np.float64).reshape(-1),
+            )
+        )
+        if len(values) != self.entry_count or not np.isfinite(values).all():
+            raise ValueError("fixed-composition hull energy dimensions are inconsistent")
+        selected: list[int] = []
+        selected_by_group: dict[int, int] = {}
+        for group in self.duplicate_composition_groups:
+            chosen = min(group, key=lambda index: (values[index], self.entry_names[index]))
+            selected.append(chosen)
+            for index in group:
+                selected_by_group[index] = chosen
+        elemental_indices = tuple(
+            selected_by_group[index] for _, index in self.element_reference_indices
+        )
+        element_energies = {
+            element: float(values[selected_by_group[index]])
+            for element, index in self.element_reference_indices
+        }
+        matrix = np.asarray(self.normalized_composition_matrix, dtype=np.float64)
+        formation = np.asarray(
+            [
+                values[index]
+                - sum(matrix[index, element_index] * element_energies[element] for element_index, element in enumerate(self.elements))
+                for index in selected
+            ],
+            dtype=np.float64,
+        )
+        qhull_indices = [
+            index for index, formation_energy in zip(selected, formation, strict=True)
+            if formation_energy < -self.numerical_tolerance
+        ]
+        qhull_indices.extend(elemental_indices)
+        # The PhaseDiagram implementation keeps this order and permits an
+        # elemental entry to occur twice only if it was already negative, which
+        # cannot happen for its own reference formation energy.
+        qhull_indices = list(dict.fromkeys(qhull_indices))
+        dimension = len(self.elements)
+        qhull_data = np.column_stack((matrix[qhull_indices, 1:], values[qhull_indices]))
+        extra_point = np.zeros(dimension, dtype=np.float64) + 1.0 / dimension
+        extra_point[-1] = float(np.max(qhull_data[:, -1]) + 1.0)
+        qhull_data = np.concatenate((qhull_data, extra_point[None, :]), axis=0)
+        if dimension == 1:
+            facets: list[np.ndarray] = [np.asarray([int(np.argmin(qhull_data[:, 0]))])]
+        else:
+            try:
+                facets = list(ConvexHull(qhull_data, qhull_options="Qt i").simplices)
+            except QhullError as exc:
+                raise ValueError("fixed-composition hull Qhull failed") from exc
+            final_facets: list[np.ndarray] = []
+            for facet in facets:
+                if int(np.max(facet)) == len(qhull_data) - 1:
+                    continue
+                facet_data = np.array(qhull_data[facet], copy=True)
+                facet_data[:, -1] = 1.0
+                if abs(float(np.linalg.det(facet_data))) > 1e-14:
+                    final_facets.append(np.asarray(facet))
+            facets = final_facets
+        stable_qhull_indices = {
+            int(index) for facet in facets for index in np.asarray(facet).reshape(-1)
+        }
+        stable_combined_indices = {
+            qhull_indices[index] for index in stable_qhull_indices if index < len(qhull_indices)
+        }
+        return np.asarray(
+            [index in stable_combined_indices for index in self.candidate_indices],
+            dtype=bool,
+        )
+
+
+def fixed_composition_hull_membership(
+    template: FixedCompositionHullTemplate,
+    *,
+    query_energies: np.ndarray,
+    reference_energies: np.ndarray,
+) -> np.ndarray:
+    """Evaluate one or more sampled energy vectors with the cached backend."""
+
+    samples = np.asarray(query_energies, dtype=np.float64)
+    if samples.ndim == 1:
+        samples = samples[None, :]
+    if samples.ndim != 2 or samples.shape[1] != len(template.candidate_indices):
+        raise ValueError("fixed-composition hull query samples have inconsistent dimensions")
+    return np.asarray(
+        [
+            template.stable_candidate_mask(
+                query_energies=sample,
+                reference_energies=reference_energies,
+            )
+            for sample in samples
+        ],
+        dtype=bool,
+    )
 
 
 def _raw_features(features: np.ndarray, source_energies: np.ndarray) -> np.ndarray:
@@ -417,7 +618,26 @@ def fit_protocol_kernel_transport(
     optimized = minimize(objective, initial, method="L-BFGS-B", bounds=bounds)
     if not np.isfinite(optimized.fun):
         raise RuntimeError("local protocol kernel marginal likelihood is non-finite")
+    if not bool(optimized.success):
+        raise RuntimeError(
+            "local protocol kernel marginal likelihood optimizer failed: "
+            f"status={optimized.status} message={optimized.message}"
+        )
     length_scale, signal_variance, noise_variance = np.exp(optimized.x)
+    gradient = np.asarray(getattr(optimized, "jac", ()), dtype=float)
+    gradient_norm = (
+        float(np.linalg.norm(gradient))
+        if gradient.size and np.isfinite(gradient).all()
+        else None
+    )
+    bound_names = ("length_scale", "signal_variance", "noise_variance")
+    bounds_active = tuple(
+        name
+        for name, value, (lower, upper) in zip(
+            bound_names, optimized.x, bounds, strict=True
+        )
+        if abs(float(value) - lower) <= 1e-8 or abs(float(value) - upper) <= 1e-8
+    )
     payload = model.model_dump()
     payload.update(
         {
@@ -427,6 +647,11 @@ def fit_protocol_kernel_transport(
             "local_kernel_length_scale": float(length_scale),
             "local_kernel_fit_system_count": len(blocks),
             "local_kernel_nll_per_row": float(optimized.fun),
+            "local_kernel_optimizer_success": bool(optimized.success),
+            "local_kernel_optimizer_status": int(optimized.status),
+            "local_kernel_optimizer_message": str(optimized.message),
+            "local_kernel_optimizer_gradient_norm": gradient_norm,
+            "local_kernel_optimizer_bounds_active": bounds_active,
             "kernel_feature_mean": tuple(float(value) for value in kernel_feature_mean),
             "kernel_feature_scale": tuple(float(value) for value in kernel_feature_scale),
             "kernel_feature_encoder": kernel_feature_encoder,
@@ -616,7 +841,21 @@ def _final_hull_membership(
     sampled_query_energies: np.ndarray,
     reference_compositions: Sequence[dict[str, float]],
     reference_energies: np.ndarray,
+    fixed_template: FixedCompositionHullTemplate | None = None,
 ) -> np.ndarray:
+    if fixed_template is not None:
+        expected = FixedCompositionHullTemplate.from_compositions(
+            query_compositions=query_compositions,
+            reference_compositions=reference_compositions,
+            numerical_tolerance=fixed_template.numerical_tolerance,
+        )
+        if expected != fixed_template:
+            raise ValueError("fixed-composition hull template does not match compositions")
+        return fixed_composition_hull_membership(
+            fixed_template,
+            query_energies=sampled_query_energies,
+            reference_energies=reference_energies,
+        )
     from pymatgen.analysis.phase_diagram import PhaseDiagram
     from pymatgen.core import Composition
     from pymatgen.entries.computed_entries import ComputedEntry
@@ -789,6 +1028,7 @@ def delta_hull_active_search(
     costs: np.ndarray,
     posterior_sample_count: int = 16,
     seed: int = 0,
+    fixed_template: FixedCompositionHullTemplate | None = None,
 ) -> DeltaHullActiveSearchResult:
     """Return the exact one-step active-search objective under the posterior.
 
@@ -821,6 +1061,7 @@ def delta_hull_active_search(
         ),
         reference_compositions=reference_compositions,
         reference_energies=reference_energies,
+        fixed_template=fixed_template,
     )
     probabilities = labels.mean(axis=0)
     return DeltaHullActiveSearchResult(

@@ -110,6 +110,7 @@ from .protocol_closed_loop import (
 )
 from .protocol_knowledge_gradient import (
     DeltaHullActiveSearchResult,
+    FixedCompositionHullTemplate,
     FrozenProtocolRidgeTransport,
     ProtocolHullKnowledgeGradientResult,
     ProtocolHullPosteriorSummary,
@@ -118,6 +119,7 @@ from .protocol_knowledge_gradient import (
     delta_hull_active_search,
     fit_protocol_kernel_transport,
     fit_protocol_ridge_transport,
+    fixed_composition_hull_membership,
     protocol_hull_knowledge_gradient,
     protocol_hull_posterior_summary,
     protocol_hull_risk_reduction,
@@ -370,6 +372,8 @@ __all__ = [
     "bernoulli_log_divergence",
     "compare_facility_and_joint_objectives",
     "delta_hull_active_search",
+    "FixedCompositionHullTemplate",
+    "fixed_composition_hull_membership",
     "certify_epsilon_optimal_actions",
     "clustered_conformal_quantile",
     "replay_wbm_event_log",

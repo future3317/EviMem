@@ -13,6 +13,7 @@ from chic import (
     linear_ridge_predicted_final_hull_acquisition,
 )
 from protocol_knowledge_gradient import (
+    FixedCompositionHullTemplate,
     FrozenProtocolRidgeTransport,
     delta_hull_active_search,
     protocol_hull_knowledge_gradient,
@@ -73,6 +74,7 @@ def select(
     transport_model: FrozenProtocolRidgeTransport | None = None,
     posterior_sample_count: int = 16,
     fantasy_count: int = 3,
+    hull_backend: str = "pymatgen",
 ) -> str:
     queries = list(payload["queries"])
     history = list(payload["revealed_history"])
@@ -132,6 +134,16 @@ def select(
                 )
             else:
                 phases = list(payload["causal_hull_phases"])
+                if hull_backend not in {"pymatgen", "fixed_composition"}:
+                    raise ValueError("unknown protocol hull backend")
+                fixed_template = (
+                    FixedCompositionHullTemplate.from_compositions(
+                        query_compositions=tuple(dict(row["composition"]) for row in queries),
+                        reference_compositions=tuple(dict(row["composition"]) for row in phases),
+                    )
+                    if hull_backend == "fixed_composition"
+                    else None
+                )
                 kernel_dimension = len(transport_model.kernel_feature_mean)
                 query_kernel_rows = [
                     row.get("source_local_environment_embedding") for row in queries
@@ -194,6 +206,7 @@ def select(
                         costs=hull_arguments["costs"],
                         posterior_sample_count=hull_arguments["posterior_sample_count"],
                         seed=hull_arguments["seed"],
+                        fixed_template=fixed_template,
                     )
                     values = result.scores
                 elif policy == "protocol_hull_risk_reduction":
@@ -286,6 +299,7 @@ def main() -> None:
     parser.add_argument("--boundary-temperature", type=float, default=0.05)
     parser.add_argument("--posterior-sample-count", type=int, default=16)
     parser.add_argument("--fantasy-count", type=int, default=3)
+    parser.add_argument("--hull-backend", choices=("pymatgen", "fixed_composition"), default="pymatgen")
     parser.add_argument("--serve-jsonl", action="store_true")
     args = parser.parse_args()
     def respond(payload: dict[str, object]) -> None:
@@ -306,6 +320,7 @@ def main() -> None:
                 transport_model=transport_model,
                 posterior_sample_count=args.posterior_sample_count,
                 fantasy_count=args.fantasy_count,
+                hull_backend=args.hull_backend,
             ),
             flush=True,
         )

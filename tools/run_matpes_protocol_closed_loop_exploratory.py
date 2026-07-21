@@ -49,6 +49,7 @@ from matmem.protocol_closed_loop import (
     ProtocolOracleVault,
     ProtocolPolicySubprocess,
     SecureProtocolQueryRunner,
+    requires_protocol_transport,
 )
 from matmem.protocol_knowledge_gradient import (
     FrozenProtocolRidgeTransport,
@@ -77,9 +78,7 @@ POLICIES = (
 def _requires_protocol_transport(policy_name: str) -> bool:
     """Return whether a policy consumes the frozen cross-protocol posterior."""
 
-    return policy_name == "delta_hull_active_search" or policy_name.startswith(
-        "protocol_hull_"
-    )
+    return requires_protocol_transport(policy_name)
 
 
 @dataclass(frozen=True)
@@ -93,10 +92,13 @@ class ExperimentConfig:
     boundary_temperature_ev_per_atom: float = 0.05
     posterior_sample_count: int = 16
     fantasy_count: int = 3
+    hull_backend: Literal["pymatgen", "fixed_composition"] = "pymatgen"
     transport_family: Literal[
         "ridge_random_intercept",
         "hierarchical_matern52_frozen_structure",
     ] = "ridge_random_intercept"
+    split: Literal["development", "confirmatory"] = "development"
+    transport_model_path: Path | None = None
     policies: tuple[str, ...] = POLICIES
 
 
@@ -406,6 +408,54 @@ def _evaluate_action_trace(
     return result
 
 
+def fit_transport_model_for_task(
+    *,
+    task: dict[str, Any],
+    outcome_rows: dict[str, dict[str, Any]],
+    fit_systems: tuple[str, ...],
+    ridge_penalty: float,
+    transport_family: Literal[
+        "ridge_random_intercept",
+        "hierarchical_matern52_frozen_structure",
+    ],
+    pairs_key: str = "development_pairs",
+) -> FrozenProtocolRidgeTransport:
+    """Fit the frozen disjoint transport artifact used by development runs."""
+
+    by_system: dict[str, list[dict[str, Any]]] = {}
+    for row in task[pairs_key]:
+        by_system.setdefault(row["chemical_system"], []).append(row)
+    fit_rows = [row for system in fit_systems for row in by_system[system]]
+    fit_arguments = {
+        "features": np.asarray(
+            [row["source_environment_embedding"] for row in fit_rows], dtype=float
+        ),
+        "source_energies": np.asarray(
+            [row["source_formation_energy_ev_per_atom"] for row in fit_rows]
+        ),
+        "target_energies": np.asarray(
+            [outcome_rows[row["pair_id"]]["target_formation_energy_ev_per_atom"] for row in fit_rows]
+        ),
+        "system_ids": [row["chemical_system"] for row in fit_rows],
+        "ridge_penalty": ridge_penalty,
+    }
+    if transport_family == "hierarchical_matern52_frozen_structure":
+        representation = task.get("local_environment_representation")
+        if not isinstance(representation, dict):
+            raise ValueError("hierarchical frozen-structure transport requires representation metadata")
+        if any(row.get("source_local_environment_embedding") is None for row in fit_rows):
+            raise ValueError("hierarchical frozen-structure transport requires every source embedding")
+        return fit_protocol_kernel_transport(
+            **fit_arguments,
+            kernel_features=np.asarray(
+                [row["source_local_environment_embedding"] for row in fit_rows], dtype=float
+            ),
+            kernel_feature_encoder=str(representation["encoder"]),
+            kernel_feature_encoder_checksum=str(representation["checkpoint_sha256"]),
+        )
+    return fit_protocol_ridge_transport(**fit_arguments)
+
+
 def run(
     *,
     task_path: Path,
@@ -425,9 +475,10 @@ def run(
 
     task = json.loads(task_path.read_text(encoding="utf-8"))
     vault_payload = json.loads(development_vault_path.read_text(encoding="utf-8"))
-    if any(row["split"] != "development" for row in vault_payload["target_outcomes"]):
-        raise ValueError("closed-loop exploratory runner accepts only development outcomes")
-    task_rows = task["development_pairs"]
+    expected_split = config.split
+    if any(row["split"] != expected_split for row in vault_payload["target_outcomes"]):
+        raise ValueError(f"runner accepts only {expected_split} outcomes")
+    task_rows = task[f"{expected_split}_pairs"]
     outcome_rows = {row["pair_id"]: row for row in vault_payload["target_outcomes"]}
     if set(outcome_rows) != {row["pair_id"] for row in task_rows}:
         raise ValueError("calibration task/vault join is not exact")
@@ -435,58 +486,37 @@ def run(
     by_system: dict[str, list[dict[str, Any]]] = {}
     for row in task_rows:
         by_system.setdefault(row["chemical_system"], []).append(row)
-    development_systems = sorted(
+    query_systems = sorted(
         (system for system, rows in by_system.items() if len(rows) >= config.minimum_candidates),
         key=lambda system: _stable_hash(release_id, "chic-closed-loop-v1", system),
     )[: config.max_systems]
-    if not development_systems:
-        raise ValueError("no eligible development systems")
+    if not query_systems:
+        raise ValueError(f"no eligible {expected_split} systems")
 
-    fit_systems = tuple(sorted(set(by_system) - set(development_systems)))
+    fit_systems = tuple(sorted(set(by_system) - set(query_systems)))
     transport_model = None
-    if len(fit_systems) >= 2:
-        fit_rows = [row for system in fit_systems for row in by_system[system]]
-        fit_arguments = {
-            "features": np.asarray(
-                [row["source_environment_embedding"] for row in fit_rows], dtype=float
-            ),
-            "source_energies": np.asarray(
-                [row["source_formation_energy_ev_per_atom"] for row in fit_rows]
-            ),
-            "target_energies": np.asarray(
-                [
-                    outcome_rows[row["pair_id"]]["target_formation_energy_ev_per_atom"]
-                    for row in fit_rows
-                ]
-            ),
-            "system_ids": [row["chemical_system"] for row in fit_rows],
-            "ridge_penalty": config.ridge_penalty,
-        }
-        if config.transport_family == "hierarchical_matern52_frozen_structure":
-            representation = task.get("local_environment_representation")
-            if not isinstance(representation, dict):
-                raise ValueError(
-                    "hierarchical frozen-structure transport requires representation metadata"
-                )
-            if any(
-                row.get("source_local_environment_embedding") is None for row in fit_rows
-            ):
-                raise ValueError(
-                    "hierarchical frozen-structure transport requires every source embedding"
-                )
-            transport_model = fit_protocol_kernel_transport(
-                **fit_arguments,
-                kernel_features=np.asarray(
-                    [row["source_local_environment_embedding"] for row in fit_rows],
-                    dtype=float,
-                ),
-                kernel_feature_encoder=str(representation["encoder"]),
-                kernel_feature_encoder_checksum=str(representation["checkpoint_sha256"]),
-            )
-        else:
-            transport_model = fit_protocol_ridge_transport(**fit_arguments)
-        if set(transport_model.fit_system_ids) & set(development_systems):
+    if config.transport_model_path is not None:
+        if not config.transport_model_path.exists():
+            raise FileNotFoundError(config.transport_model_path)
+        frozen_payload = json.loads(config.transport_model_path.read_text(encoding="utf-8"))
+        transport_model = FrozenProtocolRidgeTransport.model_validate(
+            frozen_payload.get("model", frozen_payload)
+        )
+        if set(transport_model.fit_system_ids) & set(query_systems):
+            raise AssertionError("frozen transport fit and query systems overlap")
+    elif expected_split == "development" and len(fit_systems) >= 2:
+        transport_model = fit_transport_model_for_task(
+            task=task,
+            outcome_rows=outcome_rows,
+            fit_systems=fit_systems,
+            ridge_penalty=config.ridge_penalty,
+            transport_family=config.transport_family,
+            pairs_key=f"{expected_split}_pairs",
+        )
+        if set(transport_model.fit_system_ids) & set(query_systems):
             raise AssertionError("transport fit and query systems overlap")
+    elif any(_requires_protocol_transport(policy) for policy in config.policies):
+        raise ValueError("confirmatory transport policies require --transport-model")
     active_policies = tuple(
         policy
         for policy in config.policies
@@ -496,7 +526,7 @@ def run(
     source_protocol = ProtocolCertificate.model_validate(task["source_protocol"])
     target_protocol = ProtocolCertificate.model_validate(task["target_protocol"])
     system_results: dict[str, Any] = {}
-    for system in development_systems:
+    for system in query_systems:
         rows = sorted(by_system[system], key=lambda row: row["pair_id"])
         budget = min(config.maximum_budget, len(rows) // 2)
         strategy_results: dict[str, Any] = {}
@@ -524,6 +554,7 @@ def run(
                 ),
                 posterior_sample_count=config.posterior_sample_count,
                 fantasy_count=config.fantasy_count,
+                hull_backend=config.hull_backend,
                 selection_timeout_seconds=(
                     300.0
                     if policy_name
@@ -539,9 +570,9 @@ def run(
             with AppendOnlyProtocolEventLog(log_path) as event_log:
                 runner = SecureProtocolQueryRunner(
                     candidates=candidates,
-                    vault=ProtocolOracleVault(outcomes, expected_split="development"),
+                    vault=ProtocolOracleVault(outcomes, expected_split=expected_split),
                     causal_hull=ProtocolCausalHull(
-                        _initial_entries(task["development_initial_phase_entries"][system]),
+                        _initial_entries(task[f"{expected_split}_initial_phase_entries"][system]),
                         chemical_system=tuple(system.split("-")),
                     ),
                     policy=policy,
@@ -553,7 +584,7 @@ def run(
                 selected_pair_ids=result.selected_pair_ids,
                 candidate_rows=rows,
                 outcome_rows=outcome_rows,
-                initial_rows=task["development_initial_phase_entries"][system],
+                initial_rows=task[f"{expected_split}_initial_phase_entries"][system],
                 transport_model=(
                     transport_model
                     if transport_model is not None
@@ -584,7 +615,7 @@ def run(
     aggregates: dict[str, Any] = {}
     for policy_name in active_policies:
         results = [
-            system_results[system]["strategies"][policy_name] for system in development_systems
+            system_results[system]["strategies"][policy_name] for system in query_systems
         ]
         aggregates[policy_name] = {
             "system_macro_mean_action_regret_ev_per_atom": float(
@@ -672,9 +703,16 @@ def run(
                     ),
                 }
             )
+    config_payload = asdict(config)
+    if config.transport_model_path is not None:
+        config_payload["transport_model_path"] = str(config.transport_model_path)
     output = {
         "schema_version": 1,
-        "status": "exploratory_development_systems_only_not_confirmatory",
+        "status": (
+            "exploratory_development_systems_only_not_confirmatory"
+            if expected_split == "development"
+            else "confirmatory_fresh_systems_frozen_transport"
+        ),
         "estimand": "action_driven_closed_loop_query_selection",
         "task_sha256": _sha256(task_path),
         "development_vault_sha256": _sha256(development_vault_path),
@@ -719,8 +757,13 @@ def run(
         "selected_action_is_only_reveal": True,
         "posterior_sampler": "nested_scrambled_sobol_gaussian_v1",
         "training_archive_policy": "full_history",
-        "config": asdict(config),
-        "development_systems": development_systems,
+        "config": config_payload,
+        "development_systems": query_systems,
+        "query_systems": query_systems,
+        "split": expected_split,
+        "transport_model_path": (
+            None if config.transport_model_path is None else str(config.transport_model_path)
+        ),
         "aggregates": aggregates,
         "systems": system_results,
     }
@@ -759,6 +802,13 @@ def main() -> None:
     parser.add_argument("--boundary-temperature", type=float, default=0.05)
     parser.add_argument("--posterior-sample-count", type=int, default=16)
     parser.add_argument("--fantasy-count", type=int, default=3)
+    parser.add_argument("--split", choices=("development", "confirmatory"), default="development")
+    parser.add_argument("--transport-model", type=Path, default=None)
+    parser.add_argument(
+        "--hull-backend",
+        choices=("pymatgen", "fixed_composition"),
+        default="pymatgen",
+    )
     parser.add_argument(
         "--transport-family",
         choices=(
@@ -779,7 +829,10 @@ def main() -> None:
         boundary_temperature_ev_per_atom=args.boundary_temperature,
         posterior_sample_count=args.posterior_sample_count,
         fantasy_count=args.fantasy_count,
+        hull_backend=args.hull_backend,
         transport_family=args.transport_family,
+        split=args.split,
+        transport_model_path=args.transport_model,
         policies=tuple(args.policies),
     )
     if (
