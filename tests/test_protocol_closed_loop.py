@@ -108,6 +108,15 @@ def test_selected_action_is_the_only_revealed_action(tmp_path: Path) -> None:
     assert records[0]["selected_pair_id"] == records[1]["selected_pair_id"] == "q2"
 
 
+def test_confirmatory_split_is_explicitly_supported() -> None:
+    candidates, outcomes = _fixture()
+    confirmatory = tuple(outcome.model_copy(update={"split": "confirmatory"}) for outcome in outcomes)
+    vault = ProtocolOracleVault(confirmatory, expected_split="confirmatory")
+    assert vault.expected_split == "confirmatory"
+    assert vault.reveal_count == 0
+    assert len(candidates) == len(confirmatory)
+
+
 def test_unrevealed_outcome_cannot_change_first_action(tmp_path: Path) -> None:
     baseline, _ = _run(tmp_path, name="baseline.jsonl", hidden_q1_target=-0.2, budget=1)
     changed, _ = _run(tmp_path, name="changed.jsonl", hidden_q1_target=10.0, budget=1)

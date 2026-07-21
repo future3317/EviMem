@@ -150,7 +150,7 @@ class ProtocolOracleOutcome(BaseModel):
     composition: dict[str, float]
     target_corrected_total_energy_ev: float
     target_formation_energy_ev_per_atom: float
-    split: Literal["calibration", "evaluation", "development", "fixture"]
+    split: Literal["calibration", "evaluation", "development", "confirmatory", "fixture"]
 
     @field_validator("composition")
     @classmethod
@@ -436,7 +436,9 @@ class ProtocolOracleVault:
         self,
         outcomes: Iterable[ProtocolOracleOutcome],
         *,
-        expected_split: Literal["calibration", "evaluation", "development", "fixture"],
+        expected_split: Literal[
+            "calibration", "evaluation", "development", "confirmatory", "fixture"
+        ],
     ) -> None:
         items = tuple(outcomes)
         if not items or any(item.split != expected_split for item in items):
