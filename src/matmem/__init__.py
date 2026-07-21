@@ -116,6 +116,7 @@ from .protocol_knowledge_gradient import (
     ProtocolHullPosteriorSummary,
     ProtocolHullRiskReductionResult,
     ProtocolTargetEnergyPosterior,
+    SourceRolloutDeltaHullResult,
     delta_hull_active_search,
     fit_protocol_kernel_transport,
     fit_protocol_ridge_transport,
@@ -124,6 +125,8 @@ from .protocol_knowledge_gradient import (
     protocol_hull_posterior_summary,
     protocol_hull_risk_reduction,
     protocol_target_energy_posterior,
+    source_margin_action_indices,
+    source_rollout_delta_hull,
 )
 from .protocols import (
     CompatibilityKind,
@@ -397,6 +400,9 @@ __all__ = [
     "protocol_hull_posterior_summary",
     "protocol_hull_risk_reduction",
     "protocol_target_energy_posterior",
+    "source_margin_action_indices",
+    "source_rollout_delta_hull",
+    "SourceRolloutDeltaHullResult",
     "paired_system_improvement_bootstrap",
     "reference_headroom_recovery",
     "paired_system_bootstrap",

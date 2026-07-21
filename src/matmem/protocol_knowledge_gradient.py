@@ -15,6 +15,7 @@ import math
 from collections import Counter
 from collections.abc import Sequence
 from dataclasses import dataclass
+from itertools import combinations
 from typing import Literal
 
 import numpy as np
@@ -23,6 +24,7 @@ from scipy.optimize import minimize
 from scipy.spatial import ConvexHull, QhullError
 from scipy.special import ndtri
 from scipy.stats import qmc
+from scipy.stats import t as student_t
 
 
 class FrozenProtocolRidgeTransport(BaseModel):
@@ -196,6 +198,22 @@ class ProtocolHullPosteriorSummary(BaseModel):
     hull_variances: tuple[float, ...]
     bayes_risk: float = Field(ge=0)
     posterior_sample_count: int = Field(gt=0)
+
+
+class SourceRolloutDeltaHullResult(BaseModel):
+    """Full-budget rollout values using source margin as continuation."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    scores: tuple[float, ...]
+    final_stability_probabilities: tuple[float, ...]
+    paired_advantages_over_source: tuple[float, ...]
+    paired_advantage_lower_bounds: tuple[float, ...]
+    source_action_index: int = Field(ge=0)
+    selected_action_index: int = Field(ge=0)
+    posterior_sample_count: int = Field(gt=0)
+    sobol_scramble_count: int = Field(gt=1)
+    horizon: int = Field(gt=0)
 
 
 @dataclass(frozen=True, slots=True)
@@ -906,6 +924,232 @@ def _normalized_composition_key(composition: dict[str, float]) -> tuple[tuple[st
     )
 
 
+def source_margin_action_indices(
+    *,
+    source_energies: np.ndarray,
+    competing_hull_energies: np.ndarray,
+    query_ids: Sequence[str],
+    eligible: np.ndarray | None = None,
+) -> np.ndarray:
+    """Select source-margin actions with immutable-ID tie breaking.
+
+    This vectorized primitive is shared by the deployed source policy and by
+    posterior rollout continuations. Rows of ``competing_hull_energies`` are
+    independent simulated causal-hull states; columns follow ``query_ids``.
+    """
+
+    source = np.asarray(source_energies, dtype=np.float64).reshape(-1)
+    hull = np.asarray(competing_hull_energies, dtype=np.float64)
+    if hull.ndim == 1:
+        hull = hull[None, :]
+    if hull.ndim != 2 or hull.shape[1] != len(source) or len(query_ids) != len(source):
+        raise ValueError("source-margin arrays disagree")
+    if not len(source) or not np.isfinite(source).all() or not np.isfinite(hull).all():
+        raise ValueError("source-margin inputs must be nonempty and finite")
+    if len(set(query_ids)) != len(query_ids) or any(not str(value) for value in query_ids):
+        raise ValueError("source-margin query IDs must be unique and nonempty")
+    mask = np.ones(hull.shape, dtype=bool)
+    if eligible is not None:
+        provided = np.asarray(eligible, dtype=bool)
+        if provided.ndim == 1:
+            provided = np.broadcast_to(provided[None, :], hull.shape)
+        if provided.shape != hull.shape:
+            raise ValueError("source-margin eligibility mask disagrees")
+        mask = provided
+    if np.any(~np.any(mask, axis=1)):
+        raise ValueError("source-margin state has no eligible action")
+    margins = source[None, :] - hull
+    margins = np.where(mask, margins, np.inf)
+    identifier_order = np.argsort(np.asarray(query_ids, dtype=str), kind="stable")
+    ordered_actions = np.argmin(margins[:, identifier_order], axis=1)
+    return identifier_order[ordered_actions]
+
+
+@dataclass(frozen=True, slots=True)
+class _CausalHullEnvelope:
+    """Cached exact convex decompositions for one active composition set."""
+
+    simplex_active_positions: np.ndarray
+    simplex_weights: np.ndarray
+    feasible: np.ndarray
+    active_count: int
+    query_count: int
+
+    @classmethod
+    def build(
+        cls,
+        *,
+        query_compositions: Sequence[dict[str, float]],
+        reference_compositions: Sequence[dict[str, float]],
+        selected_query_indices: Sequence[int],
+        tolerance: float = 1e-10,
+    ) -> _CausalHullEnvelope:
+        if not query_compositions or not reference_compositions:
+            raise ValueError("causal-hull envelope requires queries and references")
+        selected = tuple(sorted({int(index) for index in selected_query_indices}))
+        if any(index < 0 or index >= len(query_compositions) for index in selected):
+            raise ValueError("causal-hull selected index is out of range")
+        elements = tuple(
+            sorted(
+                {
+                    element
+                    for composition in (*reference_compositions, *query_compositions)
+                    for element, amount in composition.items()
+                    if float(amount) > 0
+                }
+            )
+        )
+        dimension = len(elements)
+        if dimension == 0:
+            raise ValueError("causal-hull envelope has no elements")
+
+        def fractions(composition: dict[str, float]) -> np.ndarray:
+            total = float(sum(composition.values()))
+            if not math.isfinite(total) or total <= 0:
+                raise ValueError("causal-hull composition must have positive mass")
+            return np.asarray(
+                [float(composition.get(element, 0.0)) / total for element in elements],
+                dtype=np.float64,
+            )
+
+        query_matrix = np.asarray([fractions(value) for value in query_compositions])
+        active_compositions = [*reference_compositions]
+        active_compositions.extend(query_compositions[index] for index in selected)
+        active_matrix = np.asarray([fractions(value) for value in active_compositions])
+        if len(active_matrix) < dimension:
+            raise ValueError("causal hull lacks enough active phase compositions")
+        simplex_positions: list[tuple[int, ...]] = []
+        simplex_weights: list[np.ndarray] = []
+        feasible_masks: list[np.ndarray] = []
+        for positions in combinations(range(len(active_matrix)), dimension):
+            matrix = active_matrix[np.asarray(positions)].T
+            if abs(float(np.linalg.det(matrix))) <= 1e-12:
+                continue
+            weights = np.linalg.solve(matrix, query_matrix.T)
+            weights[np.abs(weights) <= tolerance] = 0.0
+            feasible = np.all(weights >= -tolerance, axis=0) & np.isclose(
+                np.sum(weights, axis=0),
+                1.0,
+                atol=10.0 * tolerance,
+            )
+            if not np.any(feasible):
+                continue
+            simplex_positions.append(positions)
+            simplex_weights.append(weights)
+            feasible_masks.append(feasible)
+        if not simplex_positions:
+            raise ValueError("causal-hull envelope has no feasible decomposition")
+        feasible = np.asarray(feasible_masks, dtype=bool)
+        if np.any(~np.any(feasible, axis=0)):
+            raise ValueError("causal-hull references do not span every query composition")
+        return cls(
+            simplex_active_positions=np.asarray(simplex_positions, dtype=np.int64),
+            simplex_weights=np.asarray(simplex_weights, dtype=np.float64),
+            feasible=feasible,
+            active_count=len(active_matrix),
+            query_count=len(query_matrix),
+        )
+
+    def competing_hull_energies(self, active_energies: np.ndarray) -> np.ndarray:
+        values = np.asarray(active_energies, dtype=np.float64)
+        if values.ndim == 1:
+            values = values[None, :]
+        if values.ndim != 2 or values.shape[1] != self.active_count:
+            raise ValueError("causal-hull active energies disagree with geometry")
+        if not np.isfinite(values).all():
+            raise ValueError("causal-hull active energies must be finite")
+        hull = np.full((len(values), self.query_count), np.inf, dtype=np.float64)
+        for positions, weights, feasible in zip(
+            self.simplex_active_positions,
+            self.simplex_weights,
+            self.feasible,
+            strict=True,
+        ):
+            candidate_values = values[:, positions] @ weights
+            candidate_values[:, ~feasible] = np.inf
+            np.minimum(hull, candidate_values, out=hull)
+        if not np.isfinite(hull).all():
+            raise ValueError("causal-hull energy is undefined for a query composition")
+        return hull
+
+
+def _source_rollout_rewards(
+    *,
+    sampled_query_energies: np.ndarray,
+    final_hull_membership: np.ndarray,
+    query_compositions: Sequence[dict[str, float]],
+    query_source_energies: np.ndarray,
+    query_ids: Sequence[str],
+    reference_compositions: Sequence[dict[str, float]],
+    reference_energies: np.ndarray,
+    horizon: int,
+) -> np.ndarray:
+    """Evaluate every first action under a source-margin continuation."""
+
+    samples = np.asarray(sampled_query_energies, dtype=np.float64)
+    labels = np.asarray(final_hull_membership, dtype=bool)
+    source = np.asarray(query_source_energies, dtype=np.float64).reshape(-1)
+    references = np.asarray(reference_energies, dtype=np.float64).reshape(-1)
+    if samples.ndim != 2 or labels.shape != samples.shape:
+        raise ValueError("source rollout samples and final-hull labels disagree")
+    if (
+        samples.shape[1] != len(query_compositions)
+        or len(source) != samples.shape[1]
+        or len(query_ids) != samples.shape[1]
+        or len(references) != len(reference_compositions)
+    ):
+        raise ValueError("source rollout arrays disagree")
+    if horizon < 1 or horizon > samples.shape[1]:
+        raise ValueError("source rollout horizon is invalid")
+    if not np.isfinite(samples).all() or not np.isfinite(source).all() or not np.isfinite(references).all():
+        raise ValueError("source rollout energies must be finite")
+
+    sample_count, query_count = samples.shape
+    rewards = np.empty((sample_count, query_count), dtype=np.float64)
+    geometry_cache: dict[tuple[int, ...], _CausalHullEnvelope] = {}
+
+    def geometry(selected: tuple[int, ...]) -> _CausalHullEnvelope:
+        cached = geometry_cache.get(selected)
+        if cached is None:
+            cached = _CausalHullEnvelope.build(
+                query_compositions=query_compositions,
+                reference_compositions=reference_compositions,
+                selected_query_indices=selected,
+            )
+            geometry_cache[selected] = cached
+        return cached
+
+    for first_action in range(query_count):
+        selected = np.zeros((sample_count, query_count), dtype=bool)
+        selected[:, first_action] = True
+        for _ in range(1, horizon):
+            groups: dict[tuple[int, ...], list[int]] = {}
+            for sample_index in range(sample_count):
+                key = tuple(int(index) for index in np.flatnonzero(selected[sample_index]))
+                groups.setdefault(key, []).append(sample_index)
+            for key, row_indices in groups.items():
+                rows = np.asarray(row_indices, dtype=np.int64)
+                envelope = geometry(key)
+                active_energies = np.column_stack(
+                    (
+                        np.broadcast_to(references, (len(rows), len(references))),
+                        samples[np.ix_(rows, np.asarray(key, dtype=np.int64))],
+                    )
+                )
+                hull = envelope.competing_hull_energies(active_energies)
+                eligible = np.ones(query_count, dtype=bool)
+                eligible[np.asarray(key, dtype=np.int64)] = False
+                next_actions = source_margin_action_indices(
+                    source_energies=source,
+                    competing_hull_energies=hull,
+                    query_ids=query_ids,
+                    eligible=eligible,
+                )
+                selected[rows, next_actions] = True
+        rewards[:, first_action] = np.sum(selected & labels, axis=1)
+    return rewards
+
+
 def _fixed_evaluation_compositions(
     query_compositions: Sequence[dict[str, float]],
     reference_compositions: Sequence[dict[str, float]],
@@ -1068,6 +1312,127 @@ def delta_hull_active_search(
         scores=tuple(float(value) for value in probabilities),
         final_stability_probabilities=tuple(float(value) for value in probabilities),
         posterior_sample_count=posterior_sample_count,
+    )
+
+
+def source_rollout_delta_hull(
+    posterior: ProtocolTargetEnergyPosterior,
+    *,
+    query_compositions: Sequence[dict[str, float]],
+    query_source_energies: np.ndarray,
+    query_ids: Sequence[str],
+    reference_compositions: Sequence[dict[str, float]],
+    reference_energies: np.ndarray,
+    current_competing_hull_energies: np.ndarray,
+    costs: np.ndarray,
+    remaining_budget: float,
+    posterior_sample_count: int = 1024,
+    seed: int = 0,
+    fixed_template: FixedCompositionHullTemplate | None = None,
+    sobol_scramble_count: int = 8,
+    integration_confidence: float = 0.95,
+) -> SourceRolloutDeltaHullResult:
+    """Improve source margin by a full-remaining-budget posterior rollout.
+
+    Every candidate first action is followed by the deployed source-margin
+    policy inside each complete target-energy sample. The sampled target
+    energy of every simulated query is added to the composition-dependent
+    causal hull before choosing the next action. A paired scrambled-Sobol
+    lower bound prevents numerically unresolved gains from changing the strong
+    source action; it is only an integration safeguard, not a calibration or
+    real-world safety guarantee.
+    """
+
+    mean = np.asarray(posterior.mean, dtype=np.float64)
+    covariance = np.asarray(posterior.covariance, dtype=np.float64)
+    source = np.asarray(query_source_energies, dtype=np.float64).reshape(-1)
+    item_costs = np.asarray(costs, dtype=np.float64).reshape(-1)
+    current_hull = np.asarray(current_competing_hull_energies, dtype=np.float64).reshape(-1)
+    size = len(mean)
+    if (
+        len(query_compositions) != size
+        or len(query_ids) != size
+        or len(source) != size
+        or len(item_costs) != size
+        or len(current_hull) != size
+    ):
+        raise ValueError("source-rollout Delta-Hull inputs disagree")
+    if np.any(~np.isfinite(item_costs)) or np.any(item_costs <= 0):
+        raise ValueError("source-rollout query costs must be finite and positive")
+    if not np.allclose(item_costs, item_costs[0], atol=1e-12):
+        raise ValueError("source-rollout Delta-Hull requires equal query costs")
+    if not math.isfinite(remaining_budget) or remaining_budget < item_costs[0]:
+        raise ValueError("remaining protocol budget cannot pay for a rollout query")
+    if sobol_scramble_count < 2 or posterior_sample_count % sobol_scramble_count:
+        raise ValueError("posterior samples must divide into independent Sobol scrambles")
+    block_size = posterior_sample_count // sobol_scramble_count
+    if block_size < 2 or block_size & (block_size - 1):
+        raise ValueError("each source-rollout Sobol block must have power-of-two size")
+    if not 0.5 < integration_confidence < 1.0:
+        raise ValueError("source-rollout integration confidence must lie in (0.5, 1)")
+    horizon = min(size, int(math.floor((remaining_budget + 1e-12) / item_costs[0])))
+
+    sample_blocks = tuple(
+        _sample_gaussian(
+            mean,
+            covariance,
+            sample_count=block_size,
+            seed=seed + 104729 * block_index,
+        )
+        for block_index in range(sobol_scramble_count)
+    )
+    samples = np.concatenate(sample_blocks, axis=0)
+    labels = _final_hull_membership(
+        query_compositions=query_compositions,
+        sampled_query_energies=samples,
+        reference_compositions=reference_compositions,
+        reference_energies=reference_energies,
+        fixed_template=fixed_template,
+    )
+    rewards = _source_rollout_rewards(
+        sampled_query_energies=samples,
+        final_hull_membership=labels,
+        query_compositions=query_compositions,
+        query_source_energies=source,
+        query_ids=query_ids,
+        reference_compositions=reference_compositions,
+        reference_energies=reference_energies,
+        horizon=horizon,
+    )
+    block_scores = rewards.reshape(sobol_scramble_count, block_size, size).mean(axis=1)
+    scores = block_scores.mean(axis=0)
+    source_action = int(
+        source_margin_action_indices(
+            source_energies=source,
+            competing_hull_energies=current_hull,
+            query_ids=query_ids,
+        )[0]
+    )
+    differences = block_scores - block_scores[:, [source_action]]
+    mean_advantages = differences.mean(axis=0)
+    standard_errors = differences.std(axis=0, ddof=1) / math.sqrt(sobol_scramble_count)
+    critical_value = float(student_t.ppf(integration_confidence, sobol_scramble_count - 1))
+    lower_bounds = mean_advantages - critical_value * standard_errors
+    lower_bounds[source_action] = 0.0
+    improving = np.flatnonzero(lower_bounds > 0.0)
+    if len(improving):
+        selected_action = min(
+            (int(index) for index in improving),
+            key=lambda index: (-scores[index], str(query_ids[index])),
+        )
+    else:
+        selected_action = source_action
+    probabilities = labels.mean(axis=0)
+    return SourceRolloutDeltaHullResult(
+        scores=tuple(float(value) for value in scores),
+        final_stability_probabilities=tuple(float(value) for value in probabilities),
+        paired_advantages_over_source=tuple(float(value) for value in mean_advantages),
+        paired_advantage_lower_bounds=tuple(float(value) for value in lower_bounds),
+        source_action_index=source_action,
+        selected_action_index=selected_action,
+        posterior_sample_count=posterior_sample_count,
+        sobol_scramble_count=sobol_scramble_count,
+        horizon=horizon,
     )
 
 

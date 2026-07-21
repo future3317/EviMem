@@ -12,6 +12,7 @@ from matmem.protocol_knowledge_gradient import (
     protocol_hull_knowledge_gradient,
     protocol_hull_risk_reduction,
     protocol_target_energy_posterior,
+    source_rollout_delta_hull,
 )
 
 
@@ -275,6 +276,185 @@ def test_delta_hull_scores_equal_manual_joint_final_membership_probability() -> 
     ).mean(axis=0)
     assert result.scores == pytest.approx(manual)
     assert result.final_stability_probabilities == pytest.approx(manual)
+
+
+@pytest.mark.parametrize(
+    ("query_compositions", "reference_compositions", "selected"),
+    (
+        (
+            (
+                {"A": 0.25, "B": 0.75},
+                {"A": 0.5, "B": 0.5},
+                {"A": 0.75, "B": 0.25},
+            ),
+            ({"A": 1.0}, {"B": 1.0}),
+            (0, 2),
+        ),
+        (
+            (
+                {"A": 0.5, "B": 0.5},
+                {"A": 0.5, "C": 0.5},
+                {"B": 0.5, "C": 0.5},
+                {"A": 0.25, "B": 0.25, "C": 0.5},
+            ),
+            ({"A": 1.0}, {"B": 1.0}, {"C": 1.0}),
+            (0, 1, 2),
+        ),
+    ),
+)
+def test_cached_causal_hull_envelope_matches_pymatgen_competing_hull(
+    query_compositions: tuple[dict[str, float], ...],
+    reference_compositions: tuple[dict[str, float], ...],
+    selected: tuple[int, ...],
+) -> None:
+    from pymatgen.analysis.phase_diagram import PhaseDiagram
+    from pymatgen.core import Composition
+    from pymatgen.entries.computed_entries import ComputedEntry
+
+    from matmem.protocol_knowledge_gradient import _CausalHullEnvelope
+
+    rng = np.random.default_rng(72)
+    reference_energies = np.zeros(len(reference_compositions))
+    sampled = rng.normal(-0.2, 0.15, size=(7, len(query_compositions)))
+    envelope = _CausalHullEnvelope.build(
+        query_compositions=query_compositions,
+        reference_compositions=reference_compositions,
+        selected_query_indices=selected,
+    )
+    active = np.column_stack((reference_energies[None, :].repeat(7, axis=0), sampled[:, selected]))
+    actual = envelope.competing_hull_energies(active)
+    expected = np.empty_like(actual)
+    for sample_index in range(len(sampled)):
+        entries = [
+            ComputedEntry(value, 0.0, entry_id=f"reference:{index}")
+            for index, value in enumerate(reference_compositions)
+        ]
+        entries.extend(
+            ComputedEntry(
+                query_compositions[index],
+                sampled[sample_index, index]
+                * Composition(query_compositions[index]).num_atoms,
+                entry_id=f"selected:{index}",
+            )
+            for index in selected
+        )
+        diagram = PhaseDiagram(entries)
+        expected[sample_index] = [
+            diagram.get_hull_energy_per_atom(Composition(value))
+            for value in query_compositions
+        ]
+    np.testing.assert_allclose(actual, expected, atol=1e-10)
+
+
+def test_source_rollout_evaluator_matches_manual_pymatgen_continuation() -> None:
+    from pymatgen.analysis.phase_diagram import PhaseDiagram
+    from pymatgen.core import Composition
+    from pymatgen.entries.computed_entries import ComputedEntry
+
+    from matmem.protocol_knowledge_gradient import (
+        _final_hull_membership,
+        _source_rollout_rewards,
+    )
+
+    compositions = (
+        {"A": 0.25, "B": 0.75},
+        {"A": 0.5, "B": 0.5},
+        {"A": 0.75, "B": 0.25},
+        {"A": 0.4, "B": 0.6},
+    )
+    references = ({"A": 1.0}, {"B": 1.0})
+    reference_energies = np.zeros(2)
+    source = np.asarray([-0.31, -0.28, -0.26, -0.20])
+    identifiers = ("q3", "q1", "q4", "q2")
+    samples = np.asarray(
+        [
+            [-0.42, -0.20, -0.38, -0.15],
+            [-0.15, -0.48, -0.41, -0.30],
+            [-0.36, -0.34, -0.12, -0.43],
+        ]
+    )
+    labels = _final_hull_membership(
+        query_compositions=compositions,
+        sampled_query_energies=samples,
+        reference_compositions=references,
+        reference_energies=reference_energies,
+    )
+    actual = _source_rollout_rewards(
+        sampled_query_energies=samples,
+        final_hull_membership=labels,
+        query_compositions=compositions,
+        query_source_energies=source,
+        query_ids=identifiers,
+        reference_compositions=references,
+        reference_energies=reference_energies,
+        horizon=3,
+    )
+    expected = np.empty_like(actual)
+    for sample_index, sample in enumerate(samples):
+        for first_action in range(len(compositions)):
+            selected = [first_action]
+            for _ in range(1, 3):
+                entries = [
+                    ComputedEntry(value, 0.0, entry_id=f"reference:{index}")
+                    for index, value in enumerate(references)
+                ]
+                entries.extend(
+                    ComputedEntry(
+                        compositions[index],
+                        sample[index] * Composition(compositions[index]).num_atoms,
+                        entry_id=f"selected:{index}",
+                    )
+                    for index in selected
+                )
+                diagram = PhaseDiagram(entries)
+                remaining = set(range(len(compositions))) - set(selected)
+                action = min(
+                    remaining,
+                    key=lambda index: (
+                        source[index]
+                        - diagram.get_hull_energy_per_atom(Composition(compositions[index])),
+                        identifiers[index],
+                    ),
+                )
+                selected.append(action)
+            expected[sample_index, first_action] = labels[sample_index, selected].sum()
+    np.testing.assert_array_equal(actual, expected)
+
+
+def test_source_rollout_finds_full_budget_improvement_over_myopic_source() -> None:
+    posterior = ProtocolTargetEnergyPosterior(
+        mean=(-0.2, -0.5, -0.5),
+        covariance=(
+            (1e-12, 0.0, 0.0),
+            (0.0, 1e-12, 0.0),
+            (0.0, 0.0, 1e-12),
+        ),
+        system_offset_mean=0.0,
+        system_offset_variance=0.0,
+        history_count=0,
+    )
+    result = source_rollout_delta_hull(
+        posterior,
+        query_compositions=(
+            {"A": 0.5, "B": 0.5},
+            {"A": 0.25, "B": 0.75},
+            {"A": 0.75, "B": 0.25},
+        ),
+        query_source_energies=np.asarray([-0.45, -0.4, -0.4]),
+        query_ids=("source", "left", "right"),
+        reference_compositions=({"A": 1.0}, {"B": 1.0}),
+        reference_energies=np.zeros(2),
+        current_competing_hull_energies=np.zeros(3),
+        costs=np.ones(3),
+        remaining_budget=2.0,
+        posterior_sample_count=32,
+        seed=11,
+    )
+    assert result.horizon == 2
+    assert result.source_action_index == 0
+    assert result.selected_action_index == 1
+    assert result.scores == pytest.approx((1.0, 2.0, 2.0))
+    assert result.paired_advantage_lower_bounds[1] > 0
 
 
 @pytest.mark.parametrize(

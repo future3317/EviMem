@@ -19,6 +19,8 @@ from protocol_knowledge_gradient import (
     protocol_hull_knowledge_gradient,
     protocol_hull_risk_reduction,
     protocol_target_energy_posterior,
+    source_margin_action_indices,
+    source_rollout_delta_hull,
 )
 
 
@@ -93,6 +95,7 @@ def select(
         "chic_hull_influence",
         "ridge_predicted_final_margin",
         "delta_hull_active_search",
+        "source_rollout_delta_hull",
         "protocol_hull_knowledge_gradient",
         "protocol_hull_risk_reduction",
     }:
@@ -122,7 +125,9 @@ def select(
             prior_standard_deviation=prior_standard_deviation,
             boundary_temperature=boundary_temperature,
         )
-        if policy == "delta_hull_active_search" or policy.startswith("protocol_hull_"):
+        if policy in {"delta_hull_active_search", "source_rollout_delta_hull"} or policy.startswith(
+            "protocol_hull_"
+        ):
             if transport_model is None:
                 raise ValueError("protocol hull policy has no frozen transport model")
             query_elements = set(queries[0]["chemical_system"])
@@ -209,6 +214,24 @@ def select(
                         fixed_template=fixed_template,
                     )
                     values = result.scores
+                elif policy == "source_rollout_delta_hull":
+                    result = source_rollout_delta_hull(
+                        posterior,
+                        query_compositions=hull_arguments["query_compositions"],
+                        query_source_energies=arguments["query_source_energies"],
+                        query_ids=tuple(str(row["pair_id"]) for row in queries),
+                        reference_compositions=hull_arguments["reference_compositions"],
+                        reference_energies=hull_arguments["reference_energies"],
+                        current_competing_hull_energies=arguments[
+                            "current_competing_hull_energies"
+                        ],
+                        costs=hull_arguments["costs"],
+                        remaining_budget=float(payload["remaining_budget"]),
+                        posterior_sample_count=hull_arguments["posterior_sample_count"],
+                        seed=hull_arguments["seed"],
+                        fixed_template=fixed_template,
+                    )
+                    return str(queries[result.selected_action_index]["pair_id"])
                 elif policy == "protocol_hull_risk_reduction":
                     result = protocol_hull_risk_reduction(
                         posterior,
@@ -258,6 +281,21 @@ def select(
             zip(queries, values, strict=True),
             key=lambda item: (-item[1], item[0]["pair_id"]),
         )[0]["pair_id"]
+    if policy == "source_margin":
+        selected = int(
+            source_margin_action_indices(
+                source_energies=np.asarray(
+                    [row["source_formation_energy_ev_per_atom"] for row in queries],
+                    dtype=float,
+                ),
+                competing_hull_energies=np.asarray(
+                    [row["current_competing_hull_ev_per_atom"] for row in queries],
+                    dtype=float,
+                ),
+                query_ids=tuple(str(row["pair_id"]) for row in queries),
+            )[0]
+        )
+        return str(queries[selected]["pair_id"])
     if policy == "source_online_affine":
         slope, intercept = _source_affine(history)
     else:
@@ -288,6 +326,7 @@ def main() -> None:
             "chic_hull_influence",
             "ridge_predicted_final_margin",
             "delta_hull_active_search",
+            "source_rollout_delta_hull",
             "protocol_hull_knowledge_gradient",
             "protocol_hull_risk_reduction",
         ),

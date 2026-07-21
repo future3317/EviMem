@@ -37,7 +37,9 @@ from .protocols import ProtocolCertificate
 def requires_protocol_transport(policy: str) -> bool:
     """Return whether a policy requires a frozen cross-protocol posterior."""
 
-    return policy == "delta_hull_active_search" or policy.startswith("protocol_hull_")
+    return policy in {"delta_hull_active_search", "source_rollout_delta_hull"} or policy.startswith(
+        "protocol_hull_"
+    )
 
 
 def _checksum(payload: object) -> str:
@@ -495,6 +497,7 @@ class ProtocolPolicySubprocess:
             "chic_hull_influence",
             "ridge_predicted_final_margin",
             "delta_hull_active_search",
+            "source_rollout_delta_hull",
             "protocol_hull_knowledge_gradient",
             "protocol_hull_risk_reduction",
         ],

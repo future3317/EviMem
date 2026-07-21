@@ -70,6 +70,7 @@ POLICIES = (
     "chic_hull_influence",
     "ridge_predicted_final_margin",
     "delta_hull_active_search",
+    "source_rollout_delta_hull",
     "protocol_hull_knowledge_gradient",
     "protocol_hull_risk_reduction",
 )
@@ -101,6 +102,8 @@ class ExperimentConfig:
     split: Literal["development", "confirmatory"] = "development"
     transport_model_path: Path | None = None
     policies: tuple[str, ...] = POLICIES
+    query_systems: tuple[str, ...] | None = None
+    fit_systems: tuple[str, ...] | None = None
 
 
 def _sha256(path: Path) -> str:
@@ -500,14 +503,40 @@ def run(
     by_system: dict[str, list[dict[str, Any]]] = {}
     for row in task_rows:
         by_system.setdefault(row["chemical_system"], []).append(row)
-    query_systems = sorted(
-        (system for system, rows in by_system.items() if len(rows) >= config.minimum_candidates),
-        key=lambda system: _stable_hash(release_id, "chic-closed-loop-v1", system),
-    )[: config.max_systems]
+    if config.query_systems is None:
+        query_systems = sorted(
+            (system for system, rows in by_system.items() if len(rows) >= config.minimum_candidates),
+            key=lambda system: _stable_hash(release_id, "chic-closed-loop-v1", system),
+        )[: config.max_systems]
+    else:
+        query_systems = list(config.query_systems)
+        if len(set(query_systems)) != len(query_systems):
+            raise ValueError("explicit query systems must be unique")
+        missing = set(query_systems) - set(by_system)
+        undersized = {
+            system
+            for system in query_systems
+            if system in by_system and len(by_system[system]) < config.minimum_candidates
+        }
+        if missing or undersized:
+            raise ValueError(
+                f"explicit query systems are unavailable: missing={sorted(missing)}, "
+                f"undersized={sorted(undersized)}"
+            )
     if not query_systems:
         raise ValueError(f"no eligible {expected_split} systems")
 
-    fit_systems = tuple(sorted(set(by_system) - set(query_systems)))
+    fit_systems = (
+        tuple(sorted(set(by_system) - set(query_systems)))
+        if config.fit_systems is None
+        else tuple(config.fit_systems)
+    )
+    if (
+        len(set(fit_systems)) != len(fit_systems)
+        or set(fit_systems) - set(by_system)
+        or set(fit_systems) & set(query_systems)
+    ):
+        raise ValueError("explicit transport fit systems are invalid or overlap queries")
     transport_model = None
     if config.transport_model_path is not None:
         if not config.transport_model_path.exists():
@@ -574,6 +603,7 @@ def run(
                     300.0
                     if policy_name
                     in {
+                        "source_rollout_delta_hull",
                         "protocol_hull_knowledge_gradient",
                         "protocol_hull_risk_reduction",
                     }
@@ -848,7 +878,23 @@ def main() -> None:
         default="ridge_random_intercept",
     )
     parser.add_argument("--policies", nargs="+", choices=POLICIES, default=POLICIES)
+    parser.add_argument("--crossfit-manifest", type=Path, default=None)
+    parser.add_argument("--fold-index", type=int, default=None)
     args = parser.parse_args()
+    query_systems = None
+    fit_systems = None
+    if (args.crossfit_manifest is None) != (args.fold_index is None):
+        raise ValueError("--crossfit-manifest and --fold-index must be provided together")
+    if args.crossfit_manifest is not None:
+        manifest = json.loads(args.crossfit_manifest.read_text(encoding="utf-8"))
+        if manifest.get("task_sha256") != _sha256(args.task):
+            raise ValueError("cross-fit manifest does not match the task")
+        folds = list(manifest["folds"])
+        if args.fold_index < 0 or args.fold_index >= len(folds):
+            raise ValueError("cross-fit fold index is out of range")
+        query_systems = tuple(folds[args.fold_index]["query_systems"])
+        eligible_systems = set(manifest["eligible_systems"])
+        fit_systems = tuple(sorted(eligible_systems - set(query_systems)))
     config = ExperimentConfig(
         max_systems=args.max_systems,
         minimum_candidates=args.minimum_candidates,
@@ -865,6 +911,8 @@ def main() -> None:
         split=args.split,
         transport_model_path=args.transport_model,
         policies=tuple(args.policies),
+        query_systems=query_systems,
+        fit_systems=fit_systems,
     )
     if (
         config.max_systems < 1
