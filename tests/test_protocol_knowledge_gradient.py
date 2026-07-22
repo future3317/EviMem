@@ -372,10 +372,11 @@ def test_dual_horizon_causal_reward_uses_selected_history_only() -> None:
 
 
 def test_dual_horizon_causal_reward_matches_manual_phase_diagram() -> None:
-    from matmem.protocol_knowledge_gradient import _source_rollout_rewards
     from pymatgen.analysis.phase_diagram import PhaseDiagram
     from pymatgen.core import Composition
     from pymatgen.entries.computed_entries import ComputedEntry
+
+    from matmem.protocol_knowledge_gradient import _source_rollout_rewards
 
     compositions = (
         {"A": 0.5, "B": 0.5},
