@@ -1068,9 +1068,12 @@ composition cases, and an exactly collinear non-vertex case; the full rollout
 value parity test also remains exact. On the local 32-candidate, 1,024-sample
 binary fixture, the fixed backend falls from 0.4677 seconds with generic Qhull
 to 0.0660 seconds with the chain (`7.08x`). This is a local computational
-benchmark, not a rerun of the five-fold policy comparison. A remote
-action/reveal-trace regression remains required before reporting an IC-SARR
-end-to-end timing change.
+benchmark, not a rerun of the five-fold policy comparison. The remote
+MC1024/budget-six Source-Rollout regression on the already opened `Ag-S`
+fixture has the identical six immutable action IDs and identical
+`(D,F,T)=(2,1,0)` against its frozen output. Its single shared-server wall
+time is 4.024 seconds versus 4.972 seconds in the older record; this confirms
+action/reveal parity but is not used to claim an IC-SARR end-to-end speedup.
 
 ## Superseded, invalid and incomplete evidence
 
