@@ -1160,7 +1160,7 @@ are the measured limitations.
 
 `constrained_dual_horizon_source_rollout` is a separate development policy.
 It changes the failed single-horizon assumption by requiring a source-relative
-terminal advantage and a non-negative selected-history causal advantage under
+terminal advantage and a non-negative selected-history advantage under
 the same rollout samples. The source-margin action remains the legal fallback;
 no reward mixing, outcome-selected posterior, or IC-SARR parameter change was
 introduced. The causal reward is computed from reference phases plus exactly
@@ -1182,4 +1182,7 @@ are development diagnostics, not a positive result. A four-system rerun after
 batching selected-set causal evaluation reproduced every Dual-Horizon action
 ID exactly and reduced its wall time to 31.18 seconds/system (SARR 7.37), so
 the optimization is numerical only. The signal is insufficient to authorize a
-fresh-systems or paper-level run.
+fresh-systems or paper-level run. Any future dual-horizon research must use a
+campaign-level constrained rollout over complete policies, as specified in
+`docs/CAMPAIGN_LEVEL_CONSTRAINED_ROLLOUT.md`, rather than tune the local
+selected-history lower-bound gate on opened systems.
