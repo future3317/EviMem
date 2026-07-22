@@ -1170,3 +1170,16 @@ selection, selected-history isolation, transport wiring and reveal-boundary
 parity. The fold-0 pilot is development evidence only because fold 0 was used
 for earlier Source-Rollout development; it cannot support external
 confirmation.
+
+The first fold-0 pilot used eight exact systems, budget 6, 1024 posterior
+samples and the fixed-composition backend. Dual-Horizon selected 12 of 48
+actions away from source (SARR: 15/48) and fell back on the dual gate in 36/48
+rounds. Its system-macro final-causal confirmations were 3.000 versus 2.875
+for source margin; terminal oracle-pool confirmations were 2.750 for both
+methods. Mean action regret was 0.1109 eV/atom for Dual-Horizon versus 0.0163
+for source margin, and wall time was 40.63 seconds/system versus 1.89. These
+are development diagnostics, not a positive result. A four-system rerun after
+batching selected-set causal evaluation reproduced every Dual-Horizon action
+ID exactly and reduced its wall time to 31.18 seconds/system (SARR 7.37), so
+the optimization is numerical only. The signal is insufficient to authorize a
+fresh-systems or paper-level run.
