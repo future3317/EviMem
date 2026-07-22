@@ -1208,3 +1208,17 @@ protocol semantics. It can support a new multi-fidelity/protocol-aware study
 after an adapter and fresh method freeze, but it cannot be used to claim an
 IC-SARR MatPES holdout result. LeMat files are not currently a matched paired
 protocol task and are likewise not a drop-in holdout.
+
+## E32 -- Canonical cleanup and rebuild smoke (2026-07-22)
+
+Superseded MatPES task snapshots, redundant model/vault files and completed
+exploratory/engineering outputs were moved (not deleted) to
+`DATA/EviMem-RL/archive/superseded-20260722/`. The active canonical manifest is
+`matpes-canonical-development-v1.json`; it contains the v6 frozen-CHGNet task,
+v5 oracle vault and fold-0 transport checksum. A two-system budget-four smoke
+was rebuilt from these canonical paths with source-margin and IC-SARR. IC-SARR
+had oracle-pool confirmations `1.5` versus `1.0` for source, equal final-causal
+confirmations (`2.0` each), mean action regret `0.0136` versus `0.0053` eV/atom,
+and wall time `6.06` versus `3.38` seconds/system. This is only a rebuild and
+implementation smoke; the two systems are development systems and no method
+or holdout conclusion is drawn.
