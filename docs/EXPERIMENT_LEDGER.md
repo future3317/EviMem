@@ -1281,3 +1281,15 @@ production policy subprocess. It has deterministic fixture coverage, but has
 not been run on a new development tranche. The full Pareto/set-valued Bellman
 formulation remains proposal-only. No Dual-Horizon threshold, backbone,
 chemistry rule, or opened-system result was changed.
+
+## E36 -- Campaign-Gated IC-SARR real-data smoke (2026-07-22)
+
+A two-system MatPES development smoke was started from the canonical v6 task
+using outer samples 16/8 and IC-SARR inner samples 32/64 respectively. The
+implementation was computationally much more expensive than a normal
+single-policy rollout because every outer world simulates two complete adaptive
+campaigns and each IC decision nests its own RQMC rollout. The run was stopped
+by the user before the first complete JSON output was written. It is therefore
+`Incomplete/interrupted`, has no metrics or policy conclusion, and must not be
+resumed or partially interpreted as evidence. A smaller rerun may only be
+started explicitly as a new development smoke with a new output identity.
