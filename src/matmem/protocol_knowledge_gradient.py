@@ -1365,8 +1365,11 @@ def _source_rollout_rewards(
             # allowed to enter this hull.  Grouping by the selected-set key
             # lets us reuse the composition-only template across samples.
             causal_geometry: dict[tuple[int, ...], FixedCompositionHullTemplate] = {}
+            causal_groups: dict[tuple[int, ...], list[int]] = {}
             for sample_index in range(sample_count):
                 key = tuple(int(index) for index in np.flatnonzero(selected[sample_index]))
+                causal_groups.setdefault(key, []).append(sample_index)
+            for key, row_indices in causal_groups.items():
                 template = causal_geometry.get(key)
                 if template is None:
                     template = FixedCompositionHullTemplate.from_compositions(
@@ -1374,12 +1377,14 @@ def _source_rollout_rewards(
                         reference_compositions=reference_compositions,
                     )
                     causal_geometry[key] = template
-                selected_energies = samples[sample_index, np.asarray(key, dtype=np.int64)]
-                stable = template.stable_candidate_mask(
+                rows = np.asarray(row_indices, dtype=np.int64)
+                selected_energies = samples[np.ix_(rows, np.asarray(key, dtype=np.int64))]
+                stable = fixed_composition_hull_membership(
+                    template,
                     query_energies=selected_energies,
                     reference_energies=references,
                 )
-                causal_values[sample_index, output_index] = float(np.sum(stable))
+                causal_values[rows, output_index] = np.sum(stable, axis=1)
     return rewards
 
 
