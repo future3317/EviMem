@@ -76,6 +76,21 @@ implementation gates only. The next permitted physical run remains a single
 unused-development-system parity preflight; no fold-level comparison has been
 opened.
 
+### Completed preflight (2026-07-22)
+
+The deterministic first system of unused fold 1, `Ag-F-Li`, passed the
+implementation preflight under the v6 task checksum
+`f43c1ab99995e229edd95b47c834f9e9b439d04fc3de0a369cc6d79f7f74d0df` and
+cross-fit manifest checksum
+`a76a10a60c021cdf9bcfe922c457ee4809054da99e3e2b7debe5be8d29be5afa`.
+The append-only six-round trace has exact selected-action/reveal parity; three
+rounds invoked stage two, all reported the frozen MC1024/MC8192 counts and no
+stage-two seed equalled its stage-one seed. The atomic preflight record is
+`sha256:9843b8e72f6b11644f884746f6d76a577363048d9b07a1ac537dab3bf66ff243`.
+It contains no evaluator metrics and records
+`evaluation_systems_accessed=false`. This clears only the implementation gate;
+it is not a per-system effect result and does not authorize a method change.
+
 ## Decision boundary
 
 IC-SARR is a numerical-gate diagnostic. It may only become a paper-facing

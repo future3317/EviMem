@@ -980,6 +980,16 @@ continuation was changed or accessed. The required next step is still one
 unused-development-system implementation preflight, followed only by the
 precommitted whole-fold execution if that gate passes.
 
+The deterministic first system of unused fold 1, `Ag-F-Li`, has now passed
+that preflight without reading an evaluator result: six selected actions were
+the six and only oracle reveals, stage two was invoked on three rounds, all
+rounds used the fixed MC1024/MC8192 counts, and no stage-two seed equalled its
+stage-one seed. The atomic preflight record has SHA256
+`9843b8e72f6b11644f884746f6d76a577363048d9b07a1ac537dab3bf66ff243`, matches
+the v6 task and cross-fit manifest checksums, and records
+`evaluation_systems_accessed=false`. This authorizes the precommitted fold-1
+run unchanged; it adds no outcome comparison and does not revise any method.
+
 ## Superseded, invalid and incomplete evidence
 
 | Evidence | Required treatment |
