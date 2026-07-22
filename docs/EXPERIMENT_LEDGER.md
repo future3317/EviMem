@@ -1199,3 +1199,12 @@ the existing 48-system output cannot be relabeled as a fresh IC-SARR holdout.
 No retraining or IC-SARR execution was launched from this audit. A valid
 primary test requires a new upstream MatPES pool/release (or an independently
 constructed protocol dataset) with a frozen source-vs-IC-SARR split.
+
+There is a separate, technically gated JARVIS--MP v4-natural pool on the
+server (2,056 calibration pairs and 717 evaluation pairs across binary,
+ternary and higher-order systems). It is not a MatPES replacement: its source
+is JARVIS OptB88vdW and its target is MP PBE, with a different task manifest and
+protocol semantics. It can support a new multi-fidelity/protocol-aware study
+after an adapter and fresh method freeze, but it cannot be used to claim an
+IC-SARR MatPES holdout result. LeMat files are not currently a matched paired
+protocol task and are likewise not a drop-in holdout.
