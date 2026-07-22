@@ -17,6 +17,7 @@ from protocol_knowledge_gradient import (
     FrozenProtocolRidgeTransport,
     conformal_one_deviation_source_rollout,
     delta_hull_active_search,
+    independent_confirmation_source_rollout,
     protocol_hull_knowledge_gradient,
     protocol_hull_risk_reduction,
     protocol_target_energy_posterior,
@@ -54,9 +55,7 @@ def _source_affine(history: list[dict[str, object]]) -> tuple[float, float]:
     return float(slope), float(intercept)
 
 
-def _composition_matrix(
-    rows: list[dict[str, object]], elements: tuple[str, ...]
-) -> np.ndarray:
+def _composition_matrix(rows: list[dict[str, object]], elements: tuple[str, ...]) -> np.ndarray:
     return np.asarray(
         [
             [float(dict(row["composition"]).get(element, 0.0)) for element in elements]
@@ -99,6 +98,7 @@ def select(
         "ridge_predicted_final_margin",
         "delta_hull_active_search",
         "source_rollout_delta_hull",
+        "independent_confirmation_source_rollout",
         "conformal_source_rollout_delta_hull",
         "protocol_hull_knowledge_gradient",
         "protocol_hull_risk_reduction",
@@ -132,10 +132,9 @@ def select(
         if policy in {
             "delta_hull_active_search",
             "source_rollout_delta_hull",
+            "independent_confirmation_source_rollout",
             "conformal_source_rollout_delta_hull",
-        } or policy.startswith(
-            "protocol_hull_"
-        ):
+        } or policy.startswith("protocol_hull_"):
             if transport_model is None:
                 raise ValueError("protocol hull policy has no frozen transport model")
             query_elements = set(queries[0]["chemical_system"])
@@ -164,13 +163,10 @@ def select(
                 history_kernel_rows = [
                     row.get("source_local_environment_embedding") for row in history
                 ]
-                if (
-                    transport_model.local_kernel == "matern52"
-                    and (
-                        kernel_dimension == 0
-                        or any(row is None for row in query_kernel_rows)
-                        or any(row is None for row in history_kernel_rows)
-                    )
+                if transport_model.local_kernel == "matern52" and (
+                    kernel_dimension == 0
+                    or any(row is None for row in query_kernel_rows)
+                    or any(row is None for row in history_kernel_rows)
                 ):
                     raise ValueError(
                         "protocol hull policy requires frozen local-environment embeddings"
@@ -196,12 +192,8 @@ def select(
                     ),
                 )
                 hull_arguments = dict(
-                    query_compositions=tuple(
-                        dict(row["composition"]) for row in queries
-                    ),
-                    reference_compositions=tuple(
-                        dict(row["composition"]) for row in phases
-                    ),
+                    query_compositions=tuple(dict(row["composition"]) for row in queries),
+                    reference_compositions=tuple(dict(row["composition"]) for row in phases),
                     reference_energies=np.asarray(
                         [row["formation_energy_ev_per_atom"] for row in phases]
                     ),
@@ -216,9 +208,7 @@ def select(
                     source_index = int(
                         source_margin_action_indices(
                             source_energies=arguments["query_source_energies"],
-                            competing_hull_energies=arguments[
-                                "current_competing_hull_energies"
-                            ],
+                            competing_hull_energies=arguments["current_competing_hull_energies"],
                             query_ids=tuple(str(row["pair_id"]) for row in queries),
                         )[0]
                     )
@@ -285,6 +275,77 @@ def select(
                                 "posterior_sample_count": result.posterior_sample_count,
                                 "sobol_scramble_count": result.sobol_scramble_count,
                                 "horizon": result.horizon,
+                            }
+                        )
+                    return str(queries[result.selected_action_index]["pair_id"])
+                elif policy == "independent_confirmation_source_rollout":
+                    # IC-SARR v1 deliberately owns its integration budget: do
+                    # not silently inherit a smoke-test sample count from the
+                    # generic worker CLI.
+                    result = independent_confirmation_source_rollout(
+                        posterior,
+                        query_compositions=hull_arguments["query_compositions"],
+                        query_source_energies=arguments["query_source_energies"],
+                        query_ids=tuple(str(row["pair_id"]) for row in queries),
+                        reference_compositions=hull_arguments["reference_compositions"],
+                        reference_energies=hull_arguments["reference_energies"],
+                        current_competing_hull_energies=arguments[
+                            "current_competing_hull_energies"
+                        ],
+                        costs=hull_arguments["costs"],
+                        remaining_budget=float(payload["remaining_budget"]),
+                        stage_one_posterior_sample_count=1024,
+                        stage_two_posterior_sample_count=8192,
+                        seed=hull_arguments["seed"],
+                        fixed_template=fixed_template,
+                    )
+                    if diagnostics is not None:
+                        query_ids = tuple(str(row["pair_id"]) for row in queries)
+                        diagnostics.update(
+                            {
+                                "diagnostic_schema_version": 1,
+                                "kind": "independent_confirmation_source_rollout",
+                                "candidate_pair_ids": query_ids,
+                                "source_pair_id": query_ids[result.source_action_index],
+                                "stage_one_selected_pair_id": query_ids[
+                                    result.stage_one.selected_action_index
+                                ],
+                                "screened_pair_id": (
+                                    None
+                                    if result.screened_action_index is None
+                                    else query_ids[result.screened_action_index]
+                                ),
+                                "selected_pair_id": query_ids[result.selected_action_index],
+                                "stage_one_mean_advantages_over_source": {
+                                    pair_id: advantage
+                                    for pair_id, advantage in zip(
+                                        query_ids,
+                                        result.stage_one.paired_advantages_over_source,
+                                        strict=True,
+                                    )
+                                },
+                                "stage_one_simultaneous_lower_bounds": {
+                                    pair_id: lower_bound
+                                    for pair_id, lower_bound in zip(
+                                        query_ids,
+                                        result.stage_one.paired_advantage_lower_bounds,
+                                        strict=True,
+                                    )
+                                },
+                                "stage_two_used": result.stage_two_used,
+                                "stage_two_paired_advantage": result.stage_two_paired_advantage,
+                                "stage_two_paired_lower_bound": result.stage_two_paired_lower_bound,
+                                "stage_two_block_advantages": result.stage_two_block_advantages,
+                                "stage_one_seed": result.stage_one_seed,
+                                "stage_two_seed": result.stage_two_seed,
+                                "stage_one_posterior_sample_count": (
+                                    result.stage_one_posterior_sample_count
+                                ),
+                                "stage_two_posterior_sample_count": (
+                                    result.stage_two_posterior_sample_count
+                                ),
+                                "sobol_scramble_count": result.sobol_scramble_count,
+                                "fallback_reason": result.fallback_reason,
                             }
                         )
                     return str(queries[result.selected_action_index]["pair_id"])
@@ -404,6 +465,7 @@ def main() -> None:
             "ridge_predicted_final_margin",
             "delta_hull_active_search",
             "source_rollout_delta_hull",
+            "independent_confirmation_source_rollout",
             "conformal_source_rollout_delta_hull",
             "protocol_hull_knowledge_gradient",
             "protocol_hull_risk_reduction",
@@ -417,9 +479,12 @@ def main() -> None:
     parser.add_argument("--posterior-sample-count", type=int, default=16)
     parser.add_argument("--fantasy-count", type=int, default=3)
     parser.add_argument("--conformal-threshold", type=float, default=None)
-    parser.add_argument("--hull-backend", choices=("pymatgen", "fixed_composition"), default="pymatgen")
+    parser.add_argument(
+        "--hull-backend", choices=("pymatgen", "fixed_composition"), default="pymatgen"
+    )
     parser.add_argument("--serve-jsonl", action="store_true")
     args = parser.parse_args()
+
     def respond(payload: dict[str, object]) -> None:
         model_payload = payload.pop("transport_model", None)
         transport_model = (

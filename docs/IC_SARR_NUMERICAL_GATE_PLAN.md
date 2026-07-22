@@ -1,8 +1,9 @@
 # IC-SARR numerical-gate plan
 
-**Status:** proposal only, authorized by the completed SARR MC8192 numerical
-opportunity-cost audit. This file does not authorize a performance claim,
-evaluation-system access, or a change to `source_rollout_delta_hull`.
+**Status:** implementation complete; no real-data IC-SARR trace has run.
+Authorized by the completed SARR MC8192 numerical opportunity-cost audit, this
+file does not authorize a performance claim, evaluation-system access, or a
+change to `source_rollout_delta_hull`.
 
 ## Question
 
@@ -53,6 +54,27 @@ guarantee.
   and oracle-final metrics as SARR, action count, stage-two invocation rate,
   online time and exact-system clustered uncertainty. Do not stop early or
   select systems by observed gain.
+
+## Implementation record (2026-07-22)
+
+`independent_confirmation_source_rollout` is now a distinct worker policy.
+The worker fixes stage one at MC1024 and stage two at MC8192; its generic
+Monte-Carlo CLI setting is intentionally ignored for this method. Stage two
+derives its seed as `stage_one_seed + 1,000,000,007`, whereas stage one uses
+the existing `stage_one_seed + 104729 * block` streams for blocks 0--15. The
+two streams are therefore disjoint by construction. The stage-two evaluator
+constructs only the source and the single screen-selected first-action rollout;
+it does not re-rank candidates.
+
+The policy emits the stage-one selection, screened candidate, stage-two use,
+paired mean and lower bound, both seed derivations and both sample counts in
+the pre-reveal diagnostics. Unit tests fail if an accepted SARR action changes,
+if no positive stage-one candidate still triggers stage two, if the second
+stream is not independent, or if a non-positive/positive one-comparison lower
+bound respectively does/does not fall back to/deviate from source. These are
+implementation gates only. The next permitted physical run remains a single
+unused-development-system parity preflight; no fold-level comparison has been
+opened.
 
 ## Decision boundary
 

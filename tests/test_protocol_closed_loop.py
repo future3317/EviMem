@@ -103,14 +103,18 @@ def test_selected_action_is_the_only_revealed_action(tmp_path: Path) -> None:
     assert result.selected_pair_ids == ("q2",)
     assert result.revealed_pair_ids == result.selected_pair_ids
     assert vault.revealed_pair_ids == result.selected_pair_ids
-    records = [json.loads(line) for line in (tmp_path / "selected-only.jsonl").read_text().splitlines()]
+    records = [
+        json.loads(line) for line in (tmp_path / "selected-only.jsonl").read_text().splitlines()
+    ]
     assert [record["kind"] for record in records] == ["action", "reveal"]
     assert records[0]["selected_pair_id"] == records[1]["selected_pair_id"] == "q2"
 
 
 def test_confirmatory_split_is_explicitly_supported() -> None:
     candidates, outcomes = _fixture()
-    confirmatory = tuple(outcome.model_copy(update={"split": "confirmatory"}) for outcome in outcomes)
+    confirmatory = tuple(
+        outcome.model_copy(update={"split": "confirmatory"}) for outcome in outcomes
+    )
     vault = ProtocolOracleVault(confirmatory, expected_split="confirmatory")
     assert vault.expected_split == "confirmatory"
     assert vault.reveal_count == 0
@@ -121,7 +125,9 @@ def test_unrevealed_outcome_cannot_change_first_action(tmp_path: Path) -> None:
     baseline, _ = _run(tmp_path, name="baseline.jsonl", hidden_q1_target=-0.2, budget=1)
     changed, _ = _run(tmp_path, name="changed.jsonl", hidden_q1_target=10.0, budget=1)
     assert baseline.selected_pair_ids == changed.selected_pair_ids == ("q2",)
-    assert baseline.events[0].pre_reveal_state_checksum == changed.events[0].pre_reveal_state_checksum
+    assert (
+        baseline.events[0].pre_reveal_state_checksum == changed.events[0].pre_reveal_state_checksum
+    )
     assert baseline.events[0].action_checksum == changed.events[0].action_checksum
 
 
@@ -141,22 +147,14 @@ def test_policy_payload_contains_no_unrevealed_target_fields() -> None:
                 source_structure_hash=candidate.source_structure_hash,
                 chemical_system=candidate.chemical_system,
                 composition=candidate.composition,
-                source_formation_energy_ev_per_atom=(
-                    candidate.source_formation_energy_ev_per_atom
-                ),
+                source_formation_energy_ev_per_atom=(candidate.source_formation_energy_ev_per_atom),
                 source_environment_embedding=candidate.source_environment_embedding,
-                source_local_environment_embedding=(
-                    candidate.source_local_environment_embedding
-                ),
+                source_local_environment_embedding=(candidate.source_local_environment_embedding),
                 current_competing_hull_ev_per_atom=(
                     hull.competing_hull_formation_energy(candidate.composition)
                 ),
-                source_protocol_fingerprint=(
-                    candidate.source_protocol.scientific_fingerprint
-                ),
-                target_protocol_fingerprint=(
-                    candidate.target_protocol.scientific_fingerprint
-                ),
+                source_protocol_fingerprint=(candidate.source_protocol.scientific_fingerprint),
+                target_protocol_fingerprint=(candidate.target_protocol.scientific_fingerprint),
                 oracle_cost=candidate.oracle_cost,
             )
             for candidate in candidates
@@ -174,10 +172,7 @@ def test_policy_payload_contains_no_unrevealed_target_fields() -> None:
     }
     assert all(not (set(row) & forbidden) for row in payload["queries"])
     assert all("target_protocol_fingerprint" in row for row in payload["queries"])
-    assert all(
-        row["source_local_environment_embedding"] is not None
-        for row in payload["queries"]
-    )
+    assert all(row["source_local_environment_embedding"] is not None for row in payload["queries"])
 
 
 def test_vault_rejects_reveal_not_bound_to_persisted_selection(tmp_path: Path) -> None:
@@ -212,22 +207,14 @@ def test_policy_rejects_unknown_subprocess_action(tmp_path: Path) -> None:
                 source_structure_hash=candidate.source_structure_hash,
                 chemical_system=candidate.chemical_system,
                 composition=candidate.composition,
-                source_formation_energy_ev_per_atom=(
-                    candidate.source_formation_energy_ev_per_atom
-                ),
+                source_formation_energy_ev_per_atom=(candidate.source_formation_energy_ev_per_atom),
                 source_environment_embedding=candidate.source_environment_embedding,
-                source_local_environment_embedding=(
-                    candidate.source_local_environment_embedding
-                ),
+                source_local_environment_embedding=(candidate.source_local_environment_embedding),
                 current_competing_hull_ev_per_atom=(
                     hull.competing_hull_formation_energy(candidate.composition)
                 ),
-                source_protocol_fingerprint=(
-                    candidate.source_protocol.scientific_fingerprint
-                ),
-                target_protocol_fingerprint=(
-                    candidate.target_protocol.scientific_fingerprint
-                ),
+                source_protocol_fingerprint=(candidate.source_protocol.scientific_fingerprint),
+                target_protocol_fingerprint=(candidate.target_protocol.scientific_fingerprint),
                 oracle_cost=candidate.oracle_cost,
             )
             for candidate in candidates
@@ -302,6 +289,7 @@ def _protocol_transport_fixture():
     (
         "delta_hull_active_search",
         "source_rollout_delta_hull",
+        "independent_confirmation_source_rollout",
         "conformal_source_rollout_delta_hull",
         "protocol_hull_knowledge_gradient",
     ),
@@ -514,9 +502,7 @@ def test_protocol_candidate_accepts_shared_prequery_configuration() -> None:
     candidate = ProtocolCandidate(
         pair_id="matpes-1",
         source_structure_hash="geometry-hash",
-        source_structure_identity=StructureArtifactIdentity.initial(
-            "matpes-1", "geometry-hash"
-        ),
+        source_structure_identity=StructureArtifactIdentity.initial("matpes-1", "geometry-hash"),
         chemical_system=("Fe", "O"),
         composition={"Fe": 0.5, "O": 0.5},
         source_formation_energy_ev_per_atom=-0.5,
@@ -534,9 +520,7 @@ def test_protocol_candidate_rejects_target_relaxed_structure() -> None:
         ProtocolCandidate(
             pair_id="leaky",
             source_structure_hash="target-relaxed",
-            source_structure_identity=StructureArtifactIdentity.relaxed(
-                "leaky", "target-relaxed"
-            ),
+            source_structure_identity=StructureArtifactIdentity.relaxed("leaky", "target-relaxed"),
             chemical_system=("Fe", "O"),
             composition={"Fe": 0.5, "O": 0.5},
             source_formation_energy_ev_per_atom=-0.5,
@@ -565,11 +549,7 @@ def test_reveal_preserves_stoichiometry_of_corrected_total_energy() -> None:
     )
     assert sum(outcome.composition.values()) == pytest.approx(4.0)
     hull.add_revealed(outcome)
-    revealed = next(
-        phase for phase in hull.observable_phases if phase.entry_id == "Fe2Zr2"
-    )
+    revealed = next(phase for phase in hull.observable_phases if phase.entry_id == "Fe2Zr2")
     assert sum(revealed.composition.values()) == pytest.approx(1.0)
     assert revealed.formation_energy_ev_per_atom == pytest.approx(-0.5)
-    assert hull.competing_hull_formation_energy({"Fe": 1.0, "Zr": 1.0}) == pytest.approx(
-        -0.5
-    )
+    assert hull.competing_hull_formation_energy({"Fe": 1.0, "Zr": 1.0}) == pytest.approx(-0.5)

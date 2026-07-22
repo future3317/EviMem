@@ -959,6 +959,27 @@ configuration and all evaluation must use unused development folds. Fold 0
 cannot choose a threshold or support a superiority claim. The posterior,
 reward, source continuation and target oracle boundary remain frozen.
 
+### E26. IC-SARR implementation gate (2026-07-22)
+
+**Development infrastructure; no effect result.** IC-SARR is implemented as
+`independent_confirmation_source_rollout`, separately from SARR. It runs the
+unchanged MC1024 sixteen-block simultaneous screen. Only when that screen
+falls back to source despite a positive point advantage does it preselect the
+single maximum-advantage candidate (pair ID tie break) and estimate that one
+candidate-source difference at MC8192 with a disjoint sixteen-block stream.
+It deviates only when the one-comparison 95% lower bound is strictly positive.
+Accepted SARR deviations are returned unchanged; no-positive screens fall back
+to source without stage two.
+
+The implementation has deterministic failure tests for accepted-action
+identity, no-positive source fallback, independent seed derivation, and
+positive/negative stage-two lower-bound decisions. It records all stage-one
+and stage-two quantities before the sole selected-action reveal. No real
+system, fold, evaluation system, posterior, terminal reward or source
+continuation was changed or accessed. The required next step is still one
+unused-development-system implementation preflight, followed only by the
+precommitted whole-fold execution if that gate passes.
+
 ## Superseded, invalid and incomplete evidence
 
 | Evidence | Required treatment |

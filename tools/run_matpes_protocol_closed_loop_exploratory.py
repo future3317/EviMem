@@ -71,6 +71,7 @@ POLICIES = (
     "ridge_predicted_final_margin",
     "delta_hull_active_search",
     "source_rollout_delta_hull",
+    "independent_confirmation_source_rollout",
     "conformal_source_rollout_delta_hull",
     "protocol_hull_knowledge_gradient",
     "protocol_hull_risk_reduction",
@@ -280,13 +281,8 @@ def _evaluate_action_trace(
                     None
                     if transport_model.local_kernel == "independent"
                     else np.asarray(
-                        [
-                            row["source_local_environment_embedding"]
-                            for row in selected_rows
-                        ]
-                    ).reshape(
-                        len(selected_rows), len(transport_model.kernel_feature_mean)
-                    )
+                        [row["source_local_environment_embedding"] for row in selected_rows]
+                    ).reshape(len(selected_rows), len(transport_model.kernel_feature_mean))
                 ),
             )
             posterior_mean = np.asarray(posterior.mean, dtype=float)
@@ -321,9 +317,7 @@ def _evaluate_action_trace(
                 summary = protocol_hull_posterior_summary(
                     posterior,
                     query_compositions=tuple(row["composition"] for row in query_rows),
-                    reference_compositions=tuple(
-                        entry.composition.as_dict() for entry in entries
-                    ),
+                    reference_compositions=tuple(entry.composition.as_dict() for entry in entries),
                     reference_energies=np.asarray(
                         [causal_diagram.get_form_energy_per_atom(entry) for entry in entries]
                     ),
@@ -342,9 +336,7 @@ def _evaluate_action_trace(
                     true_hull_formation_energies
                 )
                 rounds[-1]["posterior_hull_bayes_risk"] = summary.bayes_risk
-                rounds[-1]["posterior_mean_hull_mae_ev_per_atom"] = float(
-                    np.mean(np.abs(errors))
-                )
+                rounds[-1]["posterior_mean_hull_mae_ev_per_atom"] = float(np.mean(np.abs(errors)))
                 rounds[-1]["posterior_mean_hull_rmse_ev_per_atom"] = float(
                     np.sqrt(np.mean(errors**2))
                 )
@@ -455,7 +447,10 @@ def fit_transport_model_for_task(
             [row["source_formation_energy_ev_per_atom"] for row in fit_rows]
         ),
         "target_energies": np.asarray(
-            [outcome_rows[row["pair_id"]]["target_formation_energy_ev_per_atom"] for row in fit_rows]
+            [
+                outcome_rows[row["pair_id"]]["target_formation_energy_ev_per_atom"]
+                for row in fit_rows
+            ]
         ),
         "system_ids": [row["chemical_system"] for row in fit_rows],
         "ridge_penalty": ridge_penalty,
@@ -463,9 +458,13 @@ def fit_transport_model_for_task(
     if transport_family == "hierarchical_matern52_frozen_structure":
         representation = task.get("local_environment_representation")
         if not isinstance(representation, dict):
-            raise ValueError("hierarchical frozen-structure transport requires representation metadata")
+            raise ValueError(
+                "hierarchical frozen-structure transport requires representation metadata"
+            )
         if any(row.get("source_local_environment_embedding") is None for row in fit_rows):
-            raise ValueError("hierarchical frozen-structure transport requires every source embedding")
+            raise ValueError(
+                "hierarchical frozen-structure transport requires every source embedding"
+            )
         return fit_protocol_kernel_transport(
             **fit_arguments,
             kernel_features=np.asarray(
@@ -509,7 +508,11 @@ def run(
         by_system.setdefault(row["chemical_system"], []).append(row)
     if config.query_systems is None:
         query_systems = sorted(
-            (system for system, rows in by_system.items() if len(rows) >= config.minimum_candidates),
+            (
+                system
+                for system, rows in by_system.items()
+                if len(rows) >= config.minimum_candidates
+            ),
             key=lambda system: _stable_hash(release_id, "chic-closed-loop-v1", system),
         )[: config.max_systems]
     else:
@@ -596,8 +599,7 @@ def run(
                 boundary_temperature=config.boundary_temperature_ev_per_atom,
                 transport_model=(
                     transport_model
-                    if transport_model is not None
-                    and _requires_protocol_transport(policy_name)
+                    if transport_model is not None and _requires_protocol_transport(policy_name)
                     else None
                 ),
                 posterior_sample_count=config.posterior_sample_count,
@@ -609,6 +611,7 @@ def run(
                     if policy_name
                     in {
                         "source_rollout_delta_hull",
+                        "independent_confirmation_source_rollout",
                         "conformal_source_rollout_delta_hull",
                         "protocol_hull_knowledge_gradient",
                         "protocol_hull_risk_reduction",
@@ -642,9 +645,7 @@ def run(
                     and set(system.split("-")) <= set(transport_model.fit_element_ids)
                     else None
                 ),
-                posterior_diagnostic_sample_count=(
-                    config.posterior_diagnostic_sample_count
-                ),
+                posterior_diagnostic_sample_count=(config.posterior_diagnostic_sample_count),
                 seed=config.seed,
             )
             strategy_results[policy_name] = {
@@ -670,9 +671,7 @@ def run(
 
     aggregates: dict[str, Any] = {}
     for policy_name in active_policies:
-        results = [
-            system_results[system]["strategies"][policy_name] for system in query_systems
-        ]
+        results = [system_results[system]["strategies"][policy_name] for system in query_systems]
         aggregates[policy_name] = {
             "system_macro_mean_action_regret_ev_per_atom": float(
                 np.mean([row["mean_action_regret_ev_per_atom"] for row in results])
@@ -940,13 +939,13 @@ def main() -> None:
         or (
             (
                 "source_rollout_delta_hull" in config.policies
+                or "independent_confirmation_source_rollout" in config.policies
                 or "conformal_source_rollout_delta_hull" in config.policies
             )
             and (
                 config.posterior_sample_count % 16
                 or config.posterior_sample_count // 16 < 2
-                or config.posterior_sample_count // 16
-                & (config.posterior_sample_count // 16 - 1)
+                or config.posterior_sample_count // 16 & (config.posterior_sample_count // 16 - 1)
             )
         )
         or (

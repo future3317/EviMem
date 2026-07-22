@@ -51,6 +51,7 @@ def _row(*, identifier: str, functional: str, formation: float, parent: str) -> 
 
 def test_delta_hull_runner_requires_frozen_protocol_transport() -> None:
     assert _requires_protocol_transport("delta_hull_active_search")
+    assert _requires_protocol_transport("independent_confirmation_source_rollout")
     assert _requires_protocol_transport("conformal_source_rollout_delta_hull")
     assert _requires_protocol_transport("protocol_hull_knowledge_gradient")
     assert not _requires_protocol_transport("source_margin")
@@ -168,8 +169,7 @@ def test_builder_keeps_target_values_only_in_oracle_vault(tmp_path: Path) -> Non
         for row in augmented["development_pairs"]
     )
     assert all(
-        "target_formation_energy_ev_per_atom" not in row
-        for row in augmented["development_pairs"]
+        "target_formation_energy_ev_per_atom" not in row for row in augmented["development_pairs"]
     )
 
     experiment_output = tmp_path / "closed-loop.json"
@@ -199,8 +199,7 @@ def test_builder_keeps_target_values_only_in_oracle_vault(tmp_path: Path) -> Non
         for values in experiment["systems"]["Fe-O"]["strategies"].values()
     )
     assert all(
-        len(values["policy_decision_rounds"]) == 1
-        and len(values["rounds"]) == 1
+        len(values["policy_decision_rounds"]) == 1 and len(values["rounds"]) == 1
         for values in experiment["systems"]["Fe-O"]["strategies"].values()
     )
     assert all(

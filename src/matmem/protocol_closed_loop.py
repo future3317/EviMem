@@ -43,10 +43,9 @@ def requires_protocol_transport(policy: str) -> bool:
     return policy in {
         "delta_hull_active_search",
         "source_rollout_delta_hull",
+        "independent_confirmation_source_rollout",
         "conformal_source_rollout_delta_hull",
-    } or policy.startswith(
-        "protocol_hull_"
-    )
+    } or policy.startswith("protocol_hull_")
 
 
 def _checksum(payload: object) -> str:
@@ -123,9 +122,7 @@ class ProtocolCandidate(BaseModel):
         "source_local_environment_embedding",
     )
     @classmethod
-    def _finite(
-        cls, value: float | tuple[float, ...] | None
-    ) -> float | tuple[float, ...] | None:
+    def _finite(cls, value: float | tuple[float, ...] | None) -> float | tuple[float, ...] | None:
         if value is None:
             return value
         values = (value,) if isinstance(value, (float, int)) else value
@@ -508,6 +505,7 @@ class ProtocolPolicySubprocess:
             "ridge_predicted_final_margin",
             "delta_hull_active_search",
             "source_rollout_delta_hull",
+            "independent_confirmation_source_rollout",
             "conformal_source_rollout_delta_hull",
             "protocol_hull_knowledge_gradient",
             "protocol_hull_risk_reduction",
@@ -559,23 +557,21 @@ class ProtocolPolicySubprocess:
                 or rollout_block_size < 2
                 or rollout_block_size & (rollout_block_size - 1)
             ):
-                raise ValueError(
-                    "source rollout requires sixteen power-of-two Sobol blocks"
-                )
+                raise ValueError("source rollout requires sixteen power-of-two Sobol blocks")
         if policy == "conformal_source_rollout_delta_hull" and (
             conformal_threshold is None
             or not math.isfinite(conformal_threshold)
             or conformal_threshold < 0
         ):
-            raise ValueError(
-                "conformal source rollout requires a finite non-negative threshold"
-            )
+            raise ValueError("conformal source rollout requires a finite non-negative threshold")
         if hull_backend not in {"pymatgen", "fixed_composition"}:
             raise ValueError("unknown protocol hull backend")
         if not math.isfinite(selection_timeout_seconds) or selection_timeout_seconds <= 0:
             raise ValueError("protocol policy timeout must be finite and positive")
         self._persistent = worker_path is None
-        self.worker_path = (worker_path or Path(__file__).with_name("protocol_policy_worker.py")).resolve()
+        self.worker_path = (
+            worker_path or Path(__file__).with_name("protocol_policy_worker.py")
+        ).resolve()
         if not self.worker_path.is_file():
             raise FileNotFoundError("protocol policy worker is unavailable")
         self._process: subprocess.Popen[str] | None = None
@@ -605,17 +601,13 @@ class ProtocolPolicySubprocess:
                 "prior_standard_deviation": self.prior_standard_deviation,
                 "boundary_temperature": self.boundary_temperature,
                 "transport_model_checksum": (
-                    None
-                    if self.transport_model is None
-                    else self.transport_model.identity_checksum
+                    None if self.transport_model is None else self.transport_model.identity_checksum
                 ),
                 "posterior_sample_count": self.posterior_sample_count,
                 "fantasy_count": self.fantasy_count,
                 "conformal_threshold": self.conformal_threshold,
                 "hull_backend": self.hull_backend,
-                "execution_mode": (
-                    "persistent_jsonl" if self._persistent else "one_shot_custom"
-                ),
+                "execution_mode": ("persistent_jsonl" if self._persistent else "one_shot_custom"),
                 "worker_sha256": hashlib.sha256(self.worker_path.read_bytes()).hexdigest(),
             }
         )
@@ -700,9 +692,7 @@ class ProtocolPolicySubprocess:
         process = self._process
         assert process is not None and process.stdin is not None
         if process.poll() is not None:
-            raise RuntimeError(
-                "persistent protocol policy exited: " + "\n".join(self._stderr)
-            )
+            raise RuntimeError("persistent protocol policy exited: " + "\n".join(self._stderr))
         try:
             process.stdin.write(self._serialized_request(state) + "\n")
             process.stdin.flush()
@@ -710,8 +700,7 @@ class ProtocolPolicySubprocess:
         except (BrokenPipeError, queue.Empty) as exc:
             self.close()
             raise RuntimeError(
-                "persistent protocol policy timed out or closed: "
-                + "\n".join(self._stderr)
+                "persistent protocol policy timed out or closed: " + "\n".join(self._stderr)
             ) from exc
         if selected is None:
             self.close()
@@ -722,9 +711,7 @@ class ProtocolPolicySubprocess:
 
     def select(self, state: ProtocolPolicyState) -> str:
         response = (
-            self._select_persistent(state)
-            if self._persistent
-            else self._select_one_shot(state)
+            self._select_persistent(state) if self._persistent else self._select_one_shot(state)
         )
         self._last_selection_diagnostics = None
         try:
@@ -732,7 +719,9 @@ class ProtocolPolicySubprocess:
         except json.JSONDecodeError:
             selected = response.strip()
         else:
-            if not isinstance(payload, dict) or not isinstance(payload.get("selected_pair_id"), str):
+            if not isinstance(payload, dict) or not isinstance(
+                payload.get("selected_pair_id"), str
+            ):
                 raise RuntimeError("protocol policy subprocess returned an invalid response")
             selected = payload["selected_pair_id"]
             diagnostics = payload.get("diagnostics")
@@ -793,9 +782,7 @@ class ProtocolCausalHull:
             ObservableProtocolPhase(
                 entry_id=str(getattr(entry, "entry_id", "")),
                 composition=entry.composition.as_dict(),
-                formation_energy_ev_per_atom=float(
-                    self._diagram.get_form_energy_per_atom(entry)
-                ),
+                formation_energy_ev_per_atom=float(self._diagram.get_form_energy_per_atom(entry)),
             )
             for entry in self._entries
         )
@@ -886,13 +873,9 @@ class SecureProtocolQueryRunner:
             source_structure_hash=candidate.source_structure_hash,
             chemical_system=candidate.chemical_system,
             composition=candidate.composition,
-            source_formation_energy_ev_per_atom=(
-                candidate.source_formation_energy_ev_per_atom
-            ),
+            source_formation_energy_ev_per_atom=(candidate.source_formation_energy_ev_per_atom),
             source_environment_embedding=candidate.source_environment_embedding,
-            source_local_environment_embedding=(
-                candidate.source_local_environment_embedding
-            ),
+            source_local_environment_embedding=(candidate.source_local_environment_embedding),
             current_competing_hull_ev_per_atom=(
                 self.causal_hull.competing_hull_formation_energy(candidate.composition)
             ),
@@ -978,9 +961,7 @@ class SecureProtocolQueryRunner:
                 )
             )
             self.causal_hull.add_revealed(outcome)
-            archive_checksum = _checksum(
-                [item.model_dump(mode="json") for item in history]
-            )
+            archive_checksum = _checksum([item.model_dump(mode="json") for item in history])
             reveal = self.event_log.append_reveal(
                 round_index=round_index,
                 selected_pair_id=selected_id,

@@ -101,16 +101,11 @@ class FrozenProtocolRidgeTransport(BaseModel):
             or not math.isfinite(self.local_kernel_nll_per_row)
             or not self.kernel_feature_mean
             or len(self.kernel_feature_scale) != len(self.kernel_feature_mean)
-            or any(
-                value <= 0 or not math.isfinite(value)
-                for value in self.kernel_feature_scale
-            )
+            or any(value <= 0 or not math.isfinite(value) for value in self.kernel_feature_scale)
             or not self.kernel_feature_encoder
             or not self.kernel_feature_encoder_checksum
         ):
-            raise ValueError(
-                "Matérn transport requires a frozen observable kernel representation"
-            )
+            raise ValueError("Matérn transport requires a frozen observable kernel representation")
         return self
 
     @property
@@ -220,6 +215,34 @@ class SourceRolloutDeltaHullResult(BaseModel):
     fallback_reason: str | None = None
 
 
+class IndependentConfirmationSourceRolloutResult(BaseModel):
+    """Two-stage, independently randomized numerical gate for SARR.
+
+    The first stage is the frozen simultaneous SARR screen.  A second stage is
+    permitted only for its preselected positive-but-unresolved candidate and
+    uses a disjoint RQMC stream for one paired comparison against source.
+    This controls integration noise conditional on the screen; it says
+    nothing about posterior calibration or oracle-final utility.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    stage_one: SourceRolloutDeltaHullResult
+    source_action_index: int = Field(ge=0)
+    screened_action_index: int | None = Field(default=None, ge=0)
+    selected_action_index: int = Field(ge=0)
+    stage_two_used: bool
+    stage_two_paired_advantage: float | None = None
+    stage_two_paired_lower_bound: float | None = None
+    stage_two_block_advantages: tuple[float, ...] = ()
+    stage_one_seed: int
+    stage_two_seed: int | None = None
+    stage_one_posterior_sample_count: int = Field(gt=0)
+    stage_two_posterior_sample_count: int | None = Field(default=None, gt=0)
+    sobol_scramble_count: int = Field(gt=1)
+    fallback_reason: str | None = None
+
+
 class ConformalSourceRolloutCalibration(BaseModel):
     """Exact-system calibration for a single source-relative deviation.
 
@@ -313,7 +336,9 @@ class FixedCompositionHullTemplate:
         parsed = [Composition(value) for value in reference_compositions] + [
             Composition(value) for value in query_compositions
         ]
-        elements = tuple(sorted({str(element) for composition in parsed for element in composition.elements}))
+        elements = tuple(
+            sorted({str(element) for composition in parsed for element in composition.elements})
+        )
         if len(elements) < 1:
             raise ValueError("fixed-composition hull requires at least one element")
         matrix = tuple(
@@ -399,13 +424,17 @@ class FixedCompositionHullTemplate:
         formation = np.asarray(
             [
                 values[index]
-                - sum(matrix[index, element_index] * element_energies[element] for element_index, element in enumerate(self.elements))
+                - sum(
+                    matrix[index, element_index] * element_energies[element]
+                    for element_index, element in enumerate(self.elements)
+                )
                 for index in selected
             ],
             dtype=np.float64,
         )
         qhull_indices = [
-            index for index, formation_energy in zip(selected, formation, strict=True)
+            index
+            for index, formation_energy in zip(selected, formation, strict=True)
             if formation_energy < -self.numerical_tolerance
         ]
         qhull_indices.extend(elemental_indices)
@@ -633,9 +662,7 @@ def fit_protocol_kernel_transport(
     kernel_feature_mean = kernel_raw.mean(axis=0)
     kernel_feature_scale = kernel_raw.std(axis=0)
     kernel_feature_scale[kernel_feature_scale < 1e-8] = 1.0
-    kernel_standardized = (
-        kernel_raw - kernel_feature_mean
-    ) / kernel_feature_scale
+    kernel_standardized = (kernel_raw - kernel_feature_mean) / kernel_feature_scale
     design = np.column_stack((np.ones(len(raw)), standardized))
     discrepancy = target - np.asarray(source_energies, dtype=np.float64)
     residuals = discrepancy - design @ np.asarray(model.coefficients)
@@ -705,16 +732,12 @@ def fit_protocol_kernel_transport(
     length_scale, signal_variance, noise_variance = np.exp(optimized.x)
     gradient = np.asarray(getattr(optimized, "jac", ()), dtype=float)
     gradient_norm = (
-        float(np.linalg.norm(gradient))
-        if gradient.size and np.isfinite(gradient).all()
-        else None
+        float(np.linalg.norm(gradient)) if gradient.size and np.isfinite(gradient).all() else None
     )
     bound_names = ("length_scale", "signal_variance", "noise_variance")
     bounds_active = tuple(
         name
-        for name, value, (lower, upper) in zip(
-            bound_names, optimized.x, bounds, strict=True
-        )
+        for name, value, (lower, upper) in zip(bound_names, optimized.x, bounds, strict=True)
         if abs(float(value) - lower) <= 1e-8 or abs(float(value) - upper) <= 1e-8
     )
     payload = model.model_dump()
@@ -1144,8 +1167,14 @@ def _source_rollout_rewards(
     reference_compositions: Sequence[dict[str, float]],
     reference_energies: np.ndarray,
     horizon: int,
+    first_action_indices: Sequence[int] | None = None,
 ) -> np.ndarray:
-    """Evaluate every first action under a source-margin continuation."""
+    """Evaluate requested first actions under a source-margin continuation.
+
+    ``first_action_indices`` makes an independently confirmed one-comparison
+    audit proportional to two rollouts rather than to every legal action.  It
+    never changes the continuation or accesses unobserved oracle outcomes.
+    """
 
     samples = np.asarray(sampled_query_energies, dtype=np.float64)
     labels = np.asarray(final_hull_membership, dtype=bool)
@@ -1162,11 +1191,24 @@ def _source_rollout_rewards(
         raise ValueError("source rollout arrays disagree")
     if horizon < 1 or horizon > samples.shape[1]:
         raise ValueError("source rollout horizon is invalid")
-    if not np.isfinite(samples).all() or not np.isfinite(source).all() or not np.isfinite(references).all():
+    if (
+        not np.isfinite(samples).all()
+        or not np.isfinite(source).all()
+        or not np.isfinite(references).all()
+    ):
         raise ValueError("source rollout energies must be finite")
 
     sample_count, query_count = samples.shape
-    rewards = np.empty((sample_count, query_count), dtype=np.float64)
+    action_indices = (
+        tuple(range(query_count))
+        if first_action_indices is None
+        else tuple(int(index) for index in first_action_indices)
+    )
+    if not action_indices or len(set(action_indices)) != len(action_indices):
+        raise ValueError("source rollout first actions must be unique and nonempty")
+    if any(index < 0 or index >= query_count for index in action_indices):
+        raise ValueError("source rollout first action is out of range")
+    rewards = np.empty((sample_count, len(action_indices)), dtype=np.float64)
     geometry_cache: dict[tuple[int, ...], _CausalHullEnvelope] = {}
 
     def geometry(selected: tuple[int, ...]) -> _CausalHullEnvelope:
@@ -1180,7 +1222,7 @@ def _source_rollout_rewards(
             geometry_cache[selected] = cached
         return cached
 
-    for first_action in range(query_count):
+    for output_index, first_action in enumerate(action_indices):
         selected = np.zeros((sample_count, query_count), dtype=bool)
         selected[:, first_action] = True
         for _ in range(1, horizon):
@@ -1207,7 +1249,7 @@ def _source_rollout_rewards(
                     eligible=eligible,
                 )
                 selected[rows, next_actions] = True
-        rewards[:, first_action] = np.sum(selected & labels, axis=1)
+        rewards[:, output_index] = np.sum(selected & labels, axis=1)
     return rewards
 
 
@@ -1572,16 +1614,12 @@ def source_rollout_delta_hull(
     else:
         selected_action = source_action
         fallback_reason = (
-            "source_is_only_legal_action"
-            if size == 1
-            else "no_positive_simultaneous_lower_bound"
+            "source_is_only_legal_action" if size == 1 else "no_positive_simultaneous_lower_bound"
         )
     probabilities = labels.mean(axis=0)
     return SourceRolloutDeltaHullResult(
         scores=tuple(float(value) for value in scores),
-        block_scores=tuple(
-            tuple(float(value) for value in row) for row in block_scores
-        ),
+        block_scores=tuple(tuple(float(value) for value in row) for row in block_scores),
         final_stability_probabilities=tuple(float(value) for value in probabilities),
         paired_advantages_over_source=tuple(float(value) for value in mean_advantages),
         paired_advantage_lower_bounds=tuple(float(value) for value in lower_bounds),
@@ -1592,6 +1630,167 @@ def source_rollout_delta_hull(
         simultaneous_comparison_count=max(size - 1, 1),
         horizon=horizon,
         fallback_reason=fallback_reason,
+    )
+
+
+def _independent_confirmation_seed(stage_one_seed: int) -> int:
+    """Derive a fixed stream disjoint from SARR's sixteen stage-one streams."""
+
+    # Stage one uses ``seed + 104729 * block`` for block 0--15.  This domain
+    # separated offset cannot equal any of those seeds and is part of IC-SARR
+    # v1's frozen numerical protocol.
+    return int(stage_one_seed) + 1_000_000_007
+
+
+def independent_confirmation_source_rollout(
+    posterior: ProtocolTargetEnergyPosterior,
+    *,
+    query_compositions: Sequence[dict[str, float]],
+    query_source_energies: np.ndarray,
+    query_ids: Sequence[str],
+    reference_compositions: Sequence[dict[str, float]],
+    reference_energies: np.ndarray,
+    current_competing_hull_energies: np.ndarray,
+    costs: np.ndarray,
+    remaining_budget: float,
+    stage_one_posterior_sample_count: int = 1024,
+    stage_two_posterior_sample_count: int = 8192,
+    seed: int = 0,
+    fixed_template: FixedCompositionHullTemplate | None = None,
+    sobol_scramble_count: int = 16,
+    integration_confidence: float = 0.95,
+) -> IndependentConfirmationSourceRolloutResult:
+    """Run frozen SARR followed by one independent numerical confirmation.
+
+    The method deliberately does *not* search candidates in stage two.  It
+    receives exactly one candidate selected by stage-one point advantage and
+    makes exactly one paired source comparison using an independent Sobol
+    stream.  In production, callers use the protocol-fixed 1024/8192 sample
+    counts; smaller counts are accepted here only for deterministic unit tests.
+    """
+
+    stage_one = source_rollout_delta_hull(
+        posterior,
+        query_compositions=query_compositions,
+        query_source_energies=query_source_energies,
+        query_ids=query_ids,
+        reference_compositions=reference_compositions,
+        reference_energies=reference_energies,
+        current_competing_hull_energies=current_competing_hull_energies,
+        costs=costs,
+        remaining_budget=remaining_budget,
+        posterior_sample_count=stage_one_posterior_sample_count,
+        seed=seed,
+        fixed_template=fixed_template,
+        sobol_scramble_count=sobol_scramble_count,
+        integration_confidence=integration_confidence,
+    )
+    source_action = stage_one.source_action_index
+    if stage_one.selected_action_index != source_action:
+        return IndependentConfirmationSourceRolloutResult(
+            stage_one=stage_one,
+            source_action_index=source_action,
+            selected_action_index=stage_one.selected_action_index,
+            stage_two_used=False,
+            stage_one_seed=seed,
+            stage_one_posterior_sample_count=stage_one_posterior_sample_count,
+            sobol_scramble_count=sobol_scramble_count,
+            fallback_reason="stage_one_accepted",
+        )
+
+    advantages = np.asarray(stage_one.paired_advantages_over_source, dtype=np.float64)
+    positive = np.flatnonzero(advantages > 0.0)
+    positive = positive[positive != source_action]
+    if not len(positive):
+        return IndependentConfirmationSourceRolloutResult(
+            stage_one=stage_one,
+            source_action_index=source_action,
+            selected_action_index=source_action,
+            stage_two_used=False,
+            stage_one_seed=seed,
+            stage_one_posterior_sample_count=stage_one_posterior_sample_count,
+            sobol_scramble_count=sobol_scramble_count,
+            fallback_reason="no_positive_stage_one_advantage",
+        )
+    screened_action = min(
+        (int(index) for index in positive),
+        key=lambda index: (-advantages[index], str(query_ids[index])),
+    )
+
+    item_costs = np.asarray(costs, dtype=np.float64).reshape(-1)
+    size = len(posterior.mean)
+    if (
+        len(query_compositions) != size
+        or len(query_ids) != size
+        or len(item_costs) != size
+        or not np.allclose(item_costs, item_costs[0], atol=1e-12)
+    ):
+        raise ValueError("IC-SARR source-rollout inputs disagree or have unequal costs")
+    if stage_two_posterior_sample_count % sobol_scramble_count:
+        raise ValueError("IC-SARR stage-two samples must divide into Sobol blocks")
+    block_size = stage_two_posterior_sample_count // sobol_scramble_count
+    if block_size < 2 or block_size & (block_size - 1):
+        raise ValueError("each IC-SARR stage-two Sobol block must have power-of-two size")
+    stage_two_seed = _independent_confirmation_seed(seed)
+    samples = np.concatenate(
+        tuple(
+            _sample_gaussian(
+                np.asarray(posterior.mean, dtype=np.float64),
+                np.asarray(posterior.covariance, dtype=np.float64),
+                sample_count=block_size,
+                seed=stage_two_seed + 104729 * block_index,
+            )
+            for block_index in range(sobol_scramble_count)
+        ),
+        axis=0,
+    )
+    labels = _final_hull_membership(
+        query_compositions=query_compositions,
+        sampled_query_energies=samples,
+        reference_compositions=reference_compositions,
+        reference_energies=reference_energies,
+        fixed_template=fixed_template,
+    )
+    horizon = stage_one.horizon
+    rewards = _source_rollout_rewards(
+        sampled_query_energies=samples,
+        final_hull_membership=labels,
+        query_compositions=query_compositions,
+        query_source_energies=query_source_energies,
+        query_ids=query_ids,
+        reference_compositions=reference_compositions,
+        reference_energies=reference_energies,
+        horizon=horizon,
+        first_action_indices=(source_action, screened_action),
+    )
+    block_rewards = rewards.reshape(sobol_scramble_count, block_size, 2).mean(axis=1)
+    block_advantages = block_rewards[:, 1] - block_rewards[:, 0]
+    advantage = float(block_advantages.mean())
+    lower_bound = float(
+        _simultaneous_paired_lower_bounds(
+            block_advantages.reshape(-1, 1),
+            confidence=integration_confidence,
+            comparison_count=1,
+        )[0]
+    )
+    selected_action = screened_action if lower_bound > 0.0 else source_action
+    return IndependentConfirmationSourceRolloutResult(
+        stage_one=stage_one,
+        source_action_index=source_action,
+        screened_action_index=screened_action,
+        selected_action_index=selected_action,
+        stage_two_used=True,
+        stage_two_paired_advantage=advantage,
+        stage_two_paired_lower_bound=lower_bound,
+        stage_two_block_advantages=tuple(float(value) for value in block_advantages),
+        stage_one_seed=seed,
+        stage_two_seed=stage_two_seed,
+        stage_one_posterior_sample_count=stage_one_posterior_sample_count,
+        stage_two_posterior_sample_count=stage_two_posterior_sample_count,
+        sobol_scramble_count=sobol_scramble_count,
+        fallback_reason=(
+            None if selected_action != source_action else "stage_two_lower_bound_not_positive"
+        ),
     )
 
 

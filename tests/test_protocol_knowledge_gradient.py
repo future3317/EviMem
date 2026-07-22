@@ -11,12 +11,160 @@ from matmem.protocol_knowledge_gradient import (
     fit_conformal_source_rollout_calibration,
     fit_protocol_kernel_transport,
     fit_protocol_ridge_transport,
+    independent_confirmation_source_rollout,
     protocol_hull_knowledge_gradient,
     protocol_hull_risk_reduction,
     protocol_target_energy_posterior,
     source_rollout_delta_hull,
     source_rollout_system_score,
 )
+
+
+def _ic_rollout(
+    *,
+    selected: int,
+    advantages: tuple[float, ...],
+    lower_bounds: tuple[float, ...],
+) -> object:
+    """Small immutable SARR result for IC-SARR gate failure tests."""
+
+    from matmem.protocol_knowledge_gradient import SourceRolloutDeltaHullResult
+
+    return SourceRolloutDeltaHullResult(
+        scores=(0.0, 0.2, 0.1),
+        block_scores=tuple((0.0, 0.2, 0.1) for _ in range(16)),
+        final_stability_probabilities=(0.0, 0.0, 0.0),
+        paired_advantages_over_source=advantages,
+        paired_advantage_lower_bounds=lower_bounds,
+        source_action_index=0,
+        selected_action_index=selected,
+        posterior_sample_count=32,
+        sobol_scramble_count=16,
+        simultaneous_comparison_count=2,
+        horizon=2,
+        fallback_reason=None,
+    )
+
+
+def _ic_kwargs() -> dict[str, object]:
+    return {
+        "posterior": ProtocolTargetEnergyPosterior(
+            mean=(-0.2, -0.5, -0.5),
+            covariance=((1e-12, 0.0, 0.0), (0.0, 1e-12, 0.0), (0.0, 0.0, 1e-12)),
+            system_offset_mean=0.0,
+            system_offset_variance=0.0,
+            history_count=0,
+        ),
+        "query_compositions": (
+            {"A": 0.5, "B": 0.5},
+            {"A": 0.25, "B": 0.75},
+            {"A": 0.75, "B": 0.25},
+        ),
+        "query_source_energies": np.asarray([-0.45, -0.4, -0.4]),
+        "query_ids": ("source", "left", "right"),
+        "reference_compositions": ({"A": 1.0}, {"B": 1.0}),
+        "reference_energies": np.zeros(2),
+        "current_competing_hull_energies": np.zeros(3),
+        "costs": np.ones(3),
+        "remaining_budget": 2.0,
+        "stage_one_posterior_sample_count": 32,
+        "stage_two_posterior_sample_count": 64,
+        "seed": 11,
+    }
+
+
+def test_ic_sarr_preserves_accepted_sarr_action_without_stage_two() -> None:
+    kwargs = _ic_kwargs()
+    stage_one = source_rollout_delta_hull(
+        kwargs["posterior"],
+        **{
+            key: value
+            for key, value in kwargs.items()
+            if key
+            not in {
+                "posterior",
+                "stage_one_posterior_sample_count",
+                "stage_two_posterior_sample_count",
+            }
+        },
+        posterior_sample_count=32,
+    )
+    assert stage_one.selected_action_index != stage_one.source_action_index
+    result = independent_confirmation_source_rollout(**kwargs)
+    assert result.selected_action_index == stage_one.selected_action_index
+    assert not result.stage_two_used
+    assert result.fallback_reason == "stage_one_accepted"
+
+
+def test_ic_sarr_falls_back_without_positive_stage_one_advantage(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import matmem.protocol_knowledge_gradient as knowledge_gradient
+
+    monkeypatch.setattr(
+        knowledge_gradient,
+        "source_rollout_delta_hull",
+        lambda *_args, **_kwargs: _ic_rollout(
+            selected=0, advantages=(0.0, 0.0, -0.1), lower_bounds=(0.0, -0.2, -0.3)
+        ),
+    )
+    result = independent_confirmation_source_rollout(**_ic_kwargs())
+    assert result.selected_action_index == result.source_action_index == 0
+    assert not result.stage_two_used
+    assert result.fallback_reason == "no_positive_stage_one_advantage"
+
+
+@pytest.mark.parametrize(("candidate_reward", "expected_selected"), ((0.0, 0), (1.0, 1)))
+def test_ic_sarr_uses_independent_single_comparison_gate(
+    monkeypatch: pytest.MonkeyPatch,
+    candidate_reward: float,
+    expected_selected: int,
+) -> None:
+    import matmem.protocol_knowledge_gradient as knowledge_gradient
+
+    monkeypatch.setattr(
+        knowledge_gradient,
+        "source_rollout_delta_hull",
+        lambda *_args, **_kwargs: _ic_rollout(
+            selected=0, advantages=(0.0, 0.2, 0.1), lower_bounds=(0.0, -0.2, -0.3)
+        ),
+    )
+    observed_seeds: list[int] = []
+    monkeypatch.setattr(
+        knowledge_gradient,
+        "_sample_gaussian",
+        lambda mean, covariance, *, sample_count, seed: (
+            observed_seeds.append(seed) or np.zeros((sample_count, len(mean)))
+        ),
+    )
+    monkeypatch.setattr(
+        knowledge_gradient,
+        "_final_hull_membership",
+        lambda **kwargs: np.zeros_like(kwargs["sampled_query_energies"], dtype=bool),
+    )
+    monkeypatch.setattr(
+        knowledge_gradient,
+        "_source_rollout_rewards",
+        lambda *, sampled_query_energies, first_action_indices, **_kwargs: np.column_stack(
+            (
+                np.zeros(len(sampled_query_energies)),
+                np.full(len(sampled_query_energies), candidate_reward),
+            )
+        ),
+    )
+    result = independent_confirmation_source_rollout(**_ic_kwargs())
+    assert result.stage_two_used
+    assert result.screened_action_index == 1
+    assert result.selected_action_index == expected_selected
+    assert result.stage_two_seed is not None
+    assert result.stage_two_seed != result.stage_one_seed
+    assert len(observed_seeds) == 16
+    assert min(observed_seeds) == result.stage_two_seed
+    assert result.stage_two_paired_lower_bound is not None
+    if expected_selected:
+        assert result.stage_two_paired_lower_bound > 0
+    else:
+        assert result.stage_two_paired_lower_bound <= 0
 
 
 def test_scrambled_sobol_gaussian_samples_are_deterministic_and_nested() -> None:
@@ -71,10 +219,7 @@ def test_simultaneous_paired_bounds_apply_familywise_bonferroni_correction() -> 
     assert simultaneous[0] < marginal[0]
     assert simultaneous[1] < marginal[1]
 
-    near_threshold = np.asarray(
-        [[-0.05, 0.0], [0.35, 0.0], [-0.05, 0.0], [0.35, 0.0]]
-        * 2
-    )
+    near_threshold = np.asarray([[-0.05, 0.0], [0.35, 0.0], [-0.05, 0.0], [0.35, 0.0]] * 2)
     marginal_near_threshold = _simultaneous_paired_lower_bounds(
         near_threshold,
         confidence=0.95,
@@ -141,9 +286,7 @@ def test_conformal_source_rollout_calibration_is_system_clustered() -> None:
     assert calibration.radius == pytest.approx(0.4)
     assert calibration.identity_checksum.startswith("sha256:")
     with pytest.raises(ValueError, match="too few exact systems"):
-        fit_conformal_source_rollout_calibration(
-            (0.1, 0.2), system_ids=("s1", "s2"), alpha=0.1
-        )
+        fit_conformal_source_rollout_calibration((0.1, 0.2), system_ids=("s1", "s2"), alpha=0.1)
 
 
 def test_conformal_source_rollout_allows_only_one_deviation() -> None:
@@ -178,9 +321,7 @@ def test_conformal_source_rollout_allows_only_one_deviation() -> None:
     first = conformal_one_deviation_source_rollout(posterior, **kwargs)
     assert first.deviation_selected
     assert first.selected_action_index == 1
-    second = conformal_one_deviation_source_rollout(
-        posterior, deviation_used=True, **kwargs
-    )
+    second = conformal_one_deviation_source_rollout(posterior, deviation_used=True, **kwargs)
     assert not second.deviation_selected
     assert second.selected_action_index == second.source_action_index == 0
     assert second.fallback_reason == "deviation_already_used"
@@ -509,16 +650,14 @@ def test_cached_causal_hull_envelope_matches_pymatgen_competing_hull(
         entries.extend(
             ComputedEntry(
                 query_compositions[index],
-                sampled[sample_index, index]
-                * Composition(query_compositions[index]).num_atoms,
+                sampled[sample_index, index] * Composition(query_compositions[index]).num_atoms,
                 entry_id=f"selected:{index}",
             )
             for index in selected
         )
         diagram = PhaseDiagram(entries)
         expected[sample_index] = [
-            diagram.get_hull_energy_per_atom(Composition(value))
-            for value in query_compositions
+            diagram.get_hull_energy_per_atom(Composition(value)) for value in query_compositions
         ]
     np.testing.assert_allclose(actual, expected, atol=1e-10)
 
