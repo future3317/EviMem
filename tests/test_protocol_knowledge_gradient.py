@@ -821,6 +821,48 @@ def test_fixed_template_preserves_all_source_rollout_values() -> None:
     assert cached.model_dump() == reference.model_dump()
 
 
+def test_fixed_binary_chain_matches_pymatgen_for_random_and_collinear_samples() -> None:
+    """The binary fast path keeps pymatgen's non-vertex tie semantics."""
+
+    from matmem.protocol_knowledge_gradient import (
+        FixedCompositionHullTemplate,
+        _final_hull_membership,
+    )
+
+    query_compositions = (
+        {"A": 0.25, "B": 0.75},
+        {"A": 0.5, "B": 0.5},
+        {"A": 0.75, "B": 0.25},
+        {"A": 0.6, "B": 0.4},
+    )
+    references = ({"A": 1.0}, {"B": 1.0})
+    random_samples = np.random.default_rng(20260722).normal(
+        -0.2, 0.2, size=(256, len(query_compositions))
+    )
+    # The first three values are exactly collinear with the elemental line in
+    # reduced-composition order. Qhull excludes the redundant middle vertex;
+    # this is the edge case that a mere energy-above-hull test would get wrong.
+    samples = np.vstack((random_samples, np.asarray([[-0.30, -0.20, -0.10, -0.16]])))
+    template = FixedCompositionHullTemplate.from_compositions(
+        query_compositions=query_compositions,
+        reference_compositions=references,
+    )
+    expected = _final_hull_membership(
+        query_compositions=query_compositions,
+        sampled_query_energies=samples,
+        reference_compositions=references,
+        reference_energies=np.zeros(2),
+    )
+    actual = _final_hull_membership(
+        query_compositions=query_compositions,
+        sampled_query_energies=samples,
+        reference_compositions=references,
+        reference_energies=np.zeros(2),
+        fixed_template=template,
+    )
+    np.testing.assert_array_equal(actual, expected)
+
+
 @pytest.mark.parametrize(
     ("query_compositions", "reference_compositions"),
     (

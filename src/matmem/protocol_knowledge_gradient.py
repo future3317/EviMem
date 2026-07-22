@@ -502,6 +502,41 @@ def _fixed_stable_candidate_mask(
     # cannot happen for its own reference formation energy.
     qhull_indices = list(dict.fromkeys(qhull_indices))
     dimension = len(template.elements)
+    if dimension == 2:
+        # In a binary chemical system the lower phase diagram is a 2-D lower
+        # convex chain indexed by the fraction of the second element. This is
+        # the exact lower-hull specialization of pymatgen's ``Qt i`` Qhull
+        # construction: non-vertex collinear points are removed by the same
+        # 1e-14 determinant threshold used below. It avoids one Qhull process
+        # per posterior sample while retaining the duplicate and
+        # formation-energy filtering above.
+        ordered_indices = sorted(
+            qhull_indices,
+            key=lambda index: (
+                matrix[index, 1],
+                values[index],
+                template.entry_names[index],
+            ),
+        )
+        lower_chain: list[int] = []
+        for index in ordered_indices:
+            while len(lower_chain) >= 2:
+                left, middle = lower_chain[-2:]
+                cross = (matrix[middle, 1] - matrix[left, 1]) * (
+                    values[index] - values[left]
+                ) - (values[middle] - values[left]) * (
+                    matrix[index, 1] - matrix[left, 1]
+                )
+                if cross <= 1e-14:
+                    lower_chain.pop()
+                else:
+                    break
+            lower_chain.append(index)
+        stable_combined_indices = set(lower_chain)
+        return np.asarray(
+            [index in stable_combined_indices for index in template.candidate_indices],
+            dtype=bool,
+        )
     qhull_data = np.column_stack((matrix[qhull_indices, 1:], values[qhull_indices]))
     extra_point = np.zeros(dimension, dtype=np.float64) + 1.0 / dimension
     extra_point[-1] = float(np.max(qhull_data[:, -1]) + 1.0)

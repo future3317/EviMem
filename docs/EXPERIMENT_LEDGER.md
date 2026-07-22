@@ -1051,6 +1051,27 @@ state convergence at current pools. The cache was removed rather than retained
 as inactive complexity. The composition-geometry cache remains because its
 separate pymatgen parity audit gives a positive engineering result.
 
+### E30. Exact binary lower-hull specialization (2026-07-22)
+
+**Authorized engineering optimization; no policy change.** Profiling of the
+fixed-composition final-hull backend showed that repeated generic Qhull calls,
+not posterior conditioning or source continuation, remain the local cost. For
+two-element systems only, the backend now evaluates the same lower hull using
+the exact monotone chain of composition fraction versus per-atom energy. It
+retains the existing duplicate-composition selection, elemental references,
+negative-formation filter and the `1e-14` non-vertex collinearity rule used by
+pymatgen's Qhull facet check. Ternary and higher systems still use the prior
+Qhull path.
+
+The fast path matches pymatgen on 256 random binary energy vectors, duplicate
+composition cases, and an exactly collinear non-vertex case; the full rollout
+value parity test also remains exact. On the local 32-candidate, 1,024-sample
+binary fixture, the fixed backend falls from 0.4677 seconds with generic Qhull
+to 0.0660 seconds with the chain (`7.08x`). This is a local computational
+benchmark, not a rerun of the five-fold policy comparison. A remote
+action/reveal-trace regression remains required before reporting an IC-SARR
+end-to-end timing change.
+
 ## Superseded, invalid and incomplete evidence
 
 | Evidence | Required treatment |
