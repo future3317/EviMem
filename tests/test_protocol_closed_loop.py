@@ -289,6 +289,7 @@ def _protocol_transport_fixture():
     (
         "delta_hull_active_search",
         "source_rollout_delta_hull",
+        "constrained_dual_horizon_source_rollout",
         "independent_confirmation_source_rollout",
         "conformal_source_rollout_delta_hull",
         "protocol_hull_knowledge_gradient",

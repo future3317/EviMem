@@ -1155,3 +1155,18 @@ engineering problem by reserving 48 systems first and refitting on 276. The
 opened result is negative against source margin, so data-split feasibility is
 no longer the blocker; decision headroom and discriminative posterior value
 are the measured limitations.
+
+## E30 -- Dual-Horizon SARR implementation (2026-07-22)
+
+`constrained_dual_horizon_source_rollout` is a separate development policy.
+It changes the failed single-horizon assumption by requiring a source-relative
+terminal advantage and a non-negative selected-history causal advantage under
+the same rollout samples. The source-margin action remains the legal fallback;
+no reward mixing, outcome-selected posterior, or IC-SARR parameter change was
+introduced. The causal reward is computed from reference phases plus exactly
+the simulated selected outcomes, while terminal reward uses the complete
+visible candidate pool. Unit tests cover both-gate fallback, deterministic
+selection, selected-history isolation, transport wiring and reveal-boundary
+parity. The fold-0 pilot is development evidence only because fold 0 was used
+for earlier Source-Rollout development; it cannot support external
+confirmation.

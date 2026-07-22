@@ -7,6 +7,7 @@ from matmem.protocol_knowledge_gradient import (
     FrozenProtocolRidgeTransport,
     ProtocolTargetEnergyPosterior,
     conformal_one_deviation_source_rollout,
+    constrained_dual_horizon_source_rollout,
     delta_hull_active_search,
     fit_conformal_source_rollout_calibration,
     fit_protocol_kernel_transport,
@@ -269,6 +270,105 @@ def test_source_rollout_reports_simultaneous_candidate_count() -> None:
     assert len(result.block_scores) == 16
     assert all(len(block) == 3 for block in result.block_scores)
     assert result.fallback_reason in {None, "no_positive_simultaneous_lower_bound"}
+
+
+def _dual_kwargs() -> dict[str, object]:
+    return {
+        "posterior": ProtocolTargetEnergyPosterior(
+            mean=(-0.2, -0.3, -0.4),
+            covariance=((1e-12, 0.0, 0.0), (0.0, 1e-12, 0.0), (0.0, 0.0, 1e-12)),
+            system_offset_mean=0.0,
+            system_offset_variance=0.0,
+            history_count=0,
+        ),
+        "query_compositions": (
+            {"A": 0.5, "B": 0.5},
+            {"A": 0.25, "B": 0.75},
+            {"A": 0.75, "B": 0.25},
+        ),
+        "query_source_energies": np.asarray([-0.5, -0.4, -0.4]),
+        "query_ids": ("source", "candidate-a", "candidate-b"),
+        "reference_compositions": ({"A": 1.0}, {"B": 1.0}),
+        "reference_energies": np.zeros(2),
+        "current_competing_hull_energies": np.zeros(3),
+        "costs": np.ones(3),
+        "remaining_budget": 2.0,
+        "posterior_sample_count": 4,
+        "sobol_scramble_count": 2,
+        "seed": 23,
+    }
+
+
+@pytest.mark.parametrize(
+    ("causal_values", "expected"),
+    [
+        ((0.0, -0.1, -0.2), 0),  # terminal-only improvement is rejected
+        ((0.0, 1.0, 1.5), 2),  # both gates pass; terminal mean wins
+        ((0.0, -0.01, -0.01), 0),  # no feasible deviation falls back to source
+    ],
+)
+def test_dual_horizon_requires_terminal_and_causal_gates(
+    monkeypatch: pytest.MonkeyPatch,
+    causal_values: tuple[float, ...],
+    expected: int,
+) -> None:
+    import matmem.protocol_knowledge_gradient as knowledge_gradient
+
+    monkeypatch.setattr(
+        knowledge_gradient,
+        "_sample_gaussian",
+        lambda mean, covariance, *, sample_count, seed: np.zeros((sample_count, len(mean))),
+    )
+    monkeypatch.setattr(
+        knowledge_gradient,
+        "_final_hull_membership",
+        lambda **kwargs: np.zeros_like(kwargs["sampled_query_energies"], dtype=bool),
+    )
+
+    def fake_rewards(*, sampled_query_energies, causal_rewards_output, **_kwargs):
+        # Two identical Sobol blocks make the t lower bound exact and avoid a
+        # stochastic test that can intermittently cross a gate.
+        terminal = np.tile(np.asarray([[0.0, 1.0, 2.0]]), (len(sampled_query_energies), 1))
+        causal_rewards_output[:] = np.tile(np.asarray(causal_values), (len(sampled_query_energies), 1))
+        return terminal
+
+    monkeypatch.setattr(knowledge_gradient, "_source_rollout_rewards", fake_rewards)
+    result = constrained_dual_horizon_source_rollout(**_dual_kwargs())
+    assert result.source_action_index == 0
+    assert result.selected_action_index == expected
+    if expected == 0:
+        assert result.fallback_reason == "no_dual_horizon_feasible_deviation"
+    else:
+        assert result.feasible_mask[expected]
+
+
+def test_dual_horizon_causal_reward_uses_selected_history_only() -> None:
+    from matmem.protocol_knowledge_gradient import _source_rollout_rewards
+
+    samples = np.asarray([[-0.1, -0.2, 0.3]])
+    terminal_labels = np.asarray([[True, True, False]])
+    causal = np.empty((1, 3), dtype=float)
+    rewards = _source_rollout_rewards(
+        sampled_query_energies=samples,
+        final_hull_membership=terminal_labels,
+        query_compositions=(
+            {"A": 0.5, "B": 0.5},
+            {"A": 0.25, "B": 0.75},
+            {"A": 0.75, "B": 0.25},
+        ),
+        query_source_energies=np.asarray([-0.1, -0.1, -0.1]),
+        query_ids=("a", "b", "c"),
+        reference_compositions=({"A": 1.0}, {"B": 1.0}),
+        reference_energies=np.zeros(2),
+        horizon=2,
+        causal_rewards_output=causal,
+    )
+    assert rewards.shape == (1, 3)
+    # Every simulated continuation contains exactly two selected outcomes;
+    # causal rewards are computed from those two outcomes, never from the
+    # unselected third candidate.
+    assert np.all(causal <= 2.0)
+    assert np.all(causal >= 0.0)
 
 
 def test_conformal_source_rollout_calibration_is_system_clustered() -> None:

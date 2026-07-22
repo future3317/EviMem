@@ -215,6 +215,37 @@ class SourceRolloutDeltaHullResult(BaseModel):
     fallback_reason: str | None = None
 
 
+class DualHorizonSourceRolloutResult(BaseModel):
+    """Source-rollout action values under terminal and causal horizons.
+
+    ``terminal`` evaluates membership in the complete target-protocol hull,
+    while ``causal`` evaluates the same simulated selected set against the
+    hull that would be available after only those selected outcomes had been
+    revealed.  A deviation is legal only when both simultaneous lower-bound
+    gates pass; the source-margin action is always a legal fallback.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    terminal_scores: tuple[float, ...]
+    causal_scores: tuple[float, ...]
+    terminal_block_scores: tuple[tuple[float, ...], ...]
+    causal_block_scores: tuple[tuple[float, ...], ...]
+    terminal_paired_advantages: tuple[float, ...]
+    causal_paired_advantages: tuple[float, ...]
+    terminal_lower_bounds: tuple[float, ...]
+    causal_lower_bounds: tuple[float, ...]
+    terminal_final_stability_probabilities: tuple[float, ...]
+    source_action_index: int = Field(ge=0)
+    selected_action_index: int = Field(ge=0)
+    posterior_sample_count: int = Field(gt=0)
+    sobol_scramble_count: int = Field(gt=1)
+    simultaneous_comparison_count: int = Field(gt=0)
+    horizon: int = Field(gt=0)
+    feasible_mask: tuple[bool, ...]
+    fallback_reason: str | None = None
+
+
 class IndependentConfirmationSourceRolloutResult(BaseModel):
     """Two-stage, independently randomized numerical gate for SARR.
 
@@ -1237,6 +1268,7 @@ def _source_rollout_rewards(
     reference_energies: np.ndarray,
     horizon: int,
     first_action_indices: Sequence[int] | None = None,
+    causal_rewards_output: np.ndarray | None = None,
 ) -> np.ndarray:
     """Evaluate requested first actions under a source-margin continuation.
 
@@ -1278,6 +1310,14 @@ def _source_rollout_rewards(
     if any(index < 0 or index >= query_count for index in action_indices):
         raise ValueError("source rollout first action is out of range")
     rewards = np.empty((sample_count, len(action_indices)), dtype=np.float64)
+    if causal_rewards_output is not None:
+        if np.asarray(causal_rewards_output).shape != rewards.shape:
+            raise ValueError("causal rollout output has inconsistent shape")
+        causal_values = np.asarray(causal_rewards_output)
+        if not np.issubdtype(causal_values.dtype, np.floating):
+            raise ValueError("causal rollout output must have a floating dtype")
+    else:
+        causal_values = None
     geometry_cache: dict[tuple[int, ...], _CausalHullEnvelope] = {}
 
     def geometry(selected: tuple[int, ...]) -> _CausalHullEnvelope:
@@ -1319,6 +1359,27 @@ def _source_rollout_rewards(
                 )
                 selected[rows, next_actions] = True
         rewards[:, output_index] = np.sum(selected & labels, axis=1)
+        if causal_values is not None:
+            # The causal horizon uses exactly the outcomes that the simulated
+            # source continuation selected.  No unselected sampled outcome is
+            # allowed to enter this hull.  Grouping by the selected-set key
+            # lets us reuse the composition-only template across samples.
+            causal_geometry: dict[tuple[int, ...], FixedCompositionHullTemplate] = {}
+            for sample_index in range(sample_count):
+                key = tuple(int(index) for index in np.flatnonzero(selected[sample_index]))
+                template = causal_geometry.get(key)
+                if template is None:
+                    template = FixedCompositionHullTemplate.from_compositions(
+                        query_compositions=tuple(query_compositions[index] for index in key),
+                        reference_compositions=reference_compositions,
+                    )
+                    causal_geometry[key] = template
+                selected_energies = samples[sample_index, np.asarray(key, dtype=np.int64)]
+                stable = template.stable_candidate_mask(
+                    query_energies=selected_energies,
+                    reference_energies=references,
+                )
+                causal_values[sample_index, output_index] = float(np.sum(stable))
     return rewards
 
 
@@ -1698,6 +1759,160 @@ def source_rollout_delta_hull(
         sobol_scramble_count=sobol_scramble_count,
         simultaneous_comparison_count=max(size - 1, 1),
         horizon=horizon,
+        fallback_reason=fallback_reason,
+    )
+
+
+def constrained_dual_horizon_source_rollout(
+    posterior: ProtocolTargetEnergyPosterior,
+    *,
+    query_compositions: Sequence[dict[str, float]],
+    query_source_energies: np.ndarray,
+    query_ids: Sequence[str],
+    reference_compositions: Sequence[dict[str, float]],
+    reference_energies: np.ndarray,
+    current_competing_hull_energies: np.ndarray,
+    costs: np.ndarray,
+    remaining_budget: float,
+    posterior_sample_count: int = 1024,
+    seed: int = 0,
+    fixed_template: FixedCompositionHullTemplate | None = None,
+    sobol_scramble_count: int = 16,
+    integration_confidence: float = 0.95,
+) -> DualHorizonSourceRolloutResult:
+    """Select a source-rollout action with a dual terminal/causal gate.
+
+    For each first action, one common-random-number rollout is generated.  The
+    terminal reward counts selected candidates stable in the complete sampled
+    target hull.  The causal reward counts the same selected candidates stable
+    in the hull containing only references plus the outcomes selected along
+    that simulated continuation.  A non-source action is admissible iff its
+    simultaneous one-sided lower bound is strictly positive for terminal
+    reward and non-negative for causal reward.  Among admissible actions the
+    terminal mean is maximized; otherwise the source-margin action is returned.
+    """
+
+    mean = np.asarray(posterior.mean, dtype=np.float64)
+    covariance = np.asarray(posterior.covariance, dtype=np.float64)
+    source = np.asarray(query_source_energies, dtype=np.float64).reshape(-1)
+    item_costs = np.asarray(costs, dtype=np.float64).reshape(-1)
+    current_hull = np.asarray(current_competing_hull_energies, dtype=np.float64).reshape(-1)
+    size = len(mean)
+    if (
+        len(query_compositions) != size
+        or len(query_ids) != size
+        or len(source) != size
+        or len(item_costs) != size
+        or len(current_hull) != size
+    ):
+        raise ValueError("dual-horizon source-rollout inputs disagree")
+    if np.any(~np.isfinite(item_costs)) or np.any(item_costs <= 0):
+        raise ValueError("dual-horizon query costs must be finite and positive")
+    if not np.allclose(item_costs, item_costs[0], atol=1e-12):
+        raise ValueError("dual-horizon source-rollout requires equal query costs")
+    if not math.isfinite(remaining_budget) or remaining_budget < item_costs[0]:
+        raise ValueError("remaining protocol budget cannot pay for a rollout query")
+    if sobol_scramble_count < 2 or posterior_sample_count % sobol_scramble_count:
+        raise ValueError("posterior samples must divide into independent Sobol scrambles")
+    block_size = posterior_sample_count // sobol_scramble_count
+    if block_size < 2 or block_size & (block_size - 1):
+        raise ValueError("each dual-horizon Sobol block must have power-of-two size")
+    if not 0.5 < integration_confidence < 1.0:
+        raise ValueError("dual-horizon integration confidence must lie in (0.5, 1)")
+    horizon = min(size, int(math.floor((remaining_budget + 1e-12) / item_costs[0])))
+
+    samples = np.concatenate(
+        tuple(
+            _sample_gaussian(
+                mean,
+                covariance,
+                sample_count=block_size,
+                seed=seed + 104729 * block_index,
+            )
+            for block_index in range(sobol_scramble_count)
+        ),
+        axis=0,
+    )
+    terminal_labels = _final_hull_membership(
+        query_compositions=query_compositions,
+        sampled_query_energies=samples,
+        reference_compositions=reference_compositions,
+        reference_energies=reference_energies,
+        fixed_template=fixed_template,
+    )
+    causal_rewards = np.empty((posterior_sample_count, size), dtype=np.float64)
+    terminal_rewards = _source_rollout_rewards(
+        sampled_query_energies=samples,
+        final_hull_membership=terminal_labels,
+        query_compositions=query_compositions,
+        query_source_energies=source,
+        query_ids=query_ids,
+        reference_compositions=reference_compositions,
+        reference_energies=reference_energies,
+        horizon=horizon,
+        causal_rewards_output=causal_rewards,
+    )
+    terminal_blocks = terminal_rewards.reshape(sobol_scramble_count, block_size, size).mean(axis=1)
+    causal_blocks = causal_rewards.reshape(sobol_scramble_count, block_size, size).mean(axis=1)
+    terminal_scores = terminal_blocks.mean(axis=0)
+    causal_scores = causal_blocks.mean(axis=0)
+    source_action = int(
+        source_margin_action_indices(
+            source_energies=source,
+            competing_hull_energies=current_hull,
+            query_ids=query_ids,
+        )[0]
+    )
+    comparison_count = 2 * max(size - 1, 1)
+    terminal_differences = terminal_blocks - terminal_blocks[:, [source_action]]
+    causal_differences = causal_blocks - causal_blocks[:, [source_action]]
+    terminal_advantages = terminal_differences.mean(axis=0)
+    causal_advantages = causal_differences.mean(axis=0)
+    terminal_bounds = _simultaneous_paired_lower_bounds(
+        terminal_differences,
+        confidence=integration_confidence,
+        comparison_count=comparison_count,
+    )
+    causal_bounds = _simultaneous_paired_lower_bounds(
+        causal_differences,
+        confidence=integration_confidence,
+        comparison_count=comparison_count,
+    )
+    terminal_bounds[source_action] = 0.0
+    causal_bounds[source_action] = 0.0
+    feasible = (terminal_bounds > 0.0) & (causal_bounds >= 0.0)
+    feasible[source_action] = False
+    improving = np.flatnonzero(feasible)
+    if len(improving):
+        selected_action = min(
+            (int(index) for index in improving),
+            key=lambda index: (-terminal_scores[index], str(query_ids[index])),
+        )
+        fallback_reason = None
+    else:
+        selected_action = source_action
+        fallback_reason = (
+            "source_is_only_legal_action" if size == 1 else "no_dual_horizon_feasible_deviation"
+        )
+    return DualHorizonSourceRolloutResult(
+        terminal_scores=tuple(float(value) for value in terminal_scores),
+        causal_scores=tuple(float(value) for value in causal_scores),
+        terminal_block_scores=tuple(tuple(float(value) for value in row) for row in terminal_blocks),
+        causal_block_scores=tuple(tuple(float(value) for value in row) for row in causal_blocks),
+        terminal_paired_advantages=tuple(float(value) for value in terminal_advantages),
+        causal_paired_advantages=tuple(float(value) for value in causal_advantages),
+        terminal_lower_bounds=tuple(float(value) for value in terminal_bounds),
+        causal_lower_bounds=tuple(float(value) for value in causal_bounds),
+        terminal_final_stability_probabilities=tuple(
+            float(value) for value in terminal_labels.mean(axis=0)
+        ),
+        source_action_index=source_action,
+        selected_action_index=selected_action,
+        posterior_sample_count=posterior_sample_count,
+        sobol_scramble_count=sobol_scramble_count,
+        simultaneous_comparison_count=comparison_count,
+        horizon=horizon,
+        feasible_mask=tuple(bool(value) for value in feasible),
         fallback_reason=fallback_reason,
     )
 

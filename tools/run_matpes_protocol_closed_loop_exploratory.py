@@ -71,6 +71,7 @@ POLICIES = (
     "ridge_predicted_final_margin",
     "delta_hull_active_search",
     "source_rollout_delta_hull",
+    "constrained_dual_horizon_source_rollout",
     "independent_confirmation_source_rollout",
     "conformal_source_rollout_delta_hull",
     "protocol_hull_knowledge_gradient",
@@ -631,6 +632,7 @@ def run(
                     if policy_name
                     in {
                         "source_rollout_delta_hull",
+                        "constrained_dual_horizon_source_rollout",
                         "independent_confirmation_source_rollout",
                         "conformal_source_rollout_delta_hull",
                         "protocol_hull_knowledge_gradient",
@@ -959,6 +961,7 @@ def main() -> None:
         or (
             (
                 "source_rollout_delta_hull" in config.policies
+                or "constrained_dual_horizon_source_rollout" in config.policies
                 or "independent_confirmation_source_rollout" in config.policies
                 or "conformal_source_rollout_delta_hull" in config.policies
             )

@@ -16,6 +16,7 @@ from protocol_knowledge_gradient import (
     FixedCompositionHullTemplate,
     FrozenProtocolRidgeTransport,
     conformal_one_deviation_source_rollout,
+    constrained_dual_horizon_source_rollout,
     delta_hull_active_search,
     independent_confirmation_source_rollout,
     protocol_hull_knowledge_gradient,
@@ -98,6 +99,7 @@ def select(
         "ridge_predicted_final_margin",
         "delta_hull_active_search",
         "source_rollout_delta_hull",
+        "constrained_dual_horizon_source_rollout",
         "independent_confirmation_source_rollout",
         "conformal_source_rollout_delta_hull",
         "protocol_hull_knowledge_gradient",
@@ -132,6 +134,7 @@ def select(
         if policy in {
             "delta_hull_active_search",
             "source_rollout_delta_hull",
+            "constrained_dual_horizon_source_rollout",
             "independent_confirmation_source_rollout",
             "conformal_source_rollout_delta_hull",
         } or policy.startswith("protocol_hull_"):
@@ -275,6 +278,72 @@ def select(
                                 "posterior_sample_count": result.posterior_sample_count,
                                 "sobol_scramble_count": result.sobol_scramble_count,
                                 "horizon": result.horizon,
+                            }
+                        )
+                    return str(queries[result.selected_action_index]["pair_id"])
+                elif policy == "constrained_dual_horizon_source_rollout":
+                    result = constrained_dual_horizon_source_rollout(
+                        posterior,
+                        query_compositions=hull_arguments["query_compositions"],
+                        query_source_energies=arguments["query_source_energies"],
+                        query_ids=tuple(str(row["pair_id"]) for row in queries),
+                        reference_compositions=hull_arguments["reference_compositions"],
+                        reference_energies=hull_arguments["reference_energies"],
+                        current_competing_hull_energies=arguments[
+                            "current_competing_hull_energies"
+                        ],
+                        costs=hull_arguments["costs"],
+                        remaining_budget=float(payload["remaining_budget"]),
+                        posterior_sample_count=hull_arguments["posterior_sample_count"],
+                        seed=hull_arguments["seed"],
+                        fixed_template=fixed_template,
+                    )
+                    if diagnostics is not None:
+                        query_ids = tuple(str(row["pair_id"]) for row in queries)
+                        diagnostics.update(
+                            {
+                                "diagnostic_schema_version": 1,
+                                "kind": "constrained_dual_horizon_source_rollout",
+                                "candidate_pair_ids": query_ids,
+                                "terminal_block_scores": result.terminal_block_scores,
+                                "causal_block_scores": result.causal_block_scores,
+                                "terminal_advantages_over_source": {
+                                    pair_id: advantage
+                                    for pair_id, advantage in zip(
+                                        query_ids, result.terminal_paired_advantages, strict=True
+                                    )
+                                },
+                                "causal_advantages_over_source": {
+                                    pair_id: advantage
+                                    for pair_id, advantage in zip(
+                                        query_ids, result.causal_paired_advantages, strict=True
+                                    )
+                                },
+                                "terminal_lower_bounds": {
+                                    pair_id: bound
+                                    for pair_id, bound in zip(
+                                        query_ids, result.terminal_lower_bounds, strict=True
+                                    )
+                                },
+                                "causal_lower_bounds": {
+                                    pair_id: bound
+                                    for pair_id, bound in zip(
+                                        query_ids, result.causal_lower_bounds, strict=True
+                                    )
+                                },
+                                "feasible_mask": {
+                                    pair_id: bool(value)
+                                    for pair_id, value in zip(
+                                        query_ids, result.feasible_mask, strict=True
+                                    )
+                                },
+                                "source_pair_id": query_ids[result.source_action_index],
+                                "selected_pair_id": query_ids[result.selected_action_index],
+                                "fallback_reason": result.fallback_reason,
+                                "horizon": result.horizon,
+                                "posterior_sample_count": result.posterior_sample_count,
+                                "sobol_scramble_count": result.sobol_scramble_count,
+                                "simultaneous_comparison_count": result.simultaneous_comparison_count,
                             }
                         )
                     return str(queries[result.selected_action_index]["pair_id"])
@@ -465,6 +534,7 @@ def main() -> None:
             "ridge_predicted_final_margin",
             "delta_hull_active_search",
             "source_rollout_delta_hull",
+            "constrained_dual_horizon_source_rollout",
             "independent_confirmation_source_rollout",
             "conformal_source_rollout_delta_hull",
             "protocol_hull_knowledge_gradient",
