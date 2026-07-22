@@ -355,6 +355,15 @@ def _evaluate_action_trace(
         if oracle_pool_diagram.get_e_above_hull(entry, allow_negative=True) <= 1e-8:
             oracle_pool_confirmed_ids.append(pair_id)
     causal_set = set(causal_discovery_ids)
+    final_causal_set = set(final_causal_confirmed_ids)
+    oracle_pool_set = set(oracle_pool_confirmed_ids)
+    if not oracle_pool_set <= final_causal_set <= causal_set:
+        raise RuntimeError(
+            "terminal hull metrics violated oracle-final <= final-causal <= causal-time order"
+        )
+    causal_count = len(causal_set)
+    final_causal_count = len(final_causal_set)
+    oracle_pool_count = len(oracle_pool_set)
     regrets = [row["action_regret_ev_per_atom"] for row in rounds]
     result = {
         "rounds": rounds,
@@ -363,10 +372,21 @@ def _evaluate_action_trace(
         "stable_discoveries": stable_discoveries,
         "causal_discoveries": stable_discoveries,
         "causal_discovery_ids": causal_discovery_ids,
-        "final_causal_confirmed_discoveries": len(final_causal_confirmed_ids),
+        "final_causal_confirmed_discoveries": final_causal_count,
         "final_causal_confirmed_ids": final_causal_confirmed_ids,
-        "oracle_pool_confirmed_discoveries": len(oracle_pool_confirmed_ids),
+        "oracle_pool_confirmed_discoveries": oracle_pool_count,
         "oracle_pool_confirmed_ids": oracle_pool_confirmed_ids,
+        # D, F and T are distinct estimands: an online causal declaration may
+        # be revoked by a later selected phase, and a final-causal survivor may
+        # be invalidated by an unqueried competitor in the complete pool.
+        "within_campaign_revocations": causal_count - final_causal_count,
+        "unqueried_competitor_invalidations": final_causal_count - oracle_pool_count,
+        "causal_retention": (
+            None if causal_count == 0 else final_causal_count / causal_count
+        ),
+        "oracle_validity": (
+            None if final_causal_count == 0 else oracle_pool_count / final_causal_count
+        ),
         "oracle_pool_available_discoveries": len(oracle_pool_stable_candidate_ids),
         "oracle_pool_discovery_ceiling": min(
             len(selected_pair_ids), len(oracle_pool_stable_candidate_ids)

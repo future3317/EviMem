@@ -206,3 +206,12 @@ def test_builder_keeps_target_values_only_in_oracle_vault(tmp_path: Path) -> Non
         "oracle_pool_confirmed_discoveries" in values
         for values in experiment["systems"]["Fe-O"]["strategies"].values()
     )
+    values = experiment["systems"]["Fe-O"]["strategies"]["source_margin"]
+    causal = values["causal_discoveries"]
+    final = values["final_causal_confirmed_discoveries"]
+    oracle = values["oracle_pool_confirmed_discoveries"]
+    assert oracle <= final <= causal
+    assert values["within_campaign_revocations"] == causal - final
+    assert values["unqueried_competitor_invalidations"] == final - oracle
+    assert values["causal_retention"] == (final / causal if causal else None)
+    assert values["oracle_validity"] == (oracle / final if final else None)

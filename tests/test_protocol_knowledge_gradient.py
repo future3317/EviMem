@@ -773,6 +773,54 @@ def test_source_rollout_finds_full_budget_improvement_over_myopic_source() -> No
     assert result.paired_advantage_lower_bounds[1] > 0
 
 
+def test_fixed_template_preserves_all_source_rollout_values() -> None:
+    """The cached final-hull backend is an implementation optimization only."""
+
+    from matmem.protocol_knowledge_gradient import FixedCompositionHullTemplate
+
+    query_compositions = (
+        {"A": 0.25, "B": 0.75},
+        {"A": 0.5, "B": 0.5},
+        {"A": 0.75, "B": 0.25},
+        {"A": 0.4, "B": 0.6},
+    )
+    reference_compositions = ({"A": 1.0}, {"B": 1.0})
+    kwargs = dict(
+        query_compositions=query_compositions,
+        query_source_energies=np.asarray([-0.31, -0.28, -0.26, -0.20]),
+        query_ids=("q3", "q1", "q4", "q2"),
+        reference_compositions=reference_compositions,
+        reference_energies=np.zeros(2),
+        current_competing_hull_energies=np.zeros(4),
+        costs=np.ones(4),
+        remaining_budget=3.0,
+        posterior_sample_count=32,
+        seed=91,
+    )
+    posterior = ProtocolTargetEnergyPosterior(
+        mean=(-0.42, -0.20, -0.38, -0.15),
+        covariance=(
+            (0.02, 0.005, 0.0, 0.0),
+            (0.005, 0.03, 0.004, 0.0),
+            (0.0, 0.004, 0.02, 0.003),
+            (0.0, 0.0, 0.003, 0.01),
+        ),
+        system_offset_mean=0.0,
+        system_offset_variance=0.0,
+        history_count=0,
+    )
+    reference = source_rollout_delta_hull(posterior, **kwargs)
+    cached = source_rollout_delta_hull(
+        posterior,
+        **kwargs,
+        fixed_template=FixedCompositionHullTemplate.from_compositions(
+            query_compositions=query_compositions,
+            reference_compositions=reference_compositions,
+        ),
+    )
+    assert cached.model_dump() == reference.model_dump()
+
+
 @pytest.mark.parametrize(
     ("query_compositions", "reference_compositions"),
     (

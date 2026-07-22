@@ -404,74 +404,11 @@ class FixedCompositionHullTemplate:
                 np.asarray(query_energies, dtype=np.float64).reshape(-1),
             )
         )
-        if len(values) != self.entry_count or not np.isfinite(values).all():
-            raise ValueError("fixed-composition hull energy dimensions are inconsistent")
-        selected: list[int] = []
-        selected_by_group: dict[int, int] = {}
-        for group in self.duplicate_composition_groups:
-            chosen = min(group, key=lambda index: (values[index], self.entry_names[index]))
-            selected.append(chosen)
-            for index in group:
-                selected_by_group[index] = chosen
-        elemental_indices = tuple(
-            selected_by_group[index] for _, index in self.element_reference_indices
-        )
-        element_energies = {
-            element: float(values[selected_by_group[index]])
-            for element, index in self.element_reference_indices
-        }
         matrix = np.asarray(self.normalized_composition_matrix, dtype=np.float64)
-        formation = np.asarray(
-            [
-                values[index]
-                - sum(
-                    matrix[index, element_index] * element_energies[element]
-                    for element_index, element in enumerate(self.elements)
-                )
-                for index in selected
-            ],
-            dtype=np.float64,
-        )
-        qhull_indices = [
-            index
-            for index, formation_energy in zip(selected, formation, strict=True)
-            if formation_energy < -self.numerical_tolerance
-        ]
-        qhull_indices.extend(elemental_indices)
-        # The PhaseDiagram implementation keeps this order and permits an
-        # elemental entry to occur twice only if it was already negative, which
-        # cannot happen for its own reference formation energy.
-        qhull_indices = list(dict.fromkeys(qhull_indices))
-        dimension = len(self.elements)
-        qhull_data = np.column_stack((matrix[qhull_indices, 1:], values[qhull_indices]))
-        extra_point = np.zeros(dimension, dtype=np.float64) + 1.0 / dimension
-        extra_point[-1] = float(np.max(qhull_data[:, -1]) + 1.0)
-        qhull_data = np.concatenate((qhull_data, extra_point[None, :]), axis=0)
-        if dimension == 1:
-            facets: list[np.ndarray] = [np.asarray([int(np.argmin(qhull_data[:, 0]))])]
-        else:
-            try:
-                facets = list(ConvexHull(qhull_data, qhull_options="Qt i").simplices)
-            except QhullError as exc:
-                raise ValueError("fixed-composition hull Qhull failed") from exc
-            final_facets: list[np.ndarray] = []
-            for facet in facets:
-                if int(np.max(facet)) == len(qhull_data) - 1:
-                    continue
-                facet_data = np.array(qhull_data[facet], copy=True)
-                facet_data[:, -1] = 1.0
-                if abs(float(np.linalg.det(facet_data))) > 1e-14:
-                    final_facets.append(np.asarray(facet))
-            facets = final_facets
-        stable_qhull_indices = {
-            int(index) for facet in facets for index in np.asarray(facet).reshape(-1)
-        }
-        stable_combined_indices = {
-            qhull_indices[index] for index in stable_qhull_indices if index < len(qhull_indices)
-        }
-        return np.asarray(
-            [index in stable_combined_indices for index in self.candidate_indices],
-            dtype=bool,
+        return _fixed_stable_candidate_mask(
+            self,
+            combined_energies=values,
+            composition_matrix=matrix,
         )
 
 
@@ -488,14 +425,111 @@ def fixed_composition_hull_membership(
         samples = samples[None, :]
     if samples.ndim != 2 or samples.shape[1] != len(template.candidate_indices):
         raise ValueError("fixed-composition hull query samples have inconsistent dimensions")
+    reference_values = np.asarray(reference_energies, dtype=np.float64).reshape(-1)
+    if len(reference_values) != len(template.reference_indices) or not np.isfinite(
+        reference_values
+    ).all():
+        raise ValueError("fixed-composition hull reference energies are inconsistent")
+    if not np.isfinite(samples).all():
+        raise ValueError("fixed-composition hull query energies must be finite")
+    # The geometry is fixed across every posterior sample.  Keeping this array
+    # outside the sample loop removes a repeated tuple-to-array conversion
+    # without changing Qhull inputs, tolerance, or tie breaking.
+    composition_matrix = np.asarray(template.normalized_composition_matrix, dtype=np.float64)
+    combined = np.empty((len(samples), template.entry_count), dtype=np.float64)
+    combined[:, template.reference_indices] = reference_values
+    combined[:, template.candidate_indices] = samples
     return np.asarray(
         [
-            template.stable_candidate_mask(
-                query_energies=sample,
-                reference_energies=reference_energies,
+            _fixed_stable_candidate_mask(
+                template,
+                combined_energies=sample,
+                composition_matrix=composition_matrix,
             )
-            for sample in samples
+            for sample in combined
         ],
+        dtype=bool,
+    )
+
+
+def _fixed_stable_candidate_mask(
+    template: FixedCompositionHullTemplate,
+    *,
+    combined_energies: np.ndarray,
+    composition_matrix: np.ndarray,
+) -> np.ndarray:
+    """Evaluate one cached-geometry lower hull from its complete energy vector.
+
+    This is deliberately the same Qhull path used by
+    :meth:`FixedCompositionHullTemplate.stable_candidate_mask`.  The separate
+    helper lets batched posterior evaluation share the immutable composition
+    matrix rather than rebuilding it once per RQMC draw.
+    """
+
+    values = np.asarray(combined_energies, dtype=np.float64).reshape(-1)
+    matrix = np.asarray(composition_matrix, dtype=np.float64)
+    if (
+        len(values) != template.entry_count
+        or matrix.shape != (template.entry_count, len(template.elements))
+        or not np.isfinite(values).all()
+        or not np.isfinite(matrix).all()
+    ):
+        raise ValueError("fixed-composition hull energy dimensions are inconsistent")
+    selected: list[int] = []
+    selected_by_group: dict[int, int] = {}
+    for group in template.duplicate_composition_groups:
+        chosen = min(group, key=lambda index: (values[index], template.entry_names[index]))
+        selected.append(chosen)
+        for index in group:
+            selected_by_group[index] = chosen
+    elemental_indices = tuple(
+        selected_by_group[index] for _, index in template.element_reference_indices
+    )
+    element_energies = np.asarray(
+        [values[selected_by_group[index]] for _, index in template.element_reference_indices],
+        dtype=np.float64,
+    )
+    selected_indices = np.asarray(selected, dtype=np.int64)
+    formation = values[selected_indices] - matrix[selected_indices] @ element_energies
+    qhull_indices = [
+        index
+        for index, formation_energy in zip(selected, formation, strict=True)
+        if formation_energy < -template.numerical_tolerance
+    ]
+    qhull_indices.extend(elemental_indices)
+    # The PhaseDiagram implementation keeps this order and permits an
+    # elemental entry to occur twice only if it was already negative, which
+    # cannot happen for its own reference formation energy.
+    qhull_indices = list(dict.fromkeys(qhull_indices))
+    dimension = len(template.elements)
+    qhull_data = np.column_stack((matrix[qhull_indices, 1:], values[qhull_indices]))
+    extra_point = np.zeros(dimension, dtype=np.float64) + 1.0 / dimension
+    extra_point[-1] = float(np.max(qhull_data[:, -1]) + 1.0)
+    qhull_data = np.concatenate((qhull_data, extra_point[None, :]), axis=0)
+    if dimension == 1:
+        facets: list[np.ndarray] = [np.asarray([int(np.argmin(qhull_data[:, 0]))])]
+    else:
+        try:
+            facets = list(ConvexHull(qhull_data, qhull_options="Qt i").simplices)
+        except QhullError as exc:
+            raise ValueError("fixed-composition hull Qhull failed") from exc
+        final_facets: list[np.ndarray] = []
+        for facet in facets:
+            if int(np.max(facet)) == len(qhull_data) - 1:
+                continue
+            facet_data = np.array(qhull_data[facet], copy=True)
+            facet_data[:, -1] = 1.0
+            if abs(float(np.linalg.det(facet_data))) > 1e-14:
+                final_facets.append(np.asarray(facet))
+        facets = final_facets
+    stable_qhull_indices = {
+        int(index) for facet in facets for index in np.asarray(facet).reshape(-1)
+    }
+    stable_combined_indices = {
+        qhull_indices[index] for index in stable_qhull_indices if index < len(qhull_indices)
+    }
+    return np.asarray(
+        [index in stable_combined_indices for index in template.candidate_indices],
         dtype=bool,
     )
 
