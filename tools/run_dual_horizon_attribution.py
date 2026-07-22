@@ -111,6 +111,51 @@ def _system_trace(summary: dict[str, Any], system: str) -> list[str]:
     return list(summary["systems"][system]["strategies"]["source_margin"]["selected_pair_ids"])
 
 
+def _chemistry_stratum(system: str) -> str:
+    """Deterministic exact-system complexity stratum."""
+    n_elements = len([token for token in system.split("-") if token])
+    if n_elements <= 2:
+        return "binary"
+    if n_elements == 3:
+        return "ternary"
+    return "quaternary_or_higher"
+
+
+def _candidate_stratum(count: int) -> str:
+    if count <= 16:
+        return "small_le_16"
+    if count <= 32:
+        return "medium_17_32"
+    return "large_gt_32"
+
+
+def _group_summary(records: list[dict[str, Any]], key: str) -> dict[str, Any]:
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    for record in records:
+        grouped.setdefault(str(record[key]), []).append(record)
+    output: dict[str, Any] = {}
+    for group, rows in sorted(grouped.items()):
+        oracle_states = sum(bool(row["oracle_feasible_exists"]) for row in rows)
+        oracle_actions = sum(sum(row["oracle_feasible"]) for row in rows)
+        recovered = sum(
+            bool(point) and bool(oracle)
+            for row in rows
+            for point, oracle in zip(row["posterior_point_feasible"], row["oracle_feasible"])
+        )
+        point_count = sum(sum(row["posterior_point_feasible"]) for row in rows)
+        gate_count = sum(sum(row["posterior_gate_feasible"]) for row in rows)
+        output[group] = {
+            "state_count": len(rows),
+            "oracle_feasible_state_rate": oracle_states / max(len(rows), 1),
+            "oracle_feasible_action_count": oracle_actions,
+            "posterior_feasible_action_recall": recovered / max(oracle_actions, 1),
+            "point_feasible_action_count": point_count,
+            "gate_feasible_action_count": gate_count,
+            "point_to_gate_rejection_rate": (point_count - gate_count) / max(point_count, 1),
+        }
+    return output
+
+
 def run(
     *,
     task_path: Path,
@@ -279,8 +324,13 @@ def run(
             state_records.append(
                 {
                     "system": system,
+                    "chemistry_stratum": _chemistry_stratum(system),
                     "round_index": round_index + 1,
                     "candidate_count": len(query_rows),
+                    "candidate_stratum": _candidate_stratum(len(query_rows)),
+                    "boundary_candidate_fraction": float(
+                        np.mean(np.abs(query_source - current_hull) <= 0.10)
+                    ),
                     "history_count": len(history_ids),
                     "query_ids": query_ids,
                     "source_action_id": query_ids[source_index],
@@ -300,6 +350,16 @@ def run(
                     "oracle_best_action_id": query_ids[oracle_best],
                     "posterior_point_action_id": query_ids[point_selected],
                     "dual_gate_action_id": query_ids[estimated.selected_action_index],
+                    "source_action_oracle_regret": float(np.max(oracle_t)),
+                    "posterior_point_action_oracle_regret": float(
+                        np.max(oracle_t) - oracle_t[point_selected]
+                    ),
+                    "dual_gate_action_oracle_regret": float(
+                        np.max(oracle_t) - oracle_t[estimated.selected_action_index]
+                    ),
+                    "trace_action_oracle_regret": float(
+                        np.max(oracle_t) - oracle_t[query_ids.index(trace_ids[round_index])]
+                    ),
                 }
             )
 
@@ -325,6 +385,10 @@ def run(
     coverage_t = []
     coverage_f = []
     point_regret = []
+    source_regret = []
+    gate_regret = []
+    trace_regret = []
+    confusion = {"oracle_feasible": {"point": 0, "gate": 0}, "oracle_infeasible": {"point": 0, "gate": 0}}
     for record in state_records:
         ot = np.asarray(record["oracle_terminal_advantages"])
         of = np.asarray(record["oracle_selected_history_advantages"])
@@ -338,6 +402,17 @@ def run(
         ids = record["query_ids"]
         best_value = ot[ids.index(best)]
         point_regret.append(float(best_value - ot[ids.index(record["posterior_point_action_id"])]))
+        source_regret.append(float(record["source_action_oracle_regret"]))
+        gate_regret.append(float(record["dual_gate_action_oracle_regret"]))
+        trace_regret.append(float(record["trace_action_oracle_regret"]))
+        for point, gate, oracle in zip(
+            record["posterior_point_feasible"],
+            record["posterior_gate_feasible"],
+            record["oracle_feasible"],
+        ):
+            bucket = "oracle_feasible" if oracle else "oracle_infeasible"
+            confusion[bucket]["point"] += int(point)
+            confusion[bucket]["gate"] += int(gate)
     result = {
         "schema_version": 1,
         "status": "development_attribution_only",
@@ -359,6 +434,12 @@ def run(
             "terminal_joint_advantage_interval_coverage": mean([float(value) for value in coverage_t]),
             "selected_history_joint_advantage_interval_coverage": mean([float(value) for value in coverage_f]),
             "posterior_point_action_oracle_terminal_regret": mean(point_regret),
+            "source_action_oracle_terminal_regret": mean(source_regret),
+            "dual_gate_action_oracle_terminal_regret": mean(gate_regret),
+            "trace_action_oracle_terminal_regret": mean(trace_regret),
+            "point_gate_confusion_counts": confusion,
+            "by_chemistry_stratum": _group_summary(state_records, "chemistry_stratum"),
+            "by_candidate_stratum": _group_summary(state_records, "candidate_stratum"),
         },
     }
     output_path.parent.mkdir(parents=True, exist_ok=True)

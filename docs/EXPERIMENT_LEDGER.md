@@ -1222,3 +1222,31 @@ confirmations (`2.0` each), mean action regret `0.0136` versus `0.0053` eV/atom,
 and wall time `6.06` versus `3.38` seconds/system. This is only a rebuild and
 implementation smoke; the two systems are development systems and no method
 or holdout conclusion is drawn.
+
+## E33 -- Dual-Horizon oracle/posterior attribution (2026-07-22)
+
+The offline evaluator `tools/run_dual_horizon_attribution.py` was run on the
+same eight fold-0 development systems and 48 decision states at MC128, MC512
+and MC1024. It enumerates every legal first action and compares exact oracle
+terminal/selected-history advantages with the frozen posterior point estimates
+and simultaneous lower-bound gate. The oracle vault is accessed only by this
+offline diagnostic; no policy subprocess or holdout was opened.
+
+Across all runs, 12 of 48 states contain an oracle action with
+`Delta_T*>0` and `Delta_F*>=0` (existence rate 0.25), so T/F conflict is not a
+universal explanation. At MC512 and MC1024, posterior recall of those actions
+is 0.417, terminal sign accuracy is about 0.418 and selected-history sign
+accuracy about 0.300. Point-feasible action rejection by the dual numerical
+gate falls from 0.938 (MC128) to 0.726 (MC512) and 0.628 (MC1024), but remains
+large. Nominal terminal interval coverage is 0.593, 0.325 and 0.277 at
+MC128/512/1024; this is a numerical diagnostic only, not a posterior
+calibration guarantee. Posterior point-action oracle regret falls from 0.3125
+to 0.2500 to 0.1875 eV/atom.
+
+The feasible oracle actions occur only in ternary and quaternary-or-higher
+states of this tranche (six each; none in binary states). The evidence supports
+local gate conservatism and joint rollout advantage misspecification as leading
+causes, with structural T/F conflict present but not universal. It does not
+justify changing the backbone, tuning the gate on these systems, or claiming a
+positive method result. A future dual-horizon method must be a new
+campaign-level constrained rollout evaluated on a new development split.
