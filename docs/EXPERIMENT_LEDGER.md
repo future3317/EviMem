@@ -1264,3 +1264,20 @@ remains a correct but mechanism-failed development diagnostic. IC-SARR and
 exact action-parity hull backends remain frozen. Any continuation of this idea
 must be independently named campaign-level constrained rollout work on new
 development systems.
+
+## E35 -- Campaign-Gated IC-SARR implementation (2026-07-22)
+
+The first restricted campaign-level construction is implemented in
+`matmem.campaign_gated_ic_sarr`. It compares exactly two complete adaptive
+policies, source-margin and the frozen IC-SARR, under paired outer posterior
+energy worlds. Each simulated policy conditions on its own previously revealed
+world outcomes; the same world is used for both policies, while IC-SARR's
+inner RQMC stream remains seed-separated from the outer world stream. A single
+system-level Bonferroni gate selects IC-SARR only when the campaign terminal
+lower bound is positive and the selected-history lower bound is non-negative.
+
+This is a posterior-relative development API, not an oracle evaluator or a
+production policy subprocess. It has deterministic fixture coverage, but has
+not been run on a new development tranche. The full Pareto/set-valued Bellman
+formulation remains proposal-only. No Dual-Horizon threshold, backbone,
+chemistry rule, or opened-system result was changed.

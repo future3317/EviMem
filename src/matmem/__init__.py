@@ -32,6 +32,7 @@ from .calibration_utility import (
     reference_decision_regret,
     threshold_weighted_crps_divergence,
 )
+from .campaign_gate import CampaignGatedICSARRResult, campaign_gated_ic_sarr
 from .cards import HullSnapshot, MaterialMemoryCard, MaterialQuery, SourceProvenance
 from .chic import (
     GradientMatchResult,
@@ -427,4 +428,6 @@ __all__ = [
     "reference_decision_regret",
     "smooth_decision_update_deviation_bound",
     "threshold_weighted_crps_divergence",
+    "CampaignGatedICSARRResult",
+    "campaign_gated_ic_sarr",
 ]
