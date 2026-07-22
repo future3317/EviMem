@@ -1016,6 +1016,28 @@ steps are an action-parity-preserving implementation optimization followed by
 a newly reserved disjoint evaluation, not tuning the policy against these 230
 opened development systems.
 
+### E28. IC-SARR terminal-metric and backend regression audit (2026-07-22)
+
+**Implementation audit; no new method result.** The runner now records the
+causal-time announcement count `D`, selected-history retained confirmation
+count `F`, and complete oracle-pool adjudicated confirmation count `T` as
+different quantities, checks `T <= F <= D` at evaluation time, and records
+`D-F` and `F-T` separately. Reanalysis of the immutable five-fold outputs
+gives `(D,F,T)=(4.322,4.083,3.622)` for source margin and
+`(4.643,4.096,3.783)` for IC-SARR. This explains the narrow effect: the
+terminal gain `+0.161` is associated with `+0.309` within-campaign revocations
+and `-0.148` unqueried-competitor invalidations, not a final-causal gain.
+
+The fixed-composition lower-hull backend was also checked in a read-only
+one-system action/membership parity audit against pymatgen (budget two,
+MC32): no action or sample-membership mismatch occurred. Cached geometry took
+2.312 seconds versus 5.197 seconds for pymatgen on that fixture. A separate
+one-system IC-SARR runner regression verified the updated evaluator and reveal
+boundary only. Both outputs remain outside Git under
+`/home/workspace/lrh/DATA/EviMem-RL/outputs/audits/ic-sarr-feedback-fixed-backend-parity-v1/`.
+Neither audit changes the posterior, reward, continuation, integration gate,
+or the five-fold effect estimate.
+
 ## Superseded, invalid and incomplete evidence
 
 | Evidence | Required treatment |

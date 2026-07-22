@@ -55,6 +55,37 @@ have intervals crossing zero, as expected at 46-system scale. Among systems
 whose terminal result changes, IC-SARR wins 50 of 68 (73.5%); 162 systems tie
 because source margin often reaches the finite-pool ceiling.
 
+## Terminal-adjudication decomposition
+
+The three hull counts are separate estimands, not interchangeable names for
+"discovery."  Let `D` be causal-time announcements, `F` be confirmations
+that remain on the selected-history hull after the campaign, and `T` be
+queried members of the complete oracle-pool hull.  With the common hull
+tolerance and duplicate-composition rule, every trace satisfies `T <= F <= D`.
+The runner now enforces that order and reports the two resulting failure modes
+directly: within-campaign revocation `D - F` and unqueried-competitor
+invalidation `F - T`.
+
+| System-macro count | Source margin | IC-SARR | IC-SARR - source |
+|---|---:|---:|---:|
+| Causal-time announcements `D` | 4.322 | 4.643 | +0.322 |
+| Within-campaign retained confirmations `F` | 4.083 | 4.096 | +0.013 |
+| Full-pool adjudicated confirmations `T` | 3.622 | 3.783 | +0.161 |
+| Within-campaign revocations `D-F` | 0.239 | 0.548 | +0.309 |
+| Unqueried-competitor invalidations `F-T` | 0.461 | 0.313 | -0.148 |
+
+Thus the terminal gain is not a causal-time confirmation gain. IC-SARR makes
+more provisional online announcements, most of whose incremental amount is
+subsequently revoked inside the same campaign, while reducing the number of
+final-causal survivors that fail complete-pool adjudication. The correct
+paper-facing claim remains only an improvement in the last row's complement:
+the budget buys more **full-pool adjudicated confirmations**.
+
+For descriptive context, the system-macro causal-retention rate `F/D` is
+0.930 for source margin and 0.859 for IC-SARR; the system-macro oracle-validity
+rate `T/F` is 0.874 and 0.905, respectively. These ratios are undefined for a
+system with a zero denominator and are not used as a primary objective.
+
 IC-SARR exercised the independent numerical gate: across 1,380 query rounds,
 327 actions were accepted by the simultaneous stage-one SARR screen, 332
 positive-but-unresolved states entered stage two, and 224 stage-two comparisons
@@ -79,6 +110,25 @@ load, so this report does not make a stable hardware-speed claim. Any future
 performance rewrite must first pass action-, hull- and reveal-parity tests
 against these frozen traces; it must not change the posterior, terminal reward,
 source continuation, or IC-SARR gate while being described as an optimization.
+
+## Feedback-driven implementation audit
+
+The cached fixed-composition backend was retested after the metric update on
+2026-07-22. A read-only one-system audit (`Co-F-Li-O`, task/vault checksums
+above, budget two, MC32) obtained identical Delta-Hull selected-action traces
+and all 32 sampled final-hull membership vectors against the pymatgen backend.
+The measured wall time was 2.312 seconds with cached geometry versus 5.197
+seconds with pymatgen; this is an engineering observation, not a policy result.
+The audit manifest is outside Git at
+`/home/workspace/lrh/DATA/EviMem-RL/outputs/audits/ic-sarr-feedback-fixed-backend-parity-v1/`.
+
+The same audit run exercised the IC-SARR runner once on an already-opened
+development regression fixture (`Ag-S`) with the fixed backend. Its purpose
+was only to confirm that the full reveal boundary and the new `D,F,T` metrics
+execute together; it is not compared with a newly selected method and is not
+included in any effect estimate. The source and IC-SARR traces respectively
+gave `(D,F,T)=(4,1,1)` and `(2,1,0)`, illustrating why a one-system rerun must
+not be treated as scientific evidence.
 
 This is a five-fold development replication, not a sealed external evaluation
 or a claim of real DFT deployment benefit. The manuscript may report the
