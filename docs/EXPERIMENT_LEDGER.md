@@ -1186,3 +1186,16 @@ fresh-systems or paper-level run. Any future dual-horizon research must use a
 campaign-level constrained rollout over complete policies, as specified in
 `docs/CAMPAIGN_LEVEL_CONSTRAINED_ROLLOUT.md`, rather than tune the local
 selected-history lower-bound gate on opened systems.
+
+## E31 -- Holdout availability audit (2026-07-22)
+
+The server-side task audit found no untouched MatPES exact-system holdout in the
+currently provisioned artifacts. The v6 CHGNet development task and the
+all-eligible task contain the same 324 systems and 10,236 pairs. The 230
+systems used for IC-SARR folds 1--5, fold 0 used for Source-Rollout
+development, and the 48-system historical confirmatory task together cover
+those 324 systems; the 48-system task also overlaps the v6 task exactly. Thus
+the existing 48-system output cannot be relabeled as a fresh IC-SARR holdout.
+No retraining or IC-SARR execution was launched from this audit. A valid
+primary test requires a new upstream MatPES pool/release (or an independently
+constructed protocol dataset) with a frozen source-vs-IC-SARR split.
