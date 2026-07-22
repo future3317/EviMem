@@ -1202,7 +1202,6 @@ def _source_rollout_rewards(
     reference_energies: np.ndarray,
     horizon: int,
     first_action_indices: Sequence[int] | None = None,
-    reuse_transition_cache: bool = True,
 ) -> np.ndarray:
     """Evaluate requested first actions under a source-margin continuation.
 
@@ -1245,13 +1244,6 @@ def _source_rollout_rewards(
         raise ValueError("source rollout first action is out of range")
     rewards = np.empty((sample_count, len(action_indices)), dtype=np.float64)
     geometry_cache: dict[tuple[int, ...], _CausalHullEnvelope] = {}
-    # Within one posterior sample, source continuation is a deterministic
-    # function of the unordered set of simulated reveals. Different candidate
-    # first actions can reach the same set (for example, x then y and y then
-    # x), so its next action can be reused exactly. This cache holds only
-    # observable simulated state and never changes samples, reward, tolerance,
-    # or the source-policy tie break.
-    transition_cache: dict[tuple[int, tuple[int, ...]], int] = {}
 
     def geometry(selected: tuple[int, ...]) -> _CausalHullEnvelope:
         cached = geometry_cache.get(selected)
@@ -1274,47 +1266,22 @@ def _source_rollout_rewards(
                 groups.setdefault(key, []).append(sample_index)
             for key, row_indices in groups.items():
                 rows = np.asarray(row_indices, dtype=np.int64)
-                next_actions = np.empty(len(rows), dtype=np.int64)
-                missing_positions: list[int] = []
-                if reuse_transition_cache:
-                    for position, sample_index in enumerate(rows):
-                        cached = transition_cache.get((int(sample_index), key))
-                        if cached is None:
-                            missing_positions.append(position)
-                        else:
-                            next_actions[position] = cached
-                else:
-                    missing_positions = list(range(len(rows)))
-                if not missing_positions:
-                    selected[rows, next_actions] = True
-                    continue
-                missing = np.asarray(missing_positions, dtype=np.int64)
-                missing_rows = rows[missing]
                 envelope = geometry(key)
                 active_energies = np.column_stack(
                     (
-                        np.broadcast_to(
-                            references,
-                            (len(missing_rows), len(references)),
-                        ),
-                        samples[np.ix_(missing_rows, np.asarray(key, dtype=np.int64))],
+                        np.broadcast_to(references, (len(rows), len(references))),
+                        samples[np.ix_(rows, np.asarray(key, dtype=np.int64))],
                     )
                 )
                 hull = envelope.competing_hull_energies(active_energies)
                 eligible = np.ones(query_count, dtype=bool)
                 eligible[np.asarray(key, dtype=np.int64)] = False
-                computed_actions = source_margin_action_indices(
+                next_actions = source_margin_action_indices(
                     source_energies=source,
                     competing_hull_energies=hull,
                     query_ids=query_ids,
                     eligible=eligible,
                 )
-                next_actions[missing] = computed_actions
-                if reuse_transition_cache:
-                    for sample_index, action in zip(
-                        missing_rows, computed_actions, strict=True
-                    ):
-                        transition_cache[(int(sample_index), key)] = int(action)
                 selected[rows, next_actions] = True
         rewards[:, output_index] = np.sum(selected & labels, axis=1)
     return rewards

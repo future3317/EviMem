@@ -1038,6 +1038,19 @@ boundary only. Both outputs remain outside Git under
 Neither audit changes the posterior, reward, continuation, integration gate,
 or the five-fold effect estimate.
 
+### E29. Source-rollout suffix-memoization microbenchmark (2026-07-22)
+
+**Engineering NO-GO; removed.** A candidate action-preserving cache reused a
+source-continuation transition when two simulated first-action paths reached
+the same posterior-sample/selected-set state. It preserved every synthetic
+reward exactly, but on the representative fixed-geometry microbenchmark
+(`12` candidates, horizon `6`, `512` posterior samples) took 0.114712 seconds
+versus 0.107461 seconds for the existing vectorized grouped evaluator
+(`0.9368x`). Python dictionary bookkeeping outweighed the small amount of
+state convergence at current pools. The cache was removed rather than retained
+as inactive complexity. The composition-geometry cache remains because its
+separate pymatgen parity audit gives a positive engineering result.
+
 ## Superseded, invalid and incomplete evidence
 
 | Evidence | Required treatment |
