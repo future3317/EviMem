@@ -371,6 +371,46 @@ def test_dual_horizon_causal_reward_uses_selected_history_only() -> None:
     assert np.all(causal >= 0.0)
 
 
+def test_dual_horizon_causal_reward_matches_manual_phase_diagram() -> None:
+    from matmem.protocol_knowledge_gradient import _source_rollout_rewards
+    from pymatgen.analysis.phase_diagram import PhaseDiagram
+    from pymatgen.core import Composition
+    from pymatgen.entries.computed_entries import ComputedEntry
+
+    compositions = (
+        {"A": 0.5, "B": 0.5},
+        {"A": 0.25, "B": 0.75},
+        {"A": 0.75, "B": 0.25},
+    )
+    energies = np.asarray([[-0.2, -0.1, -0.3]])
+    references = ({"A": 1.0}, {"B": 1.0})
+    reference_energies = np.zeros(2)
+    causal = np.empty((1, 3), dtype=float)
+    rewards = _source_rollout_rewards(
+        sampled_query_energies=energies,
+        final_hull_membership=np.zeros((1, 3), dtype=bool),
+        query_compositions=compositions,
+        query_source_energies=np.zeros(3),
+        query_ids=("a", "b", "c"),
+        reference_compositions=references,
+        reference_energies=reference_energies,
+        horizon=1,
+        causal_rewards_output=causal,
+    )
+    expected = []
+    for index in range(3):
+        entries = [
+            ComputedEntry(Composition(comp), energy * Composition(comp).num_atoms)
+            for comp, energy in zip(references, reference_energies, strict=True)
+        ]
+        comp = Composition(compositions[index])
+        entries.append(ComputedEntry(comp, energies[0, index] * comp.num_atoms))
+        stable = PhaseDiagram(entries).stable_entries
+        expected.append(float(any(entry.composition.reduced_formula == comp.reduced_formula for entry in stable)))
+    np.testing.assert_array_equal(causal[0], np.asarray(expected))
+    assert rewards.shape == (1, 3)
+
+
 def test_conformal_source_rollout_calibration_is_system_clustered() -> None:
     score = source_rollout_system_score(
         np.asarray([[0.2, 0.1], [0.0, -0.3]]),
