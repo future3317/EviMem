@@ -737,6 +737,49 @@ def test_source_rollout_evaluator_matches_manual_pymatgen_continuation() -> None
     np.testing.assert_array_equal(actual, expected)
 
 
+def test_source_rollout_transition_cache_is_exact() -> None:
+    """Cross-first-action suffix reuse must not alter any rollout reward."""
+
+    from matmem.protocol_knowledge_gradient import (
+        _final_hull_membership,
+        _source_rollout_rewards,
+    )
+
+    compositions = (
+        {"A": 0.2, "B": 0.8},
+        {"A": 0.4, "B": 0.6},
+        {"A": 0.6, "B": 0.4},
+        {"A": 0.8, "B": 0.2},
+    )
+    references = ({"A": 1.0}, {"B": 1.0})
+    samples = np.asarray(
+        [
+            [-0.34, -0.27, -0.29, -0.31],
+            [-0.21, -0.43, -0.39, -0.18],
+            [-0.37, -0.33, -0.22, -0.41],
+            [-0.26, -0.45, -0.32, -0.35],
+        ]
+    )
+    kwargs = dict(
+        sampled_query_energies=samples,
+        final_hull_membership=_final_hull_membership(
+            query_compositions=compositions,
+            sampled_query_energies=samples,
+            reference_compositions=references,
+            reference_energies=np.zeros(2),
+        ),
+        query_compositions=compositions,
+        query_source_energies=np.asarray([-0.30, -0.28, -0.26, -0.24]),
+        query_ids=("q4", "q2", "q3", "q1"),
+        reference_compositions=references,
+        reference_energies=np.zeros(2),
+        horizon=4,
+    )
+    uncached = _source_rollout_rewards(**kwargs, reuse_transition_cache=False)
+    cached = _source_rollout_rewards(**kwargs, reuse_transition_cache=True)
+    np.testing.assert_array_equal(cached, uncached)
+
+
 def test_source_rollout_finds_full_budget_improvement_over_myopic_source() -> None:
     posterior = ProtocolTargetEnergyPosterior(
         mean=(-0.2, -0.5, -0.5),
