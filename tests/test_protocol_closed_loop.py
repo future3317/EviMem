@@ -463,6 +463,41 @@ def test_source_rollout_drives_only_authorized_reveals(tmp_path: Path) -> None:
         )
 
 
+def test_dual_horizon_rollout_drives_only_authorized_reveals(tmp_path: Path) -> None:
+    candidates, outcomes = _fixture()
+    vault = ProtocolOracleVault(outcomes, expected_split="fixture")
+    event_log = AppendOnlyProtocolEventLog(tmp_path / "dual-horizon-rollout.jsonl")
+    runner = SecureProtocolQueryRunner(
+        candidates=candidates,
+        vault=vault,
+        causal_hull=ProtocolCausalHull(
+            (
+                ComputedEntry("Fe", 0.0, entry_id="Fe"),
+                ComputedEntry("Zr", 0.0, entry_id="Zr"),
+            ),
+            chemical_system=("Fe", "Zr"),
+        ),
+        policy=ProtocolPolicySubprocess(
+            "constrained_dual_horizon_source_rollout",
+            transport_model=_protocol_transport_fixture(),
+            posterior_sample_count=32,
+            hull_backend="fixed_composition",
+        ),
+        event_log=event_log,
+    )
+    result = runner.run(oracle_budget=2)
+    event_log.close()
+    assert result.selected_pair_ids == result.revealed_pair_ids == vault.revealed_pair_ids
+    for event in result.events:
+        diagnostics = event.selection_diagnostics
+        assert diagnostics is not None
+        assert diagnostics["kind"] == "constrained_dual_horizon_source_rollout"
+        assert diagnostics["selected_pair_id"] == event.selected_pair_id
+        assert len(diagnostics["terminal_block_scores"]) == 16
+        assert len(diagnostics["causal_block_scores"]) == 16
+        assert set(diagnostics["feasible_mask"]) == set(diagnostics["candidate_pair_ids"])
+
+
 def test_protocol_hull_policy_falls_back_on_unseen_elements(tmp_path: Path) -> None:
     unsupported = fit_protocol_ridge_transport(
         features=np.asarray([[0.0, 1.0], [1.0, 1.0], [0.2, 0.0], [0.8, 0.0]]),
