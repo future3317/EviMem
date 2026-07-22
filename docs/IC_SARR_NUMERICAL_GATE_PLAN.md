@@ -1,9 +1,9 @@
 # IC-SARR numerical-gate plan
 
-**Status:** implementation complete; no real-data IC-SARR trace has run.
-Authorized by the completed SARR MC8192 numerical opportunity-cost audit, this
-file does not authorize a performance claim, evaluation-system access, or a
-change to `source_rollout_delta_hull`.
+**Status:** five-fold development replication complete; no external evaluation
+has run. Authorized by the completed SARR MC8192 numerical opportunity-cost
+audit, this file does not authorize a general performance claim,
+evaluation-system access, or a change to `source_rollout_delta_hull`.
 
 ## Question
 
@@ -93,8 +93,16 @@ it is not a per-system effect result and does not authorize a method change.
 
 ## Decision boundary
 
-IC-SARR is a numerical-gate diagnostic. It may only become a paper-facing
-method candidate if it first preserves the existing source/reveal invariants
-and then replicates on multiple unused cross-fit folds. A fold-level
-oracle-final improvement or a higher posterior rollout score alone is not a
-GO decision.
+IC-SARR preserves the existing source/reveal invariants and has now replicated
+the registered terminal oracle-final metric over five unused development folds:
+`+0.161` confirmations/system, 95% system-bootstrap interval
+`[+0.083,+0.239]`, and 50/162/18 system wins/ties/losses. The full immutable
+artifact inventory, secondary metrics and scope boundary are in
+`docs/IC_SARR_FIVE_FOLD_RESULTS.md`.
+
+This clears the method's **development replication** gate. It is not an
+external evaluation or a general deployment guarantee: final causal
+confirmation is not improved reliably, and the implementation is slower. Any
+future method change must reserve a new disjoint evaluation partition; an
+action-parity-preserving phase-diagram performance optimization is allowed as
+an engineering task but cannot be reported as a changed policy.

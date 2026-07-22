@@ -990,6 +990,32 @@ the v6 task and cross-fit manifest checksums, and records
 `evaluation_systems_accessed=false`. This authorizes the precommitted fold-1
 run unchanged; it adds no outcome comparison and does not revise any method.
 
+### E27. IC-SARR five-fold development replication (2026-07-22)
+
+**Authoritative development evidence; not external confirmation.** The
+precommitted IC-SARR policy then ran once on each unused cross-fit fold 1--5,
+with 46 exact chemical systems per fold, budget six, identical task/vault/
+manifest checksums, fixed MC1024/MC8192 integration, and no evaluation-system
+access. No posterior, terminal reward, source continuation, gate, seed or
+system selection changed after fold 1. The full artifact hashes and
+system-level table are recorded in `docs/IC_SARR_FIVE_FOLD_RESULTS.md`.
+
+Against source margin, terminal oracle-pool confirmations improve by `+0.161`
+per system over 230 systems, with deterministic system-bootstrap 95% interval
+`[+0.083,+0.239]` and 50/162/18 wins/ties/losses. Every individual fold has a
+positive point estimate (`+0.109` to `+0.196`). The independent confirmation
+gate is materially exercised: 332 positive-but-unresolved states enter stage
+two and 224 pass it. This establishes a reproducible, narrow real-data
+development signal for nonmyopic source-anchored terminal confirmation.
+
+The result does **not** establish universal discovery superiority. Final causal
+confirmation is only `+0.013` per system overall and its interval crosses zero;
+myopic action regret increases by `+0.135` eV/atom; and the reference rollout
+is slower by `+22.35` seconds/system on a shared server. The correct next
+steps are an action-parity-preserving implementation optimization followed by
+a newly reserved disjoint evaluation, not tuning the policy against these 230
+opened development systems.
+
 ## Superseded, invalid and incomplete evidence
 
 | Evidence | Required treatment |
