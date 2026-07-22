@@ -1241,7 +1241,7 @@ gate falls from 0.938 (MC128) to 0.726 (MC512) and 0.628 (MC1024), but remains
 large. Nominal terminal interval coverage is 0.593, 0.325 and 0.277 at
 MC128/512/1024; this is a numerical diagnostic only, not a posterior
 calibration guarantee. Posterior point-action oracle regret falls from 0.3125
-to 0.2500 to 0.1875 eV/atom.
+to 0.2500 to 0.1875 terminal confirmation/reward units (not eV/atom).
 
 The feasible oracle actions occur only in ternary and quaternary-or-higher
 states of this tranche (six each; none in binary states). The evidence supports
@@ -1250,3 +1250,17 @@ causes, with structural T/F conflict present but not universal. It does not
 justify changing the backbone, tuning the gate on these systems, or claiming a
 positive method result. A future dual-horizon method must be a new
 campaign-level constrained rollout evaluated on a new development split.
+
+## E34 -- Dual-Horizon attribution closure (2026-07-22)
+
+The MC128/512/1024 convergence tranche closes the current local Dual-Horizon
+diagnostic. The posterior point ranking still contains signal, so a backbone
+replacement is not supported. The failure is attributed to model-relative
+joint advantage/covariance mismatch amplified by the per-state dual lower-bound
+gate; T/F structural conflict is present but not universal. The project will
+not increase MC, tune `LB_F` or other thresholds, add chemistry heuristics, or
+replace the gate with the point selector on these opened systems. Dual-Horizon
+remains a correct but mechanism-failed development diagnostic. IC-SARR and
+exact action-parity hull backends remain frozen. Any continuation of this idea
+must be independently named campaign-level constrained rollout work on new
+development systems.

@@ -100,9 +100,12 @@ not universal. A backbone replacement is not justified. Any future dual-horizon
 method must be a separately defined campaign-level constrained rollout, not a
 tuned version of this local gate.
 
-At MC1024, mean oracle terminal regret was 0.250 eV/atom for the source action,
-0.250 for the recorded trace action, and 0.271 for the dual-gate action. The
-point selector's regret was 0.188 eV/atom. Among all action candidates, the
+At MC1024, mean oracle terminal **reward** regret was 0.250 confirmation/reward
+units for the source action, 0.250 for the recorded trace action, and 0.271
+for the dual-gate action. The point selector's regret was 0.188
+confirmation/reward units. These are differences in terminal reward (the
+number of retained/full-pool confirmations), not formation-energy errors and
+must not be reported in eV/atom. Among all action candidates, the
 posterior point mask recovered 5 oracle-feasible actions and the numerical gate
 recovered none; it nevertheless marked 15 oracle-infeasible actions as gate
 feasible. This is a direct action-level diagnostic of both missed feasible
