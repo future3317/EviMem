@@ -502,7 +502,6 @@ class ProtocolPolicySubprocess:
             "source_online_affine",
             "ridge_margin",
             "ridge_uncertainty",
-            "chic_hull_influence",
             "ridge_predicted_final_margin",
             "delta_hull_active_search",
             "source_rollout_delta_hull",

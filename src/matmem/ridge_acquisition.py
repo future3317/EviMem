@@ -1,10 +1,4 @@
-"""Convex-hull influence gradients and joint gradient matching.
-
-CHIC does not delete outcomes from the scientific archive.  It selects which
-revealed examples an expensive optimizer reads in one update.  Its target is a
-downstream hull-decision gradient obtained from the subgradient of the
-composition-constrained competing-hull LP.
-"""
+"""Ridge hull acquisition baselines for protocol closed-loop experiments."""
 
 from __future__ import annotations
 
@@ -12,7 +6,7 @@ import math
 
 import numpy as np
 from pydantic import BaseModel, ConfigDict, Field
-from scipy.optimize import linprog, nnls
+from scipy.optimize import linprog
 
 
 class HullMarginSubgradient(BaseModel):
@@ -25,18 +19,6 @@ class HullMarginSubgradient(BaseModel):
     margin: float
     predicted_energy_subgradient: tuple[float, ...]
     competing_weights: tuple[float, ...]
-
-
-class GradientMatchResult(BaseModel):
-    """Deterministic non-negative joint gradient approximation."""
-
-    model_config = ConfigDict(frozen=True, extra="forbid")
-
-    selected_indices: tuple[int, ...]
-    weights: tuple[float, ...]
-    initial_error_norm: float
-    residual_norm: float
-    budget_used: float
 
 
 class HullInfluenceAcquisitionResult(BaseModel):
@@ -127,9 +109,9 @@ def hull_margin_subgradient(
     if solved.status == 2:
         return None
     if not solved.success or solved.fun is None or solved.x is None:
-        raise RuntimeError(f"CHIC competing-hull LP failed: {solved.message}")
+        raise RuntimeError(f"competing-hull LP failed: {solved.message}")
     if np.max(np.abs(a_eq @ solved.x - b_eq)) > feasibility_tolerance:
-        raise RuntimeError("CHIC competing-hull LP returned an infeasible mixture")
+        raise RuntimeError("competing-hull LP returned an infeasible mixture")
 
     reference_count = len(reference_e)
     energy_gradient = np.zeros(len(predicted_e), dtype=np.float64)
@@ -143,77 +125,6 @@ def hull_margin_subgradient(
         margin=float(predicted_e[candidate_index] - hull_energy),
         predicted_energy_subgradient=tuple(float(value) for value in energy_gradient),
         competing_weights=tuple(float(value) for value in solved.x),
-    )
-
-
-def joint_nonnegative_gradient_match(
-    target_gradient: np.ndarray,
-    sample_gradients: np.ndarray,
-    *,
-    max_items: int,
-    costs: np.ndarray | None = None,
-    budget: float | None = None,
-    minimum_improvement: float = 1e-12,
-) -> GradientMatchResult:
-    """Greedily choose a set, refitting all non-negative weights jointly.
-
-    Each step tries every legal addition and solves the exact NNLS problem for
-    that candidate set.  This avoids singleton utility: redundancy and
-    complementarity are evaluated after jointly refitting the selected set.
-    """
-
-    target = np.asarray(target_gradient, dtype=np.float64).reshape(-1)
-    gradients = np.asarray(sample_gradients, dtype=np.float64)
-    if gradients.ndim != 2 or gradients.shape[1] != len(target):
-        raise ValueError("sample gradients and target gradient have inconsistent shapes")
-    if not np.isfinite(target).all() or not np.isfinite(gradients).all():
-        raise ValueError("gradient matching inputs must be finite")
-    if max_items < 0:
-        raise ValueError("max_items cannot be negative")
-    item_costs = (
-        np.ones(len(gradients), dtype=np.float64)
-        if costs is None
-        else np.asarray(costs, dtype=np.float64).reshape(-1)
-    )
-    if len(item_costs) != len(gradients) or np.any(~np.isfinite(item_costs)) or np.any(item_costs <= 0):
-        raise ValueError("gradient costs must be finite and positive")
-    allowed_budget = float(item_costs.sum()) if budget is None else float(budget)
-    if not math.isfinite(allowed_budget) or allowed_budget < 0:
-        raise ValueError("gradient budget must be finite and non-negative")
-    if not math.isfinite(minimum_improvement) or minimum_improvement < 0:
-        raise ValueError("minimum improvement must be finite and non-negative")
-
-    initial_norm = float(np.linalg.norm(target))
-    selected: list[int] = []
-    weights = np.empty(0, dtype=np.float64)
-    residual_norm = initial_norm
-    budget_used = 0.0
-    while len(selected) < min(max_items, len(gradients)):
-        best: tuple[float, float, int, np.ndarray] | None = None
-        for index in range(len(gradients)):
-            if index in selected or budget_used + item_costs[index] > allowed_budget + 1e-12:
-                continue
-            trial = [*selected, index]
-            trial_weights, trial_residual = nnls(gradients[trial].T, target)
-            improvement = residual_norm - float(trial_residual)
-            score = improvement / item_costs[index]
-            candidate = (score, improvement, -index, trial_weights)
-            if best is None or candidate[:3] > best[:3]:
-                best = candidate
-        if best is None or best[1] <= minimum_improvement:
-            break
-        index = -best[2]
-        selected.append(index)
-        budget_used += float(item_costs[index])
-        weights, residual_norm = nnls(gradients[selected].T, target)
-        residual_norm = float(residual_norm)
-
-    return GradientMatchResult(
-        selected_indices=tuple(selected),
-        weights=tuple(float(value) for value in weights),
-        initial_error_norm=initial_norm,
-        residual_norm=residual_norm,
-        budget_used=budget_used,
     )
 
 
@@ -282,7 +193,7 @@ def linear_ridge_hull_influence_acquisition(
     A ridge model predicts the target-minus-source protocol discrepancy from
     policy-visible source features.  For a possible query ``i``, a Gaussian
     working model gives an expected absolute sample-gradient magnitude
-    proportional to its predictive standard deviation.  CHIC multiplies that
+    proportional to its predictive standard deviation.  The ridge baseline multiplies that
     quantity by the alignment between the sample direction and the current
     composition-dependent hull-risk gradient.  No unrevealed target outcome is
     an input, and the uncertainty is a working acquisition scale rather than a
@@ -298,13 +209,13 @@ def linear_ridge_hull_influence_acquisition(
     history_source = np.asarray(history_source_energies, dtype=np.float64).reshape(-1)
     history_target = np.asarray(history_target_energies, dtype=np.float64).reshape(-1)
     if query_x.ndim != 2 or not len(query_x) or len(source) != len(query_x):
-        raise ValueError("CHIC query features and source energies have inconsistent shapes")
+        raise ValueError("ridge query features and source energies have inconsistent shapes")
     if len(competing_hull) != len(query_x):
-        raise ValueError("CHIC competing hull energies have inconsistent shapes")
+        raise ValueError("ridge competing hull energies have inconsistent shapes")
     if history_x.ndim != 2 or history_x.shape[1] != query_x.shape[1]:
-        raise ValueError("CHIC history and query features use different dimensions")
+        raise ValueError("ridge history and query features use different dimensions")
     if len(history_x) != len(history_source) or len(history_x) != len(history_target):
-        raise ValueError("CHIC history arrays have inconsistent shapes")
+        raise ValueError("ridge history arrays have inconsistent shapes")
     arrays = (
         query_x,
         source,
@@ -314,7 +225,7 @@ def linear_ridge_hull_influence_acquisition(
         history_target,
     )
     if any(not np.isfinite(values).all() for values in arrays):
-        raise ValueError("CHIC acquisition inputs must be finite")
+        raise ValueError("ridge acquisition inputs must be finite")
     if (
         not math.isfinite(ridge_penalty)
         or ridge_penalty <= 0
@@ -323,14 +234,14 @@ def linear_ridge_hull_influence_acquisition(
         or not math.isfinite(boundary_temperature)
         or boundary_temperature <= 0
     ):
-        raise ValueError("CHIC ridge, prior and boundary scales must be finite and positive")
+        raise ValueError("ridge, prior and boundary scales must be finite and positive")
     item_costs = (
         np.ones(len(query_x), dtype=np.float64)
         if costs is None
         else np.asarray(costs, dtype=np.float64).reshape(-1)
     )
     if len(item_costs) != len(query_x) or np.any(~np.isfinite(item_costs)) or np.any(item_costs <= 0):
-        raise ValueError("CHIC query costs must be finite and positive")
+        raise ValueError("ridge query costs must be finite and positive")
 
     query_design, _, _, _, predicted, predictive_std = _ridge_working_state(
         query_x=query_x,
@@ -457,25 +368,3 @@ def linear_ridge_predicted_final_hull_acquisition(
         feasible_margin_count=feasible,
     )
 
-
-def smooth_decision_update_deviation_bound(
-    *,
-    update_direction_error: float,
-    step_size: float,
-    downstream_gradient_norm: float,
-    smoothness: float,
-) -> float:
-    """One-step decision-loss deviation bound for a selected update."""
-
-    values = (
-        update_direction_error,
-        step_size,
-        downstream_gradient_norm,
-        smoothness,
-    )
-    if any(not math.isfinite(value) or value < 0 for value in values):
-        raise ValueError("decision-update bound inputs must be finite and non-negative")
-    return (
-        step_size * downstream_gradient_norm * update_direction_error
-        + 0.5 * smoothness * step_size**2 * update_direction_error**2
-    )

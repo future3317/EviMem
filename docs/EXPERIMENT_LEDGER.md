@@ -1184,7 +1184,7 @@ ID exactly and reduced its wall time to 31.18 seconds/system (SARR 7.37), so
 the optimization is numerical only. The signal is insufficient to authorize a
 fresh-systems or paper-level run. Any future dual-horizon research must use a
 campaign-level constrained rollout over complete policies, as specified in
-`docs/CAMPAIGN_LEVEL_CONSTRAINED_ROLLOUT.md`, rather than tune the local
+`docs/CAMPAIGN_GATED_IC_SARR.md`, rather than tune the local
 selected-history lower-bound gate on opened systems.
 
 ## E31 -- Holdout availability audit (2026-07-22)

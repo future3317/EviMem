@@ -67,7 +67,6 @@ POLICIES = (
     "source_online_affine",
     "ridge_margin",
     "ridge_uncertainty",
-    "chic_hull_influence",
     "ridge_predicted_final_margin",
     "delta_hull_active_search",
     "source_rollout_delta_hull",
@@ -505,13 +504,13 @@ def run(
     config: ExperimentConfig,
 ) -> None:
     if output_path.exists():
-        raise FileExistsError("CHIC closed-loop output already exists")
+        raise FileExistsError("MatPES closed-loop output already exists")
     repo_root = Path(__file__).resolve().parents[1]
     if output_path.resolve().is_relative_to(repo_root):
-        raise ValueError("CHIC exploratory output must remain outside Git")
+        raise ValueError("MatPES exploratory output must remain outside Git")
     trace_dir = output_path.with_suffix("")
     if trace_dir.exists():
-        raise FileExistsError("CHIC closed-loop trace directory already exists")
+        raise FileExistsError("MatPES closed-loop trace directory already exists")
     trace_dir.mkdir(parents=True)
 
     task = json.loads(task_path.read_text(encoding="utf-8"))
@@ -534,7 +533,7 @@ def run(
                 for system, rows in by_system.items()
                 if len(rows) >= config.minimum_candidates
             ),
-            key=lambda system: _stable_hash(release_id, "chic-closed-loop-v1", system),
+            key=lambda system: _stable_hash(release_id, "matpes-closed-loop-v2", system),
         )[: config.max_systems]
     else:
         query_systems = list(config.query_systems)
@@ -987,7 +986,7 @@ def main() -> None:
         or not config.policies
         or len(set(config.policies)) != len(config.policies)
     ):
-        raise ValueError("CHIC closed-loop exploratory configuration is invalid")
+        raise ValueError("MatPES closed-loop exploratory configuration is invalid")
     run(
         task_path=args.task,
         development_vault_path=args.development_vault,

@@ -258,38 +258,17 @@ significantly worse than naive source-as-target for both hull error and action
 regret. Those opened systems are development-closed. Another representation or
 threshold adjustment on the same task is not authorized.
 
-## 7. Active continuation: CHIC
+## 7. Retired gradient-selection line
 
-CHIC changes two assumptions that invalidated the previous development loop.
-First, the selected action is persisted and becomes the only legal oracle
-reveal; no fixed hash trajectory substitutes for deployment. Second, the
-capacity applies to an expensive gradient update, not to whether an observed
-outcome remains scientific evidence.
+The former CHIC gradient-matching proposal is stopped.  Its fixed-trace and
+closed-loop diagnostics did not beat diversity, hard-example selection, or the
+source-margin policy, and the task did not expose a binding gradient-update
+budget.  The implementation and dedicated tests were removed from the live
+branch.  Complete results and stopping rationale remain in
+`docs/EXPERIMENT_LEDGER.md` and the recovery tag `pre-cleanup-20260726`.
 
-For model parameters `theta`, candidate margin `m_x` and the legal competing
-hull LP weights `lambda*`, CHIC uses
-
-\[
-\nabla_\theta m_x=
-\nabla_\theta f_\theta(x)-
-\sum_j\lambda_j^*\nabla_\theta f_\theta(x_j).
-\]
-
-Joint non-negative gradient matching approximates the full-history update in a
-metric oriented by the pool hull-decision gradient. A smooth one-step bound
-then controls the downstream loss deviation by the update-direction error. The
-bound is conditional; it does not prove that the current data have informative
-hull gradients or that the selected update beats a strong source policy.
-
-The first fixed-trace diagnostic confirms non-degenerate selections but finds
-no advantage over diversity or hard-example selection. The first true
-eight-system closed loop finds that pure influence is nearly the same as ridge
-uncertainty. A causal two-step lookahead improves action regret from `0.182061`
-to `0.145319`, but the simple source-margin policy remains better at `0.107554`
-and wins six of eight systems. The current JARVIS--MP task therefore lacks a
-positive CHIC signal. The next valid change is a dataset/task change to a real
-paired PBE--r2SCAN workload with enough updates to make gradient selection
-nontrivial, not another weight on the same eight systems.
+This line is not an active continuation and must not be revived by adding
+weights or lookahead rules to the current protocol policy.
 
 ## 8. Active continuation: hierarchical protocol discrepancy
 

@@ -34,17 +34,6 @@ from .calibration_utility import (
 )
 from .campaign_gate import CampaignGatedICSARRResult, campaign_gated_ic_sarr
 from .cards import HullSnapshot, MaterialMemoryCard, MaterialQuery, SourceProvenance
-from .chic import (
-    GradientMatchResult,
-    HullInfluenceAcquisitionResult,
-    HullMarginSubgradient,
-    PredictedFinalHullAcquisitionResult,
-    hull_margin_subgradient,
-    joint_nonnegative_gradient_match,
-    linear_ridge_hull_influence_acquisition,
-    linear_ridge_predicted_final_hull_acquisition,
-    smooth_decision_update_deviation_bound,
-)
 from .coreset import (
     CoresetSelection,
     ExactArchivePosteriorProjectionPlanner,
@@ -154,6 +143,14 @@ from .residual_posterior import (
     FixedKernelResidualGP,
     ResidualPosterior,
     ResidualPrediction,
+)
+from .ridge_acquisition import (
+    HullInfluenceAcquisitionResult,
+    HullMarginSubgradient,
+    PredictedFinalHullAcquisitionResult,
+    hull_margin_subgradient,
+    linear_ridge_hull_influence_acquisition,
+    linear_ridge_predicted_final_hull_acquisition,
 )
 from .risk import ConformalCalibration, ProtocolRiskController, RiskDecision, ScreeningDecision
 from .sufficient_state import (
@@ -273,7 +270,6 @@ __all__ = [
     "FrozenGridCell",
     "FrozenCHGNetCrystalEncoder",
     "GaussianNLLShapleyAttribution",
-    "GradientMatchResult",
     "HullInfluenceAcquisitionResult",
     "FrozenPredictionSOAPCache",
     "FrozenPredictionSOAPRecord",
@@ -403,7 +399,6 @@ __all__ = [
     "hull_margin_subgradient",
     "gaussian_nll_shapley_attribution",
     "gaussian_kl_divergence",
-    "joint_nonnegative_gradient_match",
     "linear_ridge_hull_influence_acquisition",
     "linear_ridge_predicted_final_hull_acquisition",
     "protocol_hull_knowledge_gradient",
@@ -426,7 +421,6 @@ __all__ = [
     "reference_headroom_recovery",
     "paired_system_bootstrap",
     "reference_decision_regret",
-    "smooth_decision_update_deviation_bound",
     "threshold_weighted_crps_divergence",
     "CampaignGatedICSARRResult",
     "campaign_gated_ic_sarr",

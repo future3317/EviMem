@@ -227,30 +227,6 @@ def test_policy_rejects_unknown_subprocess_action(tmp_path: Path) -> None:
         policy.select(state)
 
 
-def test_chic_policy_drives_the_only_oracle_reveal(tmp_path: Path) -> None:
-    candidates, outcomes = _fixture()
-    vault = ProtocolOracleVault(outcomes, expected_split="fixture")
-    event_log = AppendOnlyProtocolEventLog(tmp_path / "chic-selected-only.jsonl")
-    runner = SecureProtocolQueryRunner(
-        candidates=candidates,
-        vault=vault,
-        causal_hull=ProtocolCausalHull(
-            (
-                ComputedEntry("Fe", 0.0, entry_id="Fe"),
-                ComputedEntry("Zr", 0.0, entry_id="Zr"),
-            ),
-            chemical_system=("Fe", "Zr"),
-        ),
-        policy=ProtocolPolicySubprocess("chic_hull_influence"),
-        event_log=event_log,
-    )
-    result = runner.run(oracle_budget=1)
-    event_log.close()
-    assert len(result.selected_pair_ids) == 1
-    assert result.selected_pair_ids == result.revealed_pair_ids
-    assert result.selected_pair_ids == vault.revealed_pair_ids
-
-
 def test_predicted_final_policy_drives_the_only_oracle_reveal(tmp_path: Path) -> None:
     candidates, outcomes = _fixture()
     vault = ProtocolOracleVault(outcomes, expected_split="fixture")

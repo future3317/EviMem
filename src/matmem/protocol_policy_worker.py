@@ -8,10 +8,6 @@ import json
 import sys
 
 import numpy as np
-from chic import (
-    linear_ridge_hull_influence_acquisition,
-    linear_ridge_predicted_final_hull_acquisition,
-)
 from protocol_knowledge_gradient import (
     FixedCompositionHullTemplate,
     FrozenProtocolRidgeTransport,
@@ -24,6 +20,10 @@ from protocol_knowledge_gradient import (
     protocol_target_energy_posterior,
     source_margin_action_indices,
     source_rollout_delta_hull,
+)
+from ridge_acquisition import (
+    linear_ridge_hull_influence_acquisition,
+    linear_ridge_predicted_final_hull_acquisition,
 )
 
 
@@ -95,7 +95,6 @@ def select(
     if policy in {
         "ridge_margin",
         "ridge_uncertainty",
-        "chic_hull_influence",
         "ridge_predicted_final_margin",
         "delta_hull_active_search",
         "source_rollout_delta_hull",
@@ -530,7 +529,6 @@ def main() -> None:
             "source_online_affine",
             "ridge_margin",
             "ridge_uncertainty",
-            "chic_hull_influence",
             "ridge_predicted_final_margin",
             "delta_hull_active_search",
             "source_rollout_delta_hull",

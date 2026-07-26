@@ -154,6 +154,6 @@ P1.5 was executed. The counts and evidence disposition are retained in
 The official artifacts, cleaned IDs, historical-pipeline parity, SOAP cache and
 small oracle-isolated engineering pools remain available as data
 infrastructure. They do not establish claim-grade identity independence,
-redistribution permission or paper-level superiority. DACC/P3C runners and
-their frozen configs are no longer live; current CHIC exploration uses only
-calibration exact systems and the selected-action-only reveal boundary.
+redistribution permission or paper-level superiority. DACC/P3C/CHIC runners and
+their frozen configs are no longer live; the current protocol line uses the
+selected-action-only reveal boundary and the campaign-gated IC-SARR API.
