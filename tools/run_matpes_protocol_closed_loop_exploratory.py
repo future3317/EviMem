@@ -72,6 +72,7 @@ class ExperimentConfig:
     max_systems: int = 8
     minimum_candidates: int = 12
     maximum_budget: int = MATPES_DEFAULTS.budget
+    query_budget: int | None = None
     seed: int = MATPES_DEFAULTS.seed
     ridge_penalty: float = MATPES_DEFAULTS.ridge_penalty
     prior_standard_deviation: float = MATPES_DEFAULTS.prior_standard_deviation
@@ -92,6 +93,7 @@ class ExperimentConfig:
     fit_systems: tuple[str, ...] | None = None
     crossfit_manifest_sha256: str | None = None
     crossfit_fold_index: int | None = None
+    query_system_manifest_sha256: str | None = None
 
 
 def _sha256(path: Path) -> str:
@@ -584,7 +586,16 @@ def run(
     system_results: dict[str, Any] = {}
     for system in query_systems:
         rows = sorted(by_system[system], key=lambda row: row["pair_id"])
-        budget = min(config.maximum_budget, len(rows) // 2)
+        budget = (
+            config.query_budget
+            if config.query_budget is not None
+            else min(config.maximum_budget, len(rows) // 2)
+        )
+        if budget < 1 or budget > len(rows):
+            raise ValueError(
+                f"query budget {budget} is outside the available candidate count "
+                f"for {system}: {len(rows)}"
+            )
         strategy_results: dict[str, Any] = {}
         for policy_name in active_policies:
             candidates = [
@@ -833,6 +844,7 @@ def run(
         "config": config_payload,
         "development_systems": query_systems,
         "query_systems": query_systems,
+        "query_system_manifest_sha256": config.query_system_manifest_sha256,
         "split": expected_split,
         "transport_model_path": (
             None if config.transport_model_path is None else str(config.transport_model_path)
@@ -869,6 +881,7 @@ def main() -> None:
     parser.add_argument("--max-systems", type=int, default=8)
     parser.add_argument("--minimum-candidates", type=int, default=12)
     parser.add_argument("--maximum-budget", type=int, default=MATPES_DEFAULTS.budget)
+    parser.add_argument("--query-budget", type=int, default=None)
     parser.add_argument("--seed", type=int, default=MATPES_DEFAULTS.seed)
     parser.add_argument("--ridge-penalty", type=float, default=MATPES_DEFAULTS.ridge_penalty)
     parser.add_argument(
@@ -901,10 +914,14 @@ def main() -> None:
     parser.add_argument("--policies", nargs="+", choices=DEFAULT_POLICIES, default=DEFAULT_POLICIES)
     parser.add_argument("--crossfit-manifest", type=Path, default=None)
     parser.add_argument("--fold-index", type=int, default=None)
+    parser.add_argument("--query-manifest", type=Path, default=None)
     args = parser.parse_args()
     query_systems = None
     fit_systems = None
     crossfit_manifest_sha256 = None
+    query_system_manifest_sha256 = None
+    if args.query_manifest is not None and args.crossfit_manifest is not None:
+        raise ValueError("--query-manifest and --crossfit-manifest are mutually exclusive")
     if (args.crossfit_manifest is None) != (args.fold_index is None):
         raise ValueError("--crossfit-manifest and --fold-index must be provided together")
     if args.crossfit_manifest is not None:
@@ -918,10 +935,19 @@ def main() -> None:
         eligible_systems = set(manifest["eligible_systems"])
         fit_systems = tuple(sorted(eligible_systems - set(query_systems)))
         crossfit_manifest_sha256 = _sha256(args.crossfit_manifest)
+    elif args.query_manifest is not None:
+        manifest = json.loads(args.query_manifest.read_text(encoding="utf-8"))
+        if manifest.get("task_sha256") != _sha256(args.task):
+            raise ValueError("query manifest does not match the task")
+        query_systems = tuple(str(system) for system in manifest["selected_systems"])
+        if not query_systems or len(set(query_systems)) != len(query_systems):
+            raise ValueError("query manifest must contain unique nonempty systems")
+        query_system_manifest_sha256 = _sha256(args.query_manifest)
     config = ExperimentConfig(
         max_systems=(len(query_systems) if query_systems is not None else args.max_systems),
         minimum_candidates=args.minimum_candidates,
         maximum_budget=args.maximum_budget,
+        query_budget=args.query_budget,
         seed=args.seed,
         ridge_penalty=args.ridge_penalty,
         prior_standard_deviation=args.prior_standard_deviation,
@@ -939,6 +965,7 @@ def main() -> None:
         fit_systems=fit_systems,
         crossfit_manifest_sha256=crossfit_manifest_sha256,
         crossfit_fold_index=args.fold_index,
+        query_system_manifest_sha256=query_system_manifest_sha256,
     )
     _rollout_policies = {
         ProtocolPolicy.SOURCE_ROLLOUT_DELTA_HULL.value,
@@ -950,6 +977,7 @@ def main() -> None:
         config.max_systems < 1
         or config.minimum_candidates < 2
         or config.maximum_budget < 1
+        or (config.query_budget is not None and config.query_budget < 1)
         or config.ridge_penalty <= 0
         or config.prior_standard_deviation <= 0
         or config.boundary_temperature_ev_per_atom <= 0

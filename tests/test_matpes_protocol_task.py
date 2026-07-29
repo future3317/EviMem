@@ -182,6 +182,7 @@ def test_builder_keeps_target_values_only_in_oracle_vault(tmp_path: Path) -> Non
             max_systems=1,
             minimum_candidates=2,
             maximum_budget=1,
+            query_budget=2,
             seed=7,
             policies=("source_margin",),
         ),
@@ -196,11 +197,11 @@ def test_builder_keeps_target_values_only_in_oracle_vault(tmp_path: Path) -> Non
         "protocol_policy_worker_sha256",
     }
     assert all(
-        len(values["selected_pair_ids"]) == 1
+        len(values["selected_pair_ids"]) == 2
         for values in experiment["systems"]["Fe-O"]["strategies"].values()
     )
     assert all(
-        len(values["policy_decision_rounds"]) == 1 and len(values["rounds"]) == 1
+        len(values["policy_decision_rounds"]) == 2 and len(values["rounds"]) == 2
         for values in experiment["systems"]["Fe-O"]["strategies"].values()
     )
     assert all(
