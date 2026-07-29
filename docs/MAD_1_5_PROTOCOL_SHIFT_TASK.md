@@ -109,3 +109,31 @@ Negative evidence is still useful: it would show that the old development
 signal does not transfer to this new protocol-shift task, without requiring a
 new story about the 324 closed systems.
 
+## Initial execution and optimization gate
+
+The offline oracle-side nontriviality audit is
+`E:\DATA\MAD-1.5-v1\mad15_hull_nontriviality_20260730.json`. Across all 1,884
+systems, the mean number of target-hull stable candidates is 4.047, the mean
+stable-candidate fraction is 0.330, and 306 systems are already saturated at
+budget six. The task is therefore non-degenerate, but random high-budget
+subsets can have little remaining headroom.
+
+The source-margin curve on the same 50 outcome-independent hash-selected
+systems gives oracle confirmations of 0.96, 1.90, 2.76, 3.30, 3.72 and 3.92
+at budgets 1 through 6; the corresponding mean ceilings are 1.00, 1.96,
+2.84, 3.44, 3.80 and 4.00. This is a baseline curve, not a superiority
+result.
+
+On the first 48-system fixed-backend IC-SARR probe at budget six and MC64,
+source margin obtains 3.875 oracle confirmations/system and frozen IC-SARR
+obtains 3.9375: 3 wins, 45 ties and 0 losses. Final-causal confirmation is
+3.9583 versus 3.9792. A 24-system MC64/MC256 convergence check has identical
+system traces and round actions at both integration levels, with 1 win and 23
+ties. These are development mechanism probes only; no confidence interval or
+paper claim is registered from them.
+
+The already-parity-tested `fixed_composition` hull backend reduces IC-SARR
+runtime on the 12-system MC64 probe from 14.412 to 4.502 seconds/system while
+preserving all selected action IDs and oracle/final-causal metrics. Backend
+identity remains part of the policy checksum, so implementation trace
+checksums differ even when the legal action/reveal sequence is identical.

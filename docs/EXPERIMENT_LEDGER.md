@@ -1392,3 +1392,33 @@ mechanism result. The result, if positive, may only be stated for the MAD
 PBE-to-r2SCAN protocol-shift task; it cannot be promoted to an independent
 MatPES holdout, universal discovery, final-causal confirmation, or
 state-compression claim.
+
+## E40 -- MAD-1.5 baseline/probe and hull-backend optimization (2026-07-30)
+
+The offline MAD oracle-side hull audit found a non-degenerate but partly
+saturated task: across 1,884 systems the mean stable-candidate count is 4.047,
+the mean stable fraction is 0.330, and 306 systems reach the budget-six
+ceiling. A fixed 50-system outcome-independent hash panel was run separately
+at budgets one through six with source margin. Oracle confirmations per system
+were `0.96, 1.90, 2.76, 3.30, 3.72, 3.92`, with corresponding ceilings
+`1.00, 1.96, 2.84, 3.44, 3.80, 4.00`. These establish a usable baseline
+curve and do not establish method superiority.
+
+The first 12-system MC64 IC-SARR probe on the pymatgen backend had one
+non-tied system (`+0.0833` oracle confirmations/system). The parity-tested
+`fixed_composition` backend was then used on the same task: all 12 selected
+action sequences matched, oracle/final-causal metrics matched, and IC runtime
+fell from `14.412` to `4.502 s/system`. A 24-system MC64 versus MC256 fixed
+backend check matched 24/24 complete system traces and 120/120 round actions;
+both had one IC win and 23 ties. The expanded 48-system MC64 fixed probe has
+3 IC wins, 45 ties and 0 losses, with oracle confirmations `3.9375` for IC
+versus `3.8750` for source margin (`+0.0625/system`) and final-causal
+confirmations `3.9792` versus `3.9583` (`+0.0208/system`). This is a narrow
+development mechanism signal with no registered confidence interval and no
+paper-level interpretation.
+
+As a pure engineering optimization, source-only runs now skip transport-model
+fitting when no active policy requires transport, and their output provenance
+no longer labels unused candidate systems as transport-fit systems. Full local
+regression remains required before commit. No posterior, score, threshold,
+budget, or policy was tuned on the opened MAD outcomes.

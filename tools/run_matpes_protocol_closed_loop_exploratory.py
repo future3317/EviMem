@@ -556,7 +556,11 @@ def run(
         if set(transport_model.fit_system_ids) & set(query_systems):
             raise AssertionError("frozen transport fit and query systems overlap")
         fit_systems = transport_model.fit_system_ids
-    elif expected_split == "development" and len(fit_systems) >= 2:
+    elif (
+        expected_split == "development"
+        and len(fit_systems) >= 2
+        and any(requires_protocol_transport(policy) for policy in config.policies)
+    ):
         transport_model = fit_transport_model_for_task(
             task=task,
             outcome_rows=outcome_rows,
@@ -810,8 +814,8 @@ def run(
             )
         },
         "evaluation_systems_accessed": expected_split == "confirmatory",
-        "transport_fit_systems": fit_systems,
-        "transport_fit_system_count": len(fit_systems),
+        "transport_fit_systems": (fit_systems if transport_model is not None else ()),
+        "transport_fit_system_count": (len(fit_systems) if transport_model is not None else 0),
         "transport_fit_row_count": (
             0 if transport_model is None else transport_model.fit_row_count
         ),
