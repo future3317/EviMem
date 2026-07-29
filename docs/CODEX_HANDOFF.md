@@ -43,6 +43,16 @@ therefore requires a new upstream release/pool and a newly frozen split; do not
 rename any existing systems as a holdout. The JARVIS--MP v4-natural pool is a
 different multi-protocol task, not an IC-SARR MatPES holdout.
 
+The current alternative route is the external MAD-1.5 v1 PBE-to-r2SCAN
+protocol-shift task. It is documented in
+`docs/MAD_1_5_PROTOCOL_SHIFT_TASK.md`; the raw data and generated task/vault
+are outside Git at `E:\DATA\MAD-1.5-v1`. This route evaluates a fixed-budget
+acquisition curve as a task-level mechanism result, not as an independent
+MatPES holdout. MAD provides atomization energy rather than formation energy,
+so the first task is explicitly an isolated-atom-reference atomization-hull
+proxy. Do not call it a standard solid-state formation hull or silently use
+total energy as formation energy.
+
 ## Locations and environments
 
 | Resource | Location / command |
@@ -94,6 +104,9 @@ New code must use focused modules, not the legacy compatibility shim.
   IC-SARR, and development diagnostics.
 - `campaign_gate.py`: restricted campaign-level source-vs-IC-SARR gate. It is
   an API, not yet a live policy-worker option.
+- `tools/build_mad15_protocol_task.py`: builds the external MAD-1.5
+  PBE-to-r2SCAN task and keeps target atomization outcomes in the external
+  vault.
 - `protocol_policy_worker.py` and `worker_subprocess.py`: policy-facing,
   oracle-free subprocess boundary.
 - `configs/`, `constants.py`, `utils.py`, and `policy_registry.py`: shared

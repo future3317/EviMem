@@ -1352,3 +1352,43 @@ Together with the 207-test local/remote regression gates, this closes the
 current implementation optimization gate. It does not create a holdout or
 authorize a MatPES policy comparison. The next scientific action is upstream
 pool acquisition and a fresh system-overlap audit.
+
+## E39 -- MAD-1.5 protocol-shift task qualification (2026-07-29)
+
+The project changed route rather than relabeling the closed MatPES corpus. The
+official Materials Cloud MAD-1.5 v1 record (`18tke-tt476`) was downloaded to
+`E:\DATA\MAD-1.5-v1` and all local files matched the published sizes and MD5
+checksums. The PBE file contains 101,514 frames. Across r2SCAN train/val/test
+and LLPR-rejected files, the audit found 90,955 exact pairs under
+`(subset, frame_id)` plus atom count, species order, coordinates, cell and PBC
+(89.598% of the PBE frames). Another 7,484 pairs have exact coordinates/cell
+but PBC-only metadata differences confined to `mc3d_surface` and `mc2d`;
+these are excluded from the 3D-bulk task. There are 70,063 exact 3D-bulk
+pairs and 22,725 exact chemical systems. A registered gate of at least eight
+candidates and three distinct compositions leaves 1,884 systems.
+
+This is not a MatPES holdout and does not support a generalization claim. It is
+a new external PBE-to-r2SCAN protocol-shift development task. Because MAD
+provides total and atomization energies rather than MatPES formation energies,
+the first task is explicitly an **atomization-energy convex-hull proxy** with
+isolated-atom reference entries at zero. Total energy is not relabeled as
+formation energy, and the proxy must not be described as a standard
+solid-state formation hull.
+
+`tools/build_mad15_protocol_task.py` created the external task and vault at
+`E:\DATA\MAD-1.5-v1\mad15_task_v1.json` and
+`E:\DATA\MAD-1.5-v1\mad15_vault_v1.json`. The task has 1,884 systems and
+25,731 candidates (at most 64 per system); the task/vault pair IDs are exact,
+target values occur only in the vault, and all initial reference energies are
+zero. A three-system source-margin smoke and a three-system frozen
+IC-SARR/source-rollout smoke both completed through the secure action/reveal
+boundary. These smokes use only 32 posterior samples for the IC policy and
+have no effect interpretation. Local Ruff and the full test suite pass with
+207 tests. No MAD acquisition curve or method effect has yet been run.
+
+The authorized next step is to validate the atomization-hull proxy semantics
+and then run the registered fixed-budget acquisition curve as a task-level
+mechanism result. The result, if positive, may only be stated for the MAD
+PBE-to-r2SCAN protocol-shift task; it cannot be promoted to an independent
+MatPES holdout, universal discovery, final-causal confirmation, or
+state-compression claim.
