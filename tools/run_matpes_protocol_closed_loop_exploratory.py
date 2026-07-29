@@ -40,7 +40,11 @@ from pymatgen.core import Composition
 from pymatgen.entries.computed_entries import ComputedEntry
 from scipy.stats import norm
 
+from matmem.configs import MATPES_DEFAULTS
 from matmem.identity import StructureArtifactIdentity
+from matmem.policy_registry import ProtocolPolicy, requires_protocol_transport
+from matmem.posterior import protocol_target_energy_posterior
+from matmem.protocol_acquisition import protocol_hull_posterior_summary
 from matmem.protocol_closed_loop import (
     AppendOnlyProtocolEventLog,
     ProtocolCandidate,
@@ -49,53 +53,32 @@ from matmem.protocol_closed_loop import (
     ProtocolOracleVault,
     ProtocolPolicySubprocess,
     SecureProtocolQueryRunner,
-    requires_protocol_transport,
 )
-from matmem.protocol_knowledge_gradient import (
+from matmem.protocols import ProtocolCertificate
+from matmem.transport import (
     FrozenProtocolRidgeTransport,
     fit_protocol_kernel_transport,
     fit_protocol_ridge_transport,
-    protocol_hull_posterior_summary,
-    protocol_target_energy_posterior,
-)
-from matmem.protocols import ProtocolCertificate
-
-POLICIES = (
-    "random",
-    "source_margin",
-    "source_online_offset",
-    "source_online_affine",
-    "ridge_margin",
-    "ridge_uncertainty",
-    "ridge_predicted_final_margin",
-    "delta_hull_active_search",
-    "source_rollout_delta_hull",
-    "constrained_dual_horizon_source_rollout",
-    "independent_confirmation_source_rollout",
-    "conformal_source_rollout_delta_hull",
-    "protocol_hull_knowledge_gradient",
-    "protocol_hull_risk_reduction",
 )
 
+DEFAULT_POLICIES = tuple(policy.value for policy in MATPES_DEFAULTS.policies)
 
-def _requires_protocol_transport(policy_name: str) -> bool:
-    """Return whether a policy consumes the frozen cross-protocol posterior."""
-
-    return requires_protocol_transport(policy_name)
+# Backward-compatible alias used by test_matpes_protocol_task.
+_requires_protocol_transport = requires_protocol_transport
 
 
 @dataclass(frozen=True)
 class ExperimentConfig:
     max_systems: int = 8
     minimum_candidates: int = 12
-    maximum_budget: int = 6
-    seed: int = 20270720
-    ridge_penalty: float = 1.0
-    prior_standard_deviation: float = 0.1
-    boundary_temperature_ev_per_atom: float = 0.05
-    posterior_sample_count: int = 1024
+    maximum_budget: int = MATPES_DEFAULTS.budget
+    seed: int = MATPES_DEFAULTS.seed
+    ridge_penalty: float = MATPES_DEFAULTS.ridge_penalty
+    prior_standard_deviation: float = MATPES_DEFAULTS.prior_standard_deviation
+    boundary_temperature_ev_per_atom: float = MATPES_DEFAULTS.boundary_temperature
+    posterior_sample_count: int = MATPES_DEFAULTS.posterior_sample_count
     posterior_diagnostic_sample_count: int = 0
-    fantasy_count: int = 3
+    fantasy_count: int = MATPES_DEFAULTS.fantasy_count
     conformal_threshold: float | None = None
     hull_backend: Literal["pymatgen", "fixed_composition"] = "pymatgen"
     transport_family: Literal[
@@ -104,7 +87,7 @@ class ExperimentConfig:
     ] = "ridge_random_intercept"
     split: Literal["development", "confirmatory"] = "development"
     transport_model_path: Path | None = None
-    policies: tuple[str, ...] = POLICIES
+    policies: tuple[str, ...] = DEFAULT_POLICIES
     query_systems: tuple[str, ...] | None = None
     fit_systems: tuple[str, ...] | None = None
     crossfit_manifest_sha256: str | None = None
@@ -381,9 +364,7 @@ def _evaluate_action_trace(
         # be invalidated by an unqueried competitor in the complete pool.
         "within_campaign_revocations": causal_count - final_causal_count,
         "unqueried_competitor_invalidations": final_causal_count - oracle_pool_count,
-        "causal_retention": (
-            None if causal_count == 0 else final_causal_count / causal_count
-        ),
+        "causal_retention": (None if causal_count == 0 else final_causal_count / causal_count),
         "oracle_validity": (
             None if final_causal_count == 0 else oracle_pool_count / final_causal_count
         ),
@@ -586,12 +567,12 @@ def run(
         )
         if set(transport_model.fit_system_ids) & set(query_systems):
             raise AssertionError("transport fit and query systems overlap")
-    elif any(_requires_protocol_transport(policy) for policy in config.policies):
+    elif any(requires_protocol_transport(policy) for policy in config.policies):
         raise ValueError("confirmatory transport policies require --transport-model")
     active_policies = tuple(
         policy
         for policy in config.policies
-        if transport_model is not None or not _requires_protocol_transport(policy)
+        if transport_model is not None or not requires_protocol_transport(policy)
     )
 
     source_protocol = ProtocolCertificate.model_validate(task["source_protocol"])
@@ -619,7 +600,7 @@ def run(
                 boundary_temperature=config.boundary_temperature_ev_per_atom,
                 transport_model=(
                     transport_model
-                    if transport_model is not None and _requires_protocol_transport(policy_name)
+                    if transport_model is not None and requires_protocol_transport(policy_name)
                     else None
                 ),
                 posterior_sample_count=config.posterior_sample_count,
@@ -630,12 +611,12 @@ def run(
                     300.0
                     if policy_name
                     in {
-                        "source_rollout_delta_hull",
-                        "constrained_dual_horizon_source_rollout",
-                        "independent_confirmation_source_rollout",
-                        "conformal_source_rollout_delta_hull",
-                        "protocol_hull_knowledge_gradient",
-                        "protocol_hull_risk_reduction",
+                        ProtocolPolicy.SOURCE_ROLLOUT_DELTA_HULL.value,
+                        ProtocolPolicy.CONSTRAINED_DUAL_HORIZON_SOURCE_ROLLOUT.value,
+                        ProtocolPolicy.INDEPENDENT_CONFIRMATION_SOURCE_ROLLOUT.value,
+                        ProtocolPolicy.CONFORMAL_SOURCE_ROLLOUT_DELTA_HULL.value,
+                        ProtocolPolicy.PROTOCOL_HULL_KNOWLEDGE_GRADIENT.value,
+                        ProtocolPolicy.PROTOCOL_HULL_RISK_REDUCTION.value,
                     }
                     else 30.0
                 ),
@@ -883,14 +864,20 @@ def main() -> None:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--max-systems", type=int, default=8)
     parser.add_argument("--minimum-candidates", type=int, default=12)
-    parser.add_argument("--maximum-budget", type=int, default=6)
-    parser.add_argument("--seed", type=int, default=20270720)
-    parser.add_argument("--ridge-penalty", type=float, default=1.0)
-    parser.add_argument("--prior-standard-deviation", type=float, default=0.1)
-    parser.add_argument("--boundary-temperature", type=float, default=0.05)
-    parser.add_argument("--posterior-sample-count", type=int, default=1024)
+    parser.add_argument("--maximum-budget", type=int, default=MATPES_DEFAULTS.budget)
+    parser.add_argument("--seed", type=int, default=MATPES_DEFAULTS.seed)
+    parser.add_argument("--ridge-penalty", type=float, default=MATPES_DEFAULTS.ridge_penalty)
+    parser.add_argument(
+        "--prior-standard-deviation", type=float, default=MATPES_DEFAULTS.prior_standard_deviation
+    )
+    parser.add_argument(
+        "--boundary-temperature", type=float, default=MATPES_DEFAULTS.boundary_temperature
+    )
+    parser.add_argument(
+        "--posterior-sample-count", type=int, default=MATPES_DEFAULTS.posterior_sample_count
+    )
     parser.add_argument("--posterior-diagnostic-sample-count", type=int, default=0)
-    parser.add_argument("--fantasy-count", type=int, default=3)
+    parser.add_argument("--fantasy-count", type=int, default=MATPES_DEFAULTS.fantasy_count)
     parser.add_argument("--conformal-threshold", type=float, default=None)
     parser.add_argument("--split", choices=("development", "confirmatory"), default="development")
     parser.add_argument("--transport-model", type=Path, default=None)
@@ -907,7 +894,7 @@ def main() -> None:
         ),
         default="ridge_random_intercept",
     )
-    parser.add_argument("--policies", nargs="+", choices=POLICIES, default=POLICIES)
+    parser.add_argument("--policies", nargs="+", choices=DEFAULT_POLICIES, default=DEFAULT_POLICIES)
     parser.add_argument("--crossfit-manifest", type=Path, default=None)
     parser.add_argument("--fold-index", type=int, default=None)
     args = parser.parse_args()
@@ -949,6 +936,12 @@ def main() -> None:
         crossfit_manifest_sha256=crossfit_manifest_sha256,
         crossfit_fold_index=args.fold_index,
     )
+    _rollout_policies = {
+        ProtocolPolicy.SOURCE_ROLLOUT_DELTA_HULL.value,
+        ProtocolPolicy.CONSTRAINED_DUAL_HORIZON_SOURCE_ROLLOUT.value,
+        ProtocolPolicy.INDEPENDENT_CONFIRMATION_SOURCE_ROLLOUT.value,
+        ProtocolPolicy.CONFORMAL_SOURCE_ROLLOUT_DELTA_HULL.value,
+    }
     if (
         config.max_systems < 1
         or config.minimum_candidates < 2
@@ -958,12 +951,7 @@ def main() -> None:
         or config.boundary_temperature_ev_per_atom <= 0
         or config.posterior_sample_count < 4
         or (
-            (
-                "source_rollout_delta_hull" in config.policies
-                or "constrained_dual_horizon_source_rollout" in config.policies
-                or "independent_confirmation_source_rollout" in config.policies
-                or "conformal_source_rollout_delta_hull" in config.policies
-            )
+            bool(set(config.policies) & _rollout_policies)
             and (
                 config.posterior_sample_count % 16
                 or config.posterior_sample_count // 16 < 2
@@ -976,7 +964,7 @@ def main() -> None:
         )
         or config.fantasy_count < 1
         or (
-            "conformal_source_rollout_delta_hull" in config.policies
+            ProtocolPolicy.CONFORMAL_SOURCE_ROLLOUT_DELTA_HULL.value in config.policies
             and (
                 config.conformal_threshold is None
                 or not math.isfinite(config.conformal_threshold)

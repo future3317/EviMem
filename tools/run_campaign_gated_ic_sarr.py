@@ -15,10 +15,9 @@ from pathlib import Path
 import numpy as np
 
 from matmem.campaign_gate import campaign_gated_ic_sarr
-from matmem.protocol_knowledge_gradient import (
-    FrozenProtocolRidgeTransport,
-    protocol_target_energy_posterior,
-)
+from matmem.constants import DEFAULT_MATPES_BUDGET, ROUND_SEED_OFFSET
+from matmem.posterior import protocol_target_energy_posterior
+from matmem.transport import FrozenProtocolRidgeTransport
 
 OPENED_ATTRIBUTION_SYSTEMS = {
     "Ag-S",
@@ -47,7 +46,7 @@ def run(
     output_path: Path,
     systems: tuple[str, ...] = (),
     max_systems: int = 2,
-    budget: int = 6,
+    budget: int = DEFAULT_MATPES_BUDGET,
     outer_sample_count: int = 16,
     inner_stage_one_sample_count: int = 32,
     inner_stage_two_sample_count: int = 64,
@@ -65,11 +64,13 @@ def run(
     by_system: dict[str, list[dict[str, object]]] = {}
     for row in rows:
         by_system.setdefault(str(row["chemical_system"]), []).append(row)
-    selected_systems = tuple(systems) if systems else tuple(
-        system
-        for system in sorted(by_system)
-        if system not in OPENED_ATTRIBUTION_SYSTEMS
-    )[:max_systems]
+    selected_systems = (
+        tuple(systems)
+        if systems
+        else tuple(
+            system for system in sorted(by_system) if system not in OPENED_ATTRIBUTION_SYSTEMS
+        )[:max_systems]
+    )
     if not selected_systems:
         raise ValueError("no development systems selected")
     records: list[dict[str, object]] = []
@@ -126,7 +127,7 @@ def run(
             reference_energies=reference_energies,
             budget=budget,
             outer_sample_count=outer_sample_count,
-            outer_seed=seed + 1009 * system_index,
+            outer_seed=seed + ROUND_SEED_OFFSET * system_index,
             inner_stage_one_sample_count=inner_stage_one_sample_count,
             inner_stage_two_sample_count=inner_stage_two_sample_count,
             sobol_scramble_count=sobol_scramble_count,
@@ -172,7 +173,7 @@ def main() -> None:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--system", action="append", dest="systems", default=[])
     parser.add_argument("--max-systems", type=int, default=2)
-    parser.add_argument("--budget", type=int, default=6)
+    parser.add_argument("--budget", type=int, default=DEFAULT_MATPES_BUDGET)
     parser.add_argument("--outer-sample-count", type=int, default=16)
     parser.add_argument("--inner-stage-one-sample-count", type=int, default=32)
     parser.add_argument("--inner-stage-two-sample-count", type=int, default=64)
