@@ -1,7 +1,7 @@
 import numpy as np
 
 from matmem.campaign_gate import campaign_gated_ic_sarr
-from matmem.protocol_knowledge_gradient import FrozenProtocolRidgeTransport
+from matmem.transport import FrozenProtocolRidgeTransport
 
 
 def _model() -> FrozenProtocolRidgeTransport:

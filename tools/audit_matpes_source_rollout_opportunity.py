@@ -17,8 +17,8 @@ from matmem.protocol_closed_loop import (
     ProtocolPolicySubprocess,
     RevealedProtocolObservation,
 )
-from matmem.protocol_knowledge_gradient import FrozenProtocolRidgeTransport
 from matmem.protocols import ProtocolCertificate
+from matmem.transport import FrozenProtocolRidgeTransport
 
 
 def _runner_helpers():

@@ -17,12 +17,12 @@ from typing import Any
 
 import numpy as np
 
-from matmem.protocol_knowledge_gradient import (
+from matmem.hull_geometry import (
     FixedCompositionHullTemplate,
     _final_hull_membership,
-    _sample_gaussian,
     fixed_composition_hull_membership,
 )
+from matmem.posterior import _sample_gaussian
 
 
 def _load_runner():

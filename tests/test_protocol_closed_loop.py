@@ -19,8 +19,8 @@ from matmem.protocol_closed_loop import (
     ProtocolPolicySubprocess,
     SecureProtocolQueryRunner,
 )
-from matmem.protocol_knowledge_gradient import fit_protocol_ridge_transport
 from matmem.protocols import ProtocolCertificate
+from matmem.transport import fit_protocol_ridge_transport
 
 
 def _protocol(functional: str) -> ProtocolCertificate:
