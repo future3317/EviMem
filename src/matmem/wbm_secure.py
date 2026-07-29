@@ -8,11 +8,9 @@ and the append-only action ledger.
 
 from __future__ import annotations
 
-import hashlib
 import json
 import math
 import os
-import subprocess
 import sys
 import time
 from collections.abc import Iterable, Mapping
@@ -32,18 +30,9 @@ from .coreset import (
 from .identity import StructureArtifactIdentity, StructureStage
 from .protocols import ProtocolCertificate
 from .residual_posterior import FixedKernelGPConfig
+from .utils import _checksum
 from .wbm import OracleEnergySource, WBMOracleRecord
-
-
-def _checksum(payload: object) -> str:
-    encoded = json.dumps(
-        payload,
-        sort_keys=True,
-        separators=(",", ":"),
-        ensure_ascii=True,
-        default=str,
-    )
-    return "sha256:" + hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+from .worker_subprocess import WorkerSubprocessBase
 
 
 def _entry_total_energy(entry: object) -> float:
@@ -545,7 +534,7 @@ class WBMOracleVault:
         )
 
 
-class PolicySubprocess:
+class PolicySubprocess(WorkerSubprocessBase):
     """One-shot subprocess receiving only JSON and returning one opaque ID."""
 
     def __init__(
@@ -571,6 +560,10 @@ class PolicySubprocess:
         self.proposal_size = proposal_size
         self.num_fantasies = num_fantasies
         self.survival_weight = survival_weight
+        worker_path = Path(__file__).with_name("wbm_policy_worker.py").resolve()
+        if not worker_path.is_file():
+            raise FileNotFoundError("WBM policy worker is unavailable")
+        super().__init__(worker_path=worker_path, selection_timeout_seconds=30.0)
 
     @property
     def identity_checksum(self) -> str:
@@ -585,11 +578,10 @@ class PolicySubprocess:
             }
         )
 
-    def select(self, state: PolicyState) -> str:
-        worker = Path(__file__).with_name("wbm_policy_worker.py")
-        command = [
+    def _command(self) -> list[str]:
+        return [
             sys.executable,
-            str(worker),
+            str(self.worker_path),
             "--policy",
             self.policy,
             "--seed",
@@ -611,20 +603,16 @@ class PolicySubprocess:
             "--survival-weight",
             str(self.survival_weight),
         ]
-        result = subprocess.run(
-            command,
-            input=state.serialized_for_policy(),
-            text=True,
-            capture_output=True,
-            check=False,
-            timeout=30,
+
+    def select(self, state: PolicyState) -> str:
+        response = self._select_one_shot(
+            self._command(),
+            state.serialized_for_policy(),
+            error_prefix="policy subprocess failed",
         )
-        if result.returncode != 0:
-            raise RuntimeError(f"policy subprocess failed: {result.stderr.strip()}")
-        selected = result.stdout.strip()
-        if selected not in {item.query_id for item in state.queries}:
-            raise RuntimeError("policy subprocess returned an unknown query ID")
-        return selected
+        return self._validate_returned_id(
+            response, {item.query_id for item in state.queries}, kind="query"
+        )
 
 
 class EvidenceAccessStrategy(Protocol):

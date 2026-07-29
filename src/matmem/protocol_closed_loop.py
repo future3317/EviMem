@@ -17,11 +17,7 @@ import hashlib
 import json
 import math
 import os
-import queue
-import subprocess
 import sys
-import threading
-from collections import deque
 from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
@@ -30,51 +26,12 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from .identity import StructureArtifactIdentity, StructureStage
-from .protocol_knowledge_gradient import (
-    FrozenProtocolRidgeTransport,
-    source_margin_action_indices,
-)
+from .policy_registry import ProtocolPolicy, requires_protocol_transport
+from .protocol_acquisition import source_margin_action_indices
 from .protocols import ProtocolCertificate
-
-
-def requires_protocol_transport(policy: str) -> bool:
-    """Return whether a policy requires a frozen cross-protocol posterior."""
-
-    return policy in {
-        "delta_hull_active_search",
-        "source_rollout_delta_hull",
-        "constrained_dual_horizon_source_rollout",
-        "independent_confirmation_source_rollout",
-        "conformal_source_rollout_delta_hull",
-    } or policy.startswith("protocol_hull_")
-
-
-def _checksum(payload: object) -> str:
-    encoded = json.dumps(
-        payload,
-        sort_keys=True,
-        separators=(",", ":"),
-        ensure_ascii=True,
-        default=str,
-    )
-    return "sha256:" + hashlib.sha256(encoded.encode("utf-8")).hexdigest()
-
-
-def _validated_composition(values: dict[str, float]) -> dict[str, float]:
-    cleaned = {str(key).strip(): float(value) for key, value in values.items()}
-    if (
-        not cleaned
-        or any(not key or not math.isfinite(value) or value < 0 for key, value in cleaned.items())
-        or sum(cleaned.values()) <= 0
-    ):
-        raise ValueError("composition fractions must be finite and non-negative")
-    return dict(sorted(cleaned.items()))
-
-
-def _normalized_composition(values: dict[str, float]) -> dict[str, float]:
-    cleaned = _validated_composition(values)
-    total = sum(cleaned.values())
-    return dict(sorted((key, value / total) for key, value in cleaned.items()))
+from .transport import FrozenProtocolRidgeTransport
+from .utils import _checksum, _normalized_composition, _validated_composition
+from .worker_subprocess import PersistentWorkerSubprocess
 
 
 class ProtocolCandidate(BaseModel):
@@ -490,27 +447,12 @@ class ProtocolOracleVault:
         return outcome
 
 
-class ProtocolPolicySubprocess:
-    """One-shot acquisition subprocess with no oracle-vault capability."""
+class ProtocolPolicySubprocess(PersistentWorkerSubprocess):
+    """One-shot or persistent acquisition subprocess with no oracle-vault capability."""
 
     def __init__(
         self,
-        policy: Literal[
-            "source_margin",
-            "random",
-            "source_online_offset",
-            "source_online_affine",
-            "ridge_margin",
-            "ridge_uncertainty",
-            "ridge_predicted_final_margin",
-            "delta_hull_active_search",
-            "source_rollout_delta_hull",
-            "constrained_dual_horizon_source_rollout",
-            "independent_confirmation_source_rollout",
-            "conformal_source_rollout_delta_hull",
-            "protocol_hull_knowledge_gradient",
-            "protocol_hull_risk_reduction",
-        ],
+        policy: ProtocolPolicy | str,
         *,
         seed: int = 0,
         ridge_penalty: float = 1.0,
@@ -524,7 +466,10 @@ class ProtocolPolicySubprocess:
         selection_timeout_seconds: float = 30.0,
         worker_path: Path | None = None,
     ) -> None:
-        self.policy = policy
+        try:
+            self.policy = ProtocolPolicy(policy)
+        except ValueError as exc:
+            raise ValueError(f"unknown protocol policy: {policy}") from exc
         self.seed = seed
         self.ridge_penalty = ridge_penalty
         self.prior_standard_deviation = prior_standard_deviation
@@ -534,7 +479,6 @@ class ProtocolPolicySubprocess:
         self.fantasy_count = fantasy_count
         self.conformal_threshold = conformal_threshold
         self.hull_backend = hull_backend
-        self.selection_timeout_seconds = selection_timeout_seconds
         if (
             not math.isfinite(ridge_penalty)
             or ridge_penalty <= 0
@@ -546,12 +490,12 @@ class ProtocolPolicySubprocess:
             raise ValueError("protocol policy scales must be finite and positive")
         if posterior_sample_count < 4 or fantasy_count < 1:
             raise ValueError("protocol hull Monte Carlo settings are too small")
-        if requires_protocol_transport(policy) and transport_model is None:
+        if requires_protocol_transport(self.policy) and transport_model is None:
             raise ValueError("protocol hull policies require a frozen transport model")
-        if policy in {
-            "source_rollout_delta_hull",
-            "constrained_dual_horizon_source_rollout",
-            "conformal_source_rollout_delta_hull",
+        if self.policy in {
+            ProtocolPolicy.SOURCE_ROLLOUT_DELTA_HULL,
+            ProtocolPolicy.CONSTRAINED_DUAL_HORIZON_SOURCE_ROLLOUT,
+            ProtocolPolicy.CONFORMAL_SOURCE_ROLLOUT_DELTA_HULL,
         }:
             rollout_block_size = posterior_sample_count // 16
             if (
@@ -560,7 +504,7 @@ class ProtocolPolicySubprocess:
                 or rollout_block_size & (rollout_block_size - 1)
             ):
                 raise ValueError("source rollout requires sixteen power-of-two Sobol blocks")
-        if policy == "conformal_source_rollout_delta_hull" and (
+        if self.policy is ProtocolPolicy.CONFORMAL_SOURCE_ROLLOUT_DELTA_HULL and (
             conformal_threshold is None
             or not math.isfinite(conformal_threshold)
             or conformal_threshold < 0
@@ -571,25 +515,20 @@ class ProtocolPolicySubprocess:
         if not math.isfinite(selection_timeout_seconds) or selection_timeout_seconds <= 0:
             raise ValueError("protocol policy timeout must be finite and positive")
         self._persistent = worker_path is None
-        self.worker_path = (
+        resolved_worker = (
             worker_path or Path(__file__).with_name("protocol_policy_worker.py")
         ).resolve()
-        if not self.worker_path.is_file():
+        if not resolved_worker.is_file():
             raise FileNotFoundError("protocol policy worker is unavailable")
-        self._process: subprocess.Popen[str] | None = None
-        self._responses: queue.Queue[str | None] = queue.Queue()
-        self._stderr: deque[str] = deque(maxlen=50)
+        super().__init__(
+            worker_path=resolved_worker,
+            selection_timeout_seconds=selection_timeout_seconds,
+        )
         self._last_selection_diagnostics: dict[str, Any] | None = None
 
     @property
     def last_selection_diagnostics(self) -> dict[str, Any] | None:
-        """Observable policy-side diagnostics for the most recent selection.
-
-        These values are computed before the reveal boundary. They are kept
-        separately from the append-only action/reveal log so an audit can
-        inspect numerical decision evidence without granting oracle access to
-        the policy subprocess.
-        """
+        """Observable policy-side diagnostics for the most recent selection."""
 
         return self._last_selection_diagnostics
 
@@ -646,75 +585,21 @@ class ProtocolPolicySubprocess:
         payload["hull_backend"] = self.hull_backend
         return json.dumps(payload, sort_keys=True, separators=(",", ":"))
 
-    def _start_persistent(self) -> None:
-        if self._process is not None:
-            return
-        process = subprocess.Popen(
-            [*self._command(), "--serve-jsonl"],
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            bufsize=1,
-        )
-        if process.stdin is None or process.stdout is None or process.stderr is None:
-            process.kill()
-            raise RuntimeError("persistent protocol policy pipes are unavailable")
-        self._process = process
-
-        def read_stdout() -> None:
-            assert process.stdout is not None
-            for line in process.stdout:
-                self._responses.put(line.rstrip("\r\n"))
-            self._responses.put(None)
-
-        def read_stderr() -> None:
-            assert process.stderr is not None
-            for line in process.stderr:
-                self._stderr.append(line.rstrip("\r\n"))
-
-        threading.Thread(target=read_stdout, daemon=True).start()
-        threading.Thread(target=read_stderr, daemon=True).start()
-
-    def _select_one_shot(self, state: ProtocolPolicyState) -> str:
-        result = subprocess.run(
-            self._command(),
-            input=self._serialized_request(state),
-            text=True,
-            capture_output=True,
-            check=False,
-            timeout=self.selection_timeout_seconds,
-        )
-        if result.returncode != 0:
-            raise RuntimeError(f"protocol policy subprocess failed: {result.stderr.strip()}")
-        return result.stdout.strip()
-
-    def _select_persistent(self, state: ProtocolPolicyState) -> str:
-        self._start_persistent()
-        process = self._process
-        assert process is not None and process.stdin is not None
-        if process.poll() is not None:
-            raise RuntimeError("persistent protocol policy exited: " + "\n".join(self._stderr))
-        try:
-            process.stdin.write(self._serialized_request(state) + "\n")
-            process.stdin.flush()
-            selected = self._responses.get(timeout=self.selection_timeout_seconds)
-        except (BrokenPipeError, queue.Empty) as exc:
-            self.close()
-            raise RuntimeError(
-                "persistent protocol policy timed out or closed: " + "\n".join(self._stderr)
-            ) from exc
-        if selected is None:
-            self.close()
-            raise RuntimeError(
-                "persistent protocol policy returned EOF: " + "\n".join(self._stderr)
-            )
-        return selected.strip()
-
     def select(self, state: ProtocolPolicyState) -> str:
-        response = (
-            self._select_persistent(state) if self._persistent else self._select_one_shot(state)
-        )
+        request = self._serialized_request(state)
+        if self._persistent:
+            self._start_persistent(
+                self._command(), error_prefix="persistent protocol policy subprocess"
+            )
+            response = self._select_persistent(
+                request, error_prefix="persistent protocol policy subprocess"
+            )
+        else:
+            response = self._select_one_shot(
+                self._command(),
+                request,
+                error_prefix="protocol policy subprocess failed",
+            )
         self._last_selection_diagnostics = None
         try:
             payload = json.loads(response)
@@ -731,26 +616,15 @@ class ProtocolPolicySubprocess:
                 if not isinstance(diagnostics, dict):
                     raise RuntimeError("protocol policy diagnostics must be an object")
                 self._last_selection_diagnostics = diagnostics
-        if selected not in {item.pair_id for item in state.queries}:
-            raise RuntimeError("protocol policy subprocess returned an unknown pair ID")
-        return selected
+        return self._validate_returned_id(
+            selected, {item.pair_id for item in state.queries}, kind="pair"
+        )
 
-    def close(self) -> None:
-        process = self._process
-        self._process = None
-        if process is None:
-            return
-        if process.stdin is not None and not process.stdin.closed:
-            process.stdin.close()
-        try:
-            process.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            process.terminate()
-            try:
-                process.wait(timeout=2)
-            except subprocess.TimeoutExpired:
-                process.kill()
-                process.wait(timeout=2)
+    def __enter__(self) -> ProtocolPolicySubprocess:
+        return self
+
+    def __exit__(self, *_: object) -> None:
+        self.close()
 
 
 class ProtocolCausalHull:
@@ -920,7 +794,7 @@ class SecureProtocolQueryRunner:
             )
             selected_id = self.policy.select(state)
             selection_diagnostics = self.policy.last_selection_diagnostics
-            if self.policy.policy == "conformal_source_rollout_delta_hull":
+            if self.policy.policy is ProtocolPolicy.CONFORMAL_SOURCE_ROLLOUT_DELTA_HULL:
                 source_index = int(
                     source_margin_action_indices(
                         source_energies=[

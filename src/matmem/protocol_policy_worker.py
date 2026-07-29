@@ -6,25 +6,34 @@ import argparse
 import hashlib
 import json
 import sys
+from pathlib import Path
 
 import numpy as np
-from protocol_knowledge_gradient import (
-    FixedCompositionHullTemplate,
-    FrozenProtocolRidgeTransport,
+
+# Allow this standalone script to import the matmem package when it is invoked
+# directly by the secure runner.  The parent of this file's directory is the
+# ``src/`` root where the package lives.
+_SRC_ROOT = Path(__file__).resolve().parent.parent
+if str(_SRC_ROOT) not in sys.path:
+    sys.path.insert(0, str(_SRC_ROOT))
+
+from matmem.hull_geometry import FixedCompositionHullTemplate
+from matmem.posterior import protocol_target_energy_posterior
+from matmem.protocol_acquisition import (
     conformal_one_deviation_source_rollout,
     constrained_dual_horizon_source_rollout,
     delta_hull_active_search,
     independent_confirmation_source_rollout,
     protocol_hull_knowledge_gradient,
     protocol_hull_risk_reduction,
-    protocol_target_energy_posterior,
     source_margin_action_indices,
     source_rollout_delta_hull,
 )
-from ridge_acquisition import (
+from matmem.ridge_acquisition import (
     linear_ridge_hull_influence_acquisition,
     linear_ridge_predicted_final_hull_acquisition,
 )
+from matmem.transport import FrozenProtocolRidgeTransport
 
 
 def _source_offset(history: list[dict[str, object]]) -> float:

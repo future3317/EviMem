@@ -7,9 +7,9 @@ import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
-SRC_ROOT = Path(__file__).resolve().parents[2]
-if str(SRC_ROOT) not in sys.path:
-    sys.path.insert(0, str(SRC_ROOT))
+_SRC_ROOT = Path(__file__).resolve().parent.parent
+if str(_SRC_ROOT) not in sys.path:
+    sys.path.insert(0, str(_SRC_ROOT))
 
 from matmem import (  # noqa: E402
     CalibrationUtilityBuilder,
@@ -51,20 +51,14 @@ def _material_views(
             hull_snapshot=HullSnapshot(
                 snapshot_id=item.hull_snapshot_id,
                 chemical_system=item.chemical_system,
-                reference_hull_energy_ev_per_atom=(
-                    item.hull_reference_energy_ev_per_atom
-                ),
+                reference_hull_energy_ev_per_atom=(item.hull_reference_energy_ev_per_atom),
                 phase_set_checksum=item.hull_phase_checksum,
                 known_through=POLICY_TIME,
                 built_at=POLICY_TIME,
                 source_version="serialized-policy-view",
             ),
-            base_predicted_formation_energy_ev_per_atom=(
-                item.frozen_prediction_ev_per_atom
-            ),
-            stability_threshold_ev_per_atom=(
-                item.stability_threshold_ev_per_atom
-            ),
+            base_predicted_formation_energy_ev_per_atom=(item.frozen_prediction_ev_per_atom),
+            stability_threshold_ev_per_atom=(item.stability_threshold_ev_per_atom),
             oracle_cost=item.oracle_cost,
             as_of=POLICY_TIME,
         )
@@ -82,9 +76,7 @@ def _material_views(
             identity=MaterialIdentity(
                 exact_calculation_id=f"policy:{item.witness_id}",
                 canonical_structure_id=f"policy:{item.structure_hash}",
-                composition_family="-".join(
-                    representative.hull_snapshot.chemical_system
-                ),
+                composition_family="-".join(representative.hull_snapshot.chemical_system),
             ),
             composition=item.composition,
             embedding=item.embedding,
@@ -123,9 +115,7 @@ def _calibration_policy(state: PolicyState, args: argparse.Namespace) -> str:
         return proposal.rank(queries, witnesses)[0].query_id
     planner = FacilityLocationCoresetPlanner(
         state.active_witness_capacity,
-        CalibrationUtilityBuilder(
-            FixedKernelResidualGP(resolver, config=config)
-        ),
+        CalibrationUtilityBuilder(FixedKernelResidualGP(resolver, config=config)),
     )
     acquisition = SurvivalConditionedAcquisition(
         proposal,
