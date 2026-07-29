@@ -71,11 +71,11 @@ with paths and SHA-256 values in the remote
 ship these artifacts. Superseded data are recoverable under
 `DATA/EviMem-RL/archive/superseded-20260722/` and are not active inputs.
 
-Last verified baseline: local `pytest -q` had 202 passing tests; remote
-`equivcompiler` had 211 passing tests, including the remote-only test inventory.
-Both passed Ruff lint. The remote format report listed three untracked temporary
-files outside the synchronized project scope; do not delete user files merely
-to make that report clean.
+Last verified baseline at commit `7b12aa0`: local `llm` and remote
+`equivcompiler` each had 207 passing tests. Both passed Ruff lint and format
+checks. The remote pre-sync work remains recoverable in
+`stash@{0}: codex-remote-presync-20260729`; inspect it with `git stash show`
+and do not pop it into the live tree.
 
 ## Live code architecture
 
@@ -85,9 +85,10 @@ New code must use focused modules, not the legacy compatibility shim.
   log, oracle vault, causal hull and secure execution.
 - `transport.py`: source-to-target ridge/kernel transport fitting and routing.
 - `posterior.py`: frozen hierarchical Gaussian target-energy posterior.
-- `hull_geometry.py`: shared fixed-composition and binary exact lower-hull
-  geometry. Any speed change requires action, sampled-membership, hull, and
-  reveal parity against the existing implementation.
+- `hull_geometry.py`: shared fixed-composition geometry with exact binary and
+  oriented-facet ternary lower-hull specializations. Any speed change requires
+  action, sampled-membership, hull, and reveal parity against the existing
+  implementation.
 - `protocol_acquisition.py`: source margin, Delta-Hull, source rollout,
   IC-SARR, and development diagnostics.
 - `campaign_gate.py`: restricted campaign-level source-vs-IC-SARR gate. It is

@@ -1313,6 +1313,7 @@ It also matched the pre-change implementation element-for-element on a local
 64-candidate, 1,024-sample ternary fixture. Across five timed repetitions on
 that fixture, median fixed-backend time fell from 0.7186 to 0.4940 seconds
 (`1.45x`). Full local validation at this change had 207 passing tests plus
-Ruff lint and format checks. These are implementation and local
-microbenchmark results only; no MatPES policy output was rerun and no
-scientific disposition changed.
+Ruff lint and format checks. Remote validation at commit `7b12aa0` reproduced
+207 passing tests and both Ruff gates in `equivcompiler`. These are
+implementation and local microbenchmark results only; no MatPES policy output
+was rerun and no scientific disposition changed.
