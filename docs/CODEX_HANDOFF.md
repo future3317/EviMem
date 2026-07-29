@@ -56,6 +56,15 @@ different multi-protocol task, not an IC-SARR MatPES holdout.
 | Local test environment | `conda run --no-capture-output -n llm ...` |
 | Remote experiment environment | `conda run --no-capture-output -n equivcompiler ...` |
 
+For non-interactive SSH sessions, `conda` is not on `PATH` until the remote
+Miniconda profile has been loaded. Use:
+
+```bash
+source /home/workspace/lrh/miniconda3/etc/profile.d/conda.sh
+cd ~/EviMem-RL
+conda run --no-capture-output -n equivcompiler pytest -q
+```
+
 The canonical remote MatPES task, v5 vault, and fold-0 transport are recorded
 with paths and SHA-256 values in the remote
 `manifests/matpes-canonical-development-v1.json`; the local repository does not
