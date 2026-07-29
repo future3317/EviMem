@@ -63,9 +63,7 @@ class AllOutcomeLinearGaussianState:
         self.feature_dimension = feature_dimension
         self.prior_std_ev_per_atom = prior_std_ev_per_atom
         self.observation_noise_std_ev_per_atom = observation_noise_std_ev_per_atom
-        self._precision = np.eye(feature_dimension, dtype=np.float64) / (
-            prior_std_ev_per_atom**2
-        )
+        self._precision = np.eye(feature_dimension, dtype=np.float64) / (prior_std_ev_per_atom**2)
         self._eta = np.zeros(feature_dimension, dtype=np.float64)
         self._accepted_count = 0
         self._rejected_count = 0
@@ -107,8 +105,7 @@ class AllOutcomeLinearGaussianState:
             )
         feature = self._feature(card.embedding)
         variance = (
-            self.observation_noise_std_ev_per_atom**2
-            + resolution.uncertainty_radius_ev_per_atom**2
+            self.observation_noise_std_ev_per_atom**2 + resolution.uncertainty_radius_ev_per_atom**2
         )
         weight = 1.0 / variance
         self._precision += weight * np.outer(feature, feature)
@@ -126,9 +123,7 @@ class AllOutcomeLinearGaussianState:
             observation_variance=variance,
         )
 
-    def update_many(
-        self, cards: Iterable[MaterialMemoryCard]
-    ) -> tuple[SufficientStateUpdate, ...]:
+    def update_many(self, cards: Iterable[MaterialMemoryCard]) -> tuple[SufficientStateUpdate, ...]:
         return tuple(self.update(card) for card in cards)
 
     def natural_parameters(self) -> tuple[np.ndarray, np.ndarray]:
@@ -159,8 +154,7 @@ class AllOutcomeLinearGaussianState:
     def predict(self, queries: Sequence[MaterialQuery]) -> ResidualPrediction:
         items = tuple(queries)
         if any(
-            query.protocol.scientific_fingerprint
-            != self.target_protocol.scientific_fingerprint
+            query.protocol.scientific_fingerprint != self.target_protocol.scientific_fingerprint
             for query in items
         ):
             raise ValueError("sufficient state can predict only its frozen target protocol")
@@ -175,10 +169,7 @@ class AllOutcomeLinearGaussianState:
             variance = float(feature @ posterior_covariance @ feature)
             variance += self.observation_noise_std_ev_per_atom**2
             std = math.sqrt(max(variance, np.finfo(float).eps))
-            threshold = (
-                query.stability_threshold_ev_per_atom
-                - query.base_hull_distance_ev_per_atom
-            )
+            threshold = query.stability_threshold_ev_per_atom - query.base_hull_distance_ev_per_atom
             probability = self._normal_cdf((threshold - mean) / std)
             means.append(mean)
             stds.append(std)
@@ -210,9 +201,9 @@ class AllOutcomeTargetCorrectionState:
     ) -> None:
         if len(feature_mean) < 2 or len(feature_mean) != len(feature_scale):
             raise ValueError("target correction requires a fixed feature dimension")
-        if any(
-            not math.isfinite(value) for value in (*feature_mean, *feature_scale)
-        ) or any(value <= 0 for value in feature_scale):
+        if any(not math.isfinite(value) for value in (*feature_mean, *feature_scale)) or any(
+            value <= 0 for value in feature_scale
+        ):
             raise ValueError("target correction feature standardization is invalid")
         if (
             not math.isfinite(ridge_penalty)
@@ -247,9 +238,7 @@ class AllOutcomeTargetCorrectionState:
         dimension = len(self.feature_mean) + 1
         return dimension**2 + dimension + 1
 
-    def update(
-        self, embedding: tuple[float, ...], target_minus_base_ev_per_atom: float
-    ) -> None:
+    def update(self, embedding: tuple[float, ...], target_minus_base_ev_per_atom: float) -> None:
         if not math.isfinite(target_minus_base_ev_per_atom):
             raise ValueError("target correction outcome must be finite")
         feature = self._feature(embedding)

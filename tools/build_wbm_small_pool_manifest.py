@@ -119,7 +119,9 @@ def read_observable_candidates(
             initial_structure = _extract_initial_structure(
                 structures.get(source_id), query_id=query_id
             )
-            composition = tuple(sorted((str(key), float(value)) for key, value in entry["composition"].items()))
+            composition = tuple(
+                sorted((str(key), float(value)) for key, value in entry["composition"].items())
+            )
             candidates.append(
                 ObservableCandidate(
                     query_id=query_id,
@@ -135,7 +137,9 @@ def read_observable_candidates(
     return candidates
 
 
-def deduplicate_exact_structures(candidates: list[ObservableCandidate]) -> tuple[list[ObservableCandidate], int]:
+def deduplicate_exact_structures(
+    candidates: list[ObservableCandidate],
+) -> tuple[list[ObservableCandidate], int]:
     """Retain the lexicographically first row for byte-identical CSE structures."""
 
     groups: dict[str, list[ObservableCandidate]] = defaultdict(list)
@@ -147,7 +151,8 @@ def deduplicate_exact_structures(candidates: list[ObservableCandidate]) -> tuple
 
 def select_small_pools(
     candidates: list[ObservableCandidate],
-    *, pool_size: int = POOL_SIZE,
+    *,
+    pool_size: int = POOL_SIZE,
     calibration_fraction: float = CALIBRATION_FRACTION,
 ) -> dict[str, object]:
     """Select eight systems without labels or prediction values, or fail visibly."""
@@ -164,7 +169,9 @@ def select_small_pools(
             :calibration_count
         ]
     )
-    evaluation = {system: rows for system, rows in by_system.items() if system not in calibration_systems}
+    evaluation = {
+        system: rows for system, rows in by_system.items() if system not in calibration_systems
+    }
     eligible = {system: rows for system, rows in evaluation.items() if len(rows) >= pool_size}
     selected: dict[str, object] = {}
     stratum_profile: dict[str, object] = {}
@@ -185,18 +192,19 @@ def select_small_pools(
             stratum_systems, key=lambda system: (_rank(RELEASE_ID, "-".join(system)), system)
         )[:2]
         stratum_profile[key] = {
-            "eligible_system_count": len(systems), "median_candidate_count": median,
-            "stratum_system_count": len(stratum_systems), "selected_systems": ["-".join(item) for item in chosen_systems],
+            "eligible_system_count": len(systems),
+            "median_candidate_count": median,
+            "stratum_system_count": len(stratum_systems),
+            "selected_systems": ["-".join(item) for item in chosen_systems],
         }
         for system in chosen_systems:
             rows = sorted(
                 eligible[system],
-                key=lambda item: (
-                    _rank(RELEASE_ID, item.exact_structure_sha256), item.query_id
-                ),
+                key=lambda item: (_rank(RELEASE_ID, item.exact_structure_sha256), item.query_id),
             )[:pool_size]
             selected["-".join(system)] = {
-                "chemical_system": list(system), "candidate_count_before_selection": len(eligible[system]),
+                "chemical_system": list(system),
+                "candidate_count_before_selection": len(eligible[system]),
                 "candidates": [asdict(item) for item in rows],
             }
     selected_ids = [item["query_id"] for pool in selected.values() for item in pool["candidates"]]
@@ -208,11 +216,15 @@ def select_small_pools(
     ):
         raise ValueError("selected small pools are not disjoint fixed-size pools")
     return {
-        "release_id": RELEASE_ID, "pool_size": pool_size,
-        "calibration_fraction": calibration_fraction, "calibration_system_count": len(calibration_systems),
+        "release_id": RELEASE_ID,
+        "pool_size": pool_size,
+        "calibration_fraction": calibration_fraction,
+        "calibration_system_count": len(calibration_systems),
         "calibration_system_checksum": _checksum(["-".join(item) for item in calibration_systems]),
-        "exact_system_count": len(all_systems), "eligible_evaluation_system_count": len(eligible),
-        "strata": stratum_profile, "pools": selected,
+        "exact_system_count": len(all_systems),
+        "eligible_evaluation_system_count": len(eligible),
+        "strata": stratum_profile,
+        "pools": selected,
         "selected_candidate_id_checksum": _checksum(selected_ids),
         "mp_overlap_exclusion": "not implemented; this is an exploratory amendment, not the formal canonicalized pool protocol",
     }
@@ -228,17 +240,22 @@ def main() -> None:
     if args.output.resolve().is_relative_to(Path(__file__).resolve().parents[1]):
         parser.error("pool manifest must remain outside the repository")
     raw = read_observable_candidates(
-        cse_root=args.cse_root, structures_root=args.structures_root, cleaned_ids=_read_cleaned_ids(args.cleaned_ids)
+        cse_root=args.cse_root,
+        structures_root=args.structures_root,
+        cleaned_ids=_read_cleaned_ids(args.cleaned_ids),
     )
     deduplicated, duplicate_count = deduplicate_exact_structures(raw)
     manifest = {
         "scope": "exploratory_wbm_small_exact_system_pool_oracle_blind",
-        "raw_cleaned_candidate_count": len(raw), "exact_serialized_structure_duplicates_removed": duplicate_count,
+        "raw_cleaned_candidate_count": len(raw),
+        "exact_serialized_structure_duplicates_removed": duplicate_count,
         "selection": select_small_pools(deduplicated),
     }
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    print(f"pools={len(manifest['selection']['pools'])} pool_size={manifest['selection']['pool_size']}")
+    print(
+        f"pools={len(manifest['selection']['pools'])} pool_size={manifest['selection']['pool_size']}"
+    )
     print(f"selected_id_checksum={manifest['selection']['selected_candidate_id_checksum']}")
 
 

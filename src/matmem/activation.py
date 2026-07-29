@@ -58,18 +58,13 @@ class ProtocolAwareActivator:
         *,
         max_transport_uncertainty_ev_per_atom: float | None = None,
     ) -> None:
-        if (
-            max_transport_uncertainty_ev_per_atom is not None
-            and (
-                not math.isfinite(max_transport_uncertainty_ev_per_atom)
-                or max_transport_uncertainty_ev_per_atom < 0
-            )
+        if max_transport_uncertainty_ev_per_atom is not None and (
+            not math.isfinite(max_transport_uncertainty_ev_per_atom)
+            or max_transport_uncertainty_ev_per_atom < 0
         ):
             raise ValueError("transport uncertainty gate must be finite and non-negative")
         self.resolver = resolver
-        self.max_transport_uncertainty_ev_per_atom = (
-            max_transport_uncertainty_ev_per_atom
-        )
+        self.max_transport_uncertainty_ev_per_atom = max_transport_uncertainty_ev_per_atom
 
     def activate(
         self,
@@ -105,9 +100,7 @@ class ProtocolAwareActivator:
         direct_ids = {card.card_id for card in direct}
         transported_ids = {card.card_id for card in transported}
         active = tuple(
-            card
-            for card in cards
-            if card.card_id in direct_ids or card.card_id in transported_ids
+            card for card in cards if card.card_id in direct_ids or card.card_id in transported_ids
         )
         audit = ProtocolActivationAudit(
             query_id=query.query_id,

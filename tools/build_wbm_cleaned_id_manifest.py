@@ -132,7 +132,9 @@ def build_manifest(
         if step != 3 and len(structure_ids) != expected_count:
             raise ValueError(f"WBM structures step {step} has unexpected count")
         retained_ids = [
-            source_id for source_id in structure_ids if source_id not in STEP3_ANOMALOUS_STRUCTURE_IDS
+            source_id
+            for source_id in structure_ids
+            if source_id not in STEP3_ANOMALOUS_STRUCTURE_IDS
         ]
         if len(cse_payload["entries"]) != expected_count or len(retained_ids) != expected_count:
             raise ValueError(f"WBM CSE/structure alignment count mismatch for step {step}")
@@ -161,7 +163,9 @@ def build_manifest(
     summary_source_set = set(summary_e_form_by_source)
     if len(cse_source_set) != sum(STEP_COUNTS):
         raise ValueError("aligned CSE source IDs are not unique")
-    if tuple(sorted(structure_set - cse_source_set)) != tuple(sorted(STEP3_ANOMALOUS_STRUCTURE_IDS)):
+    if tuple(sorted(structure_set - cse_source_set)) != tuple(
+        sorted(STEP3_ANOMALOUS_STRUCTURE_IDS)
+    ):
         raise ValueError("structure/CSE extra IDs differ from upstream step-3 anomalies")
     if tuple(sorted(cse_source_set - initial_set)) != STEP5_MISSING_INITIAL_IDS:
         raise ValueError("CSE/initial missing IDs differ from upstream step-5 anomalies")
@@ -186,7 +190,12 @@ def build_manifest(
         if summary_e_form_by_benchmark[item] > OUTLIER_CUTOFF_EV_PER_ATOM
     }
     cleaned_ids = pre_outlier_ids - below - above
-    if (len(pre_outlier_ids), len(below), len(above), len(cleaned_ids)) != (257_487, 502, 22, 256_963):
+    if (len(pre_outlier_ids), len(below), len(above), len(cleaned_ids)) != (
+        257_487,
+        502,
+        22,
+        256_963,
+    ):
         raise ValueError("WBM raw-to-cleaned filter counts differ from the pinned compiler")
 
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -231,20 +240,48 @@ def build_manifest(
             "exact_match_after_documented_step3_reindexing": True,
         },
         "documented_anomalies": {
-            "step3_extra_structure_ids_without_cse_or_summary_id": list(STEP3_ANOMALOUS_STRUCTURE_IDS),
+            "step3_extra_structure_ids_without_cse_or_summary_id": list(
+                STEP3_ANOMALOUS_STRUCTURE_IDS
+            ),
             "step5_missing_initial_structure_source_ids": list(STEP5_MISSING_INITIAL_IDS),
             "step5_missing_initial_structure_benchmark_ids": sorted(missing_initial_benchmark_ids),
         },
         "filter_chain": [
-            {"name": "aligned_cse_benchmark_ids", "count": len(cse_benchmark_ids), "id_checksum": _id_checksum(cse_benchmark_ids)},
-            {"name": "drop_missing_initial_structures", "removed_count": len(missing_initial_benchmark_ids), "remaining_count": len(pre_outlier_ids), "removed_id_checksum": _id_checksum(missing_initial_benchmark_ids), "remaining_id_checksum": _id_checksum(pre_outlier_ids)},
-            {"name": "drop_formation_energy_below_minus_5_ev_per_atom", "removed_count": len(below), "removed_id_checksum": _id_checksum(below)},
-            {"name": "drop_formation_energy_above_plus_5_ev_per_atom", "removed_count": len(above), "removed_id_checksum": _id_checksum(above)},
-            {"name": "cleaned_matbench_discovery_benchmark_ids", "count": len(cleaned_ids), "id_checksum": _id_checksum(cleaned_ids), "id_file": str(cleaned_ids_path.resolve()), "id_file_sha256": _sha256_file(cleaned_ids_path)},
+            {
+                "name": "aligned_cse_benchmark_ids",
+                "count": len(cse_benchmark_ids),
+                "id_checksum": _id_checksum(cse_benchmark_ids),
+            },
+            {
+                "name": "drop_missing_initial_structures",
+                "removed_count": len(missing_initial_benchmark_ids),
+                "remaining_count": len(pre_outlier_ids),
+                "removed_id_checksum": _id_checksum(missing_initial_benchmark_ids),
+                "remaining_id_checksum": _id_checksum(pre_outlier_ids),
+            },
+            {
+                "name": "drop_formation_energy_below_minus_5_ev_per_atom",
+                "removed_count": len(below),
+                "removed_id_checksum": _id_checksum(below),
+            },
+            {
+                "name": "drop_formation_energy_above_plus_5_ev_per_atom",
+                "removed_count": len(above),
+                "removed_id_checksum": _id_checksum(above),
+            },
+            {
+                "name": "cleaned_matbench_discovery_benchmark_ids",
+                "count": len(cleaned_ids),
+                "id_checksum": _id_checksum(cleaned_ids),
+                "id_file": str(cleaned_ids_path.resolve()),
+                "id_file_sha256": _sha256_file(cleaned_ids_path),
+            },
         ],
     }
     manifest_path = output_dir / "wbm-raw-to-cleaned-id-manifest.json"
-    manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    manifest_path.write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
     return manifest
 
 

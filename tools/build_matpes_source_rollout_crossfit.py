@@ -39,9 +39,7 @@ def build(
         raise ValueError("cross-fitting requires at least two folds")
     task = json.loads(task_path.read_text(encoding="utf-8"))
     opened = json.loads(opened_result_path.read_text(encoding="utf-8"))
-    if opened.get("split") != "confirmatory" or not opened.get(
-        "evaluation_systems_accessed"
-    ):
+    if opened.get("split") != "confirmatory" or not opened.get("evaluation_systems_accessed"):
         raise ValueError("cross-fit exclusion source must be an opened confirmatory result")
     eligible = tuple(sorted(set(opened["transport_fit_systems"])))
     opened_systems = tuple(sorted(set(opened["query_systems"])))

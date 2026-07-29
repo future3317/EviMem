@@ -88,7 +88,10 @@ class ProtocolRiskController:
         return calibration
 
     def screen(self, query: MaterialQuery, correction: ResidualCorrection) -> RiskDecision:
-        if correction.status != "corrected" or correction.corrected_hull_distance_ev_per_atom is None:
+        if (
+            correction.status != "corrected"
+            or correction.corrected_hull_distance_ev_per_atom is None
+        ):
             return RiskDecision(decision=ScreeningDecision.ABSTAIN, reason=correction.status)
         calibration = self._calibrations.get(query.protocol.scientific_fingerprint)
         if calibration is None:

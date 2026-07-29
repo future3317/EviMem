@@ -2,8 +2,14 @@
 
 This package is deliberately separate from the document-curation memory stack.
 It consumes native structure and calculation outcomes, never LLM annotations.
+
+Public symbols are re-exported here for convenience; heavy internal helpers live
+in their own submodules and are not imported eagerly by ``import matmem``.
 """
 
+from __future__ import annotations
+
+# Acquisition and coreset policies
 from .acquisition import (
     AcquisitionScore,
     FrozenHullDistanceAcquisition,
@@ -11,6 +17,8 @@ from .acquisition import (
     SeededRandomAcquisition,
     SurvivalConditionedAcquisition,
 )
+
+# Protocol activation
 from .activation import (
     ProtocolActivation,
     ProtocolActivationAudit,
@@ -21,6 +29,8 @@ from .baselines import (
     FIFOBoundedMemory,
     GPVarianceOneSwapMemory,
 )
+
+# Calibration and scoring
 from .calibration_utility import (
     CalibrationUtilityBuilder,
     CalibrationUtilityMatrix,
@@ -32,8 +42,13 @@ from .calibration_utility import (
     reference_decision_regret,
     threshold_weighted_crps_divergence,
 )
+
+# Closed-loop execution
 from .campaign_gate import CampaignGatedICSARRResult, campaign_gated_ic_sarr
+
+# Identity and structure encoding
 from .cards import HullSnapshot, MaterialMemoryCard, MaterialQuery, SourceProvenance
+from .configs import MATPES_DEFAULTS, MatPESDefaults
 from .coreset import (
     CoresetSelection,
     ExactArchivePosteriorProjectionPlanner,
@@ -51,6 +66,8 @@ from .coreset import (
     StreamingPosteriorProjectionCoreset,
     compare_facility_and_joint_objectives,
 )
+
+# Protocol-aware transport and posterior
 from .environment_transport import (
     EnvironmentConditionalProtocolTransportMap,
     EnvironmentTransportPrediction,
@@ -74,12 +91,45 @@ from .hull_certificate import (
     clustered_conformal_quantile,
 )
 from .hull_engine import CausalHullEngine
+
+# Hull geometry, transport, posterior, and acquisition (formerly protocol_knowledge_gradient)
+from .hull_geometry import FixedCompositionHullTemplate, fixed_composition_hull_membership
 from .identity import (
     CanonicalGroupSplit,
     MaterialIdentity,
     StructureArtifactIdentity,
     StructureStage,
     WBMStructureSourceField,
+)
+
+# Policy registry and defaults
+from .policy_registry import (
+    CampaignPolicy,
+    ProtocolPolicy,
+    requires_protocol_transport,
+)
+from .posterior import ProtocolTargetEnergyPosterior, protocol_target_energy_posterior
+from .protocol_acquisition import (
+    ConformalSourceRolloutCalibration,
+    ConformalSourceRolloutResult,
+    DeltaHullActiveSearchResult,
+    DualHorizonSourceRolloutResult,
+    IndependentConfirmationSourceRolloutResult,
+    ProtocolHullKnowledgeGradientResult,
+    ProtocolHullPosteriorSummary,
+    ProtocolHullRiskReductionResult,
+    SourceRolloutDeltaHullResult,
+    conformal_one_deviation_source_rollout,
+    constrained_dual_horizon_source_rollout,
+    delta_hull_active_search,
+    fit_conformal_source_rollout_calibration,
+    independent_confirmation_source_rollout,
+    protocol_hull_knowledge_gradient,
+    protocol_hull_posterior_summary,
+    protocol_hull_risk_reduction,
+    source_margin_action_indices,
+    source_rollout_delta_hull,
+    source_rollout_system_score,
 )
 from .protocol_closed_loop import (
     AppendOnlyProtocolEventLog,
@@ -97,35 +147,6 @@ from .protocol_closed_loop import (
     ProtocolRevealRecord,
     RevealedProtocolObservation,
     SecureProtocolQueryRunner,
-)
-from .protocol_knowledge_gradient import (
-    ConformalSourceRolloutCalibration,
-    ConformalSourceRolloutResult,
-    DeltaHullActiveSearchResult,
-    DualHorizonSourceRolloutResult,
-    FixedCompositionHullTemplate,
-    FrozenProtocolRidgeTransport,
-    IndependentConfirmationSourceRolloutResult,
-    ProtocolHullKnowledgeGradientResult,
-    ProtocolHullPosteriorSummary,
-    ProtocolHullRiskReductionResult,
-    ProtocolTargetEnergyPosterior,
-    SourceRolloutDeltaHullResult,
-    conformal_one_deviation_source_rollout,
-    constrained_dual_horizon_source_rollout,
-    delta_hull_active_search,
-    fit_conformal_source_rollout_calibration,
-    fit_protocol_kernel_transport,
-    fit_protocol_ridge_transport,
-    fixed_composition_hull_membership,
-    independent_confirmation_source_rollout,
-    protocol_hull_knowledge_gradient,
-    protocol_hull_posterior_summary,
-    protocol_hull_risk_reduction,
-    protocol_target_energy_posterior,
-    source_margin_action_indices,
-    source_rollout_delta_hull,
-    source_rollout_system_score,
 )
 from .protocols import (
     CompatibilityKind,
@@ -158,6 +179,13 @@ from .sufficient_state import (
     AllOutcomeTargetCorrectionState,
     SufficientStateUpdate,
 )
+from .transport import (
+    FrozenProtocolRidgeTransport,
+    fit_protocol_kernel_transport,
+    fit_protocol_ridge_transport,
+)
+
+# WBM support
 from .wbm import (
     DataAuditFinding,
     DataLicenseAuditReport,
@@ -229,199 +257,4 @@ from .wbm_secure import (
     replay_wbm_event_log,
 )
 
-__all__ = [
-    "DeltaHullActiveSearchResult",
-    "AcquisitionScore",
-    "AllOutcomeLinearGaussianState",
-    "AllOutcomeTargetCorrectionState",
-    "AppendOnlyProtocolEventLog",
-    "AppendOnlyWBMEventLog",
-    "ActionValueInterval",
-    "BudgetPrefixParityRecord",
-    "CHGNET_MODEL_NAME",
-    "CHGNET_MODEL_SHA256",
-    "CalibrationUtilityBuilder",
-    "CalibrationUtilityMatrix",
-    "CausalHullEngine",
-    "CertifiedActionSet",
-    "ClusteredConformalCalibration",
-    "CompatibilityKind",
-    "CompositionAwareProtocolTransportMap",
-    "CompositionHullState",
-    "CorrectedPhaseEntry",
-    "CanonicalGroupSplit",
-    "ConformalCalibration",
-    "CoresetSelection",
-    "ExactArchivePosteriorProjectionPlanner",
-    "EnvironmentConditionalProtocolTransportMap",
-    "EnvironmentTransportPrediction",
-    "EnvironmentTransportStatus",
-    "DataAuditFinding",
-    "DataLicenseAuditReport",
-    "DataLicenseDecision",
-    "DiversityBoundedMemory",
-    "FIFOBoundedMemory",
-    "GPVarianceOneSwapMemory",
-    "FacilityLocationCoresetPlanner",
-    "FixedKernelGPConfig",
-    "FixedKernelResidualGP",
-    "FrozenHullDistanceAcquisition",
-    "FrozenProtocolRidgeTransport",
-    "FrozenGridCell",
-    "FrozenCHGNetCrystalEncoder",
-    "GaussianNLLShapleyAttribution",
-    "HullInfluenceAcquisitionResult",
-    "FrozenPredictionSOAPCache",
-    "FrozenPredictionSOAPRecord",
-    "HullSnapshot",
-    "HullMarginSubgradient",
-    "PredictedFinalHullAcquisitionResult",
-    "PhaseEnergyInterval",
-    "JointPosteriorRiskOneSwapPlanner",
-    "JointPosteriorRiskSelection",
-    "MatchedResidualPair",
-    "MatchedEnergyPair",
-    "MatchedEnvironmentEnergyPair",
-    "MaterialMemoryCard",
-    "MaterialIdentity",
-    "StructureArtifactIdentity",
-    "StructureStage",
-    "WBMStructureSourceField",
-    "OracleEnergySource",
-    "ObservableProtocolQuery",
-    "ObservableProtocolPhase",
-    "MaterialQuery",
-    "MPCausalHullBuilder",
-    "MPPhaseRecord",
-    "PosteriorUncertaintyAcquisition",
-    "PrequentialCausalEvaluator",
-    "PrequentialRoundMetrics",
-    "ObjectiveFidelityCandidate",
-    "ObjectiveFidelityDiagnostic",
-    "PosteriorProjectionCandidate",
-    "PosteriorProjectionOneSwapPlanner",
-    "PosteriorProjectionScorer",
-    "PosteriorProjectionSelection",
-    "PosteriorEvaluationSnapshot",
-    "PosteriorQueryEvaluation",
-    "ProperPosteriorDivergence",
-    "ProtocolCertificate",
-    "ProtocolHullKnowledgeGradientResult",
-    "ProtocolHullPosteriorSummary",
-    "ProtocolHullRiskReductionResult",
-    "ProtocolActionRecord",
-    "ProtocolActivation",
-    "ProtocolActivationAudit",
-    "ProtocolAwareActivator",
-    "ProtocolCompatibility",
-    "ProtocolCompatibilityResolver",
-    "ProtocolCandidate",
-    "ProtocolCausalHull",
-    "ProtocolClosedLoopEvent",
-    "ProtocolClosedLoopResult",
-    "ProtocolOracleOutcome",
-    "ProtocolOracleVault",
-    "ProtocolPolicyState",
-    "ProtocolPolicySubprocess",
-    "ProtocolRevealRecord",
-    "ProtocolRiskController",
-    "ProtocolTransportMap",
-    "ProtocolTargetEnergyPosterior",
-    "PolicyQuery",
-    "PolicyState",
-    "PolicySubprocess",
-    "PolicyWitness",
-    "PersistentFIFOEvidence",
-    "ReconstructedFIFOEvidence",
-    "RevealedObservation",
-    "RevealedProtocolObservation",
-    "ResidualCorrection",
-    "ResidualCorrector",
-    "ResidualPosterior",
-    "ResidualPrediction",
-    "ReferencePosteriorSnapshot",
-    "RiskDecision",
-    "RobustHullDecision",
-    "RobustHullDecisionCertifier",
-    "RobustHullDecisionKind",
-    "ScreeningDecision",
-    "SelectionEffectRecord",
-    "SeededRandomAcquisition",
-    "SourceProvenance",
-    "SecureWBMRunner",
-    "SecureProtocolQueryRunner",
-    "StreamingCalibrationCoreset",
-    "StreamingCoresetEvidence",
-    "StreamingJointPosteriorRiskCoreset",
-    "StreamingPosteriorProjectionCoreset",
-    "SufficientStateUpdate",
-    "SurvivalConditionedAcquisition",
-    "SOAPCacheConfig",
-    "WBMObservableRecord",
-    "WBMActionRecord",
-    "WBMEvent",
-    "WBMPhaseTiming",
-    "WBMOracleRecord",
-    "WBMOracleVault",
-    "WBMReplayAudit",
-    "WBMReveal",
-    "WBMRevealRecord",
-    "WBMRunResult",
-    "WBMRawObservableRecord",
-    "WBMRawOracleOutcome",
-    "WBMRawOracleVault",
-    "WBMRawReleaseReport",
-    "RAW_WBM_EXPECTED_ENTRY_COUNTS",
-    "RAW_WBM_FILENAMES",
-    "ExactEmulationAudit",
-    "ExternalDataArtifact",
-    "assert_exact_emulation",
-    "audit_external_data_artifacts",
-    "bernoulli_brier_divergence",
-    "bernoulli_log_divergence",
-    "compare_facility_and_joint_objectives",
-    "delta_hull_active_search",
-    "FixedCompositionHullTemplate",
-    "fixed_composition_hull_membership",
-    "certify_epsilon_optimal_actions",
-    "clustered_conformal_quantile",
-    "replay_wbm_event_log",
-    "raw_wbm_records_from_payload",
-    "validate_raw_wbm_release",
-    "FROZEN_BUDGETS",
-    "FROZEN_CAPACITIES",
-    "JOINT_RISK_SENTINELS",
-    "PRIMARY_STRATEGIES",
-    "aggregate_prequential_prefix",
-    "frozen_grid_cells",
-    "fit_protocol_ridge_transport",
-    "fit_protocol_kernel_transport",
-    "hull_margin_subgradient",
-    "gaussian_nll_shapley_attribution",
-    "gaussian_kl_divergence",
-    "linear_ridge_hull_influence_acquisition",
-    "linear_ridge_predicted_final_hull_acquisition",
-    "protocol_hull_knowledge_gradient",
-    "protocol_hull_posterior_summary",
-    "protocol_hull_risk_reduction",
-    "protocol_target_energy_posterior",
-    "ConformalSourceRolloutCalibration",
-    "ConformalSourceRolloutResult",
-    "DualHorizonSourceRolloutResult",
-    "IndependentConfirmationSourceRolloutResult",
-    "conformal_one_deviation_source_rollout",
-    "constrained_dual_horizon_source_rollout",
-    "fit_conformal_source_rollout_calibration",
-    "independent_confirmation_source_rollout",
-    "source_margin_action_indices",
-    "source_rollout_system_score",
-    "source_rollout_delta_hull",
-    "SourceRolloutDeltaHullResult",
-    "paired_system_improvement_bootstrap",
-    "reference_headroom_recovery",
-    "paired_system_bootstrap",
-    "reference_decision_regret",
-    "threshold_weighted_crps_divergence",
-    "CampaignGatedICSARRResult",
-    "campaign_gated_ic_sarr",
-]
+__all__ = sorted(name for name in locals() if not name.startswith("_"))

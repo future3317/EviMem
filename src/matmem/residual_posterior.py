@@ -70,12 +70,15 @@ class FixedKernelGPConfig:
     def __post_init__(self) -> None:
         if self.kernel not in {"matern52", "rbf"}:
             raise ValueError("fixed residual GP kernel must be 'matern52' or 'rbf'")
-        if min(
-            self.length_scale,
-            self.signal_std_ev_per_atom,
-            self.noise_std_ev_per_atom,
-            self.jitter,
-        ) <= 0:
+        if (
+            min(
+                self.length_scale,
+                self.signal_std_ev_per_atom,
+                self.noise_std_ev_per_atom,
+                self.jitter,
+            )
+            <= 0
+        ):
             raise ValueError("fixed residual GP hyperparameters must be positive")
 
 
@@ -97,9 +100,7 @@ class FixedKernelResidualGP:
         self.resolver = resolver
         self.config = config or FixedKernelGPConfig()
         self._cards: tuple[MaterialMemoryCard, ...] = ()
-        self._models: dict[
-            tuple[tuple[str, float, float], ...], GaussianProcessRegressor
-        ] = {}
+        self._models: dict[tuple[tuple[str, float, float], ...], GaussianProcessRegressor] = {}
 
     def clone_unfit(self) -> FixedKernelResidualGP:
         return type(self)(self.resolver, config=self.config)
@@ -134,9 +135,7 @@ class FixedKernelResidualGP:
             residual = resolution.transfer_residual(card.oracle_residual_ev_per_atom)
             if residual is None:
                 continue
-            compatible.append(
-                (card, residual, resolution.uncertainty_radius_ev_per_atom)
-            )
+            compatible.append((card, residual, resolution.uncertainty_radius_ev_per_atom))
         return tuple(compatible)
 
     def _signal_kernel(self):
@@ -145,10 +144,13 @@ class FixedKernelResidualGP:
             if self.config.kernel == "matern52"
             else RBF(length_scale=self.config.length_scale)
         )
-        return ConstantKernel(
-            self.config.signal_std_ev_per_atom**2,
-            constant_value_bounds="fixed",
-        ) * base
+        return (
+            ConstantKernel(
+                self.config.signal_std_ev_per_atom**2,
+                constant_value_bounds="fixed",
+            )
+            * base
+        )
 
     def _kernel(self):
         # WhiteKernel is intentional predictive discrepancy, not a numerical
@@ -162,19 +164,14 @@ class FixedKernelResidualGP:
         self, view: tuple[tuple[MaterialMemoryCard, float, float], ...]
     ) -> GaussianProcessRegressor:
         key = tuple(
-            (card.card_id, float(residual), float(radius))
-            for card, residual, radius in view
+            (card.card_id, float(residual), float(radius)) for card, residual, radius in view
         )
         cached = self._models.get(key)
         if cached is not None:
             return cached
-        x_train = np.vstack(
-            [self._normalized_embedding(card.embedding) for card, _, _ in view]
-        )
+        x_train = np.vstack([self._normalized_embedding(card.embedding) for card, _, _ in view])
         y_train = np.asarray([residual for _, residual, _ in view], dtype=float)
-        alpha = np.asarray(
-            [radius**2 + self.config.jitter for _, _, radius in view], dtype=float
-        )
+        alpha = np.asarray([radius**2 + self.config.jitter for _, _, radius in view], dtype=float)
         model = GaussianProcessRegressor(
             kernel=self._kernel(),
             alpha=alpha,
@@ -201,8 +198,7 @@ class FixedKernelResidualGP:
             if not view:
                 mean = 0.0
                 std = math.sqrt(
-                    self.config.signal_std_ev_per_atom**2
-                    + self.config.noise_std_ev_per_atom**2
+                    self.config.signal_std_ev_per_atom**2 + self.config.noise_std_ev_per_atom**2
                 )
             else:
                 model = self._model_for(view)
@@ -213,8 +209,7 @@ class FixedKernelResidualGP:
                 mean = float(mean_array[0])
                 std = max(float(std_array[0]), math.sqrt(self.config.jitter))
             residual_threshold = (
-                query.stability_threshold_ev_per_atom
-                - query.base_hull_distance_ev_per_atom
+                query.stability_threshold_ev_per_atom - query.base_hull_distance_ev_per_atom
             )
             probability = self._normal_cdf((residual_threshold - mean) / std)
             means.append(mean)
@@ -261,10 +256,14 @@ class FixedKernelResidualGP:
         items = tuple(queries)
         if not items:
             return {}
-        return self.clone_unfit().fit((witness,)).decision_risks(
-            items,
-            false_stable_cost=false_stable_cost,
-            false_unstable_cost=false_unstable_cost,
+        return (
+            self.clone_unfit()
+            .fit((witness,))
+            .decision_risks(
+                items,
+                false_stable_cost=false_stable_cost,
+                false_unstable_cost=false_unstable_cost,
+            )
         )
 
     def decision_risks(
@@ -283,7 +282,5 @@ class FixedKernelResidualGP:
                 false_stable_cost * (1.0 - probability),
                 false_unstable_cost * probability,
             )
-            for query, probability in zip(
-                items, prediction.stable_probability, strict=True
-            )
+            for query, probability in zip(items, prediction.stable_probability, strict=True)
         }

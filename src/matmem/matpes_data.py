@@ -49,8 +49,7 @@ def _composition_key(composition: Any) -> str:
     if not isinstance(composition, dict) or not composition:
         raise ValueError("MatPES composition must be a nonempty mapping")
     canonical = tuple(
-        (str(element), round(float(amount), 12))
-        for element, amount in sorted(composition.items())
+        (str(element), round(float(amount), 12)) for element, amount in sorted(composition.items())
     )
     if any(not math.isfinite(amount) or amount <= 0 for _, amount in canonical):
         raise ValueError("MatPES composition contains an invalid amount")
@@ -61,17 +60,10 @@ def _site_species(site: dict[str, Any]) -> tuple[tuple[str, float], ...]:
     species = site.get("species")
     if not isinstance(species, list) or not species:
         raise ValueError("MatPES structure site is missing species")
-    return tuple(
-        sorted(
-            (str(item["element"]), float(item.get("occu", 1.0)))
-            for item in species
-        )
-    )
+    return tuple(sorted((str(item["element"]), float(item.get("occu", 1.0))) for item in species))
 
 
-def _wrapped_fractional(
-    values: Iterable[Any], *, decimals: int | None
-) -> tuple[float, ...]:
+def _wrapped_fractional(values: Iterable[Any], *, decimals: int | None) -> tuple[float, ...]:
     result = []
     for raw in values:
         value = float(raw) % 1.0
@@ -98,8 +90,7 @@ def canonical_geometry_payload(
         raise ValueError("MatPES structure has no valid lattice/sites")
     canonical_lattice = tuple(
         tuple(
-            round(float(value), decimals) if decimals is not None else float(value)
-            for value in row
+            round(float(value), decimals) if decimals is not None else float(value) for value in row
         )
         for row in lattice
     )
@@ -115,9 +106,7 @@ def canonical_geometry_payload(
     return {"lattice": canonical_lattice, "sites": canonical_sites}
 
 
-def compact_matpes_configuration(
-    row: dict[str, Any], *, split: str
-) -> MatPESCompactConfiguration:
+def compact_matpes_configuration(row: dict[str, Any], *, split: str) -> MatPESCompactConfiguration:
     """Validate one MatPES row and reduce it to pairing-relevant identity."""
 
     identifier = str(row.get("matpes_id", "")).strip()
@@ -139,12 +128,8 @@ def compact_matpes_configuration(
         nsites=nsites,
         chemsys=str(row["chemsys"]),
         composition_key=_composition_key(row["composition"]),
-        exact_geometry_sha256=_sha256_json(
-            canonical_geometry_payload(structure, decimals=None)
-        ),
-        rounded_geometry_sha256=_sha256_json(
-            canonical_geometry_payload(structure, decimals=10)
-        ),
+        exact_geometry_sha256=_sha256_json(canonical_geometry_payload(structure, decimals=None)),
+        rounded_geometry_sha256=_sha256_json(canonical_geometry_payload(structure, decimals=10)),
         raw_structure_sha256=_sha256_json(structure),
         energy_ev_per_atom=energy / nsites,
         formation_energy_ev_per_atom=formation,

@@ -39,12 +39,8 @@ class PhaseEnergyInterval(BaseModel):
     @classmethod
     def _composition(cls, values: dict[str, float]) -> dict[str, float]:
         normalized = {key.strip(): float(value) for key, value in values.items()}
-        if (
-            not normalized
-            or any(
-                not key or not math.isfinite(value) or value < 0
-                for key, value in normalized.items()
-            )
+        if not normalized or any(
+            not key or not math.isfinite(value) or value < 0 for key, value in normalized.items()
         ):
             raise ValueError("phase fractions must be finite and non-negative")
         total = sum(normalized.values())
@@ -184,9 +180,7 @@ class RobustHullDecisionCertifier:
     ) -> float | None:
         """Return the feasible competing hull energy or ``None`` if infeasible."""
 
-        phases = tuple(
-            phase for phase in competing_phases if phase.phase_id != target.phase_id
-        )
+        phases = tuple(phase for phase in competing_phases if phase.phase_id != target.phase_id)
         if not phases:
             return None
         ids = tuple(phase.phase_id for phase in phases)
@@ -237,12 +231,8 @@ class RobustHullDecisionCertifier:
         candidate: PhaseEnergyInterval,
         competing_phases: tuple[PhaseEnergyInterval, ...],
     ) -> RobustHullDecision:
-        lower_hull = self.competing_hull_energy(
-            candidate, competing_phases, endpoint="lower"
-        )
-        upper_hull = self.competing_hull_energy(
-            candidate, competing_phases, endpoint="upper"
-        )
+        lower_hull = self.competing_hull_energy(candidate, competing_phases, endpoint="lower")
+        upper_hull = self.competing_hull_energy(candidate, competing_phases, endpoint="upper")
         if lower_hull is None or upper_hull is None:
             return RobustHullDecision(
                 candidate_id=candidate.phase_id,
@@ -294,16 +284,12 @@ def certify_epsilon_optimal_actions(
     best_lower = max(item.lower_value for item in intervals)
     guaranteed = tuple(
         sorted(
-            item.action_id
-            for item in intervals
-            if item.lower_value + 1e-12 >= best_upper - epsilon
+            item.action_id for item in intervals if item.lower_value + 1e-12 >= best_upper - epsilon
         )
     )
     possible = tuple(
         sorted(
-            item.action_id
-            for item in intervals
-            if item.upper_value + 1e-12 >= best_lower - epsilon
+            item.action_id for item in intervals if item.upper_value + 1e-12 >= best_lower - epsilon
         )
     )
     return CertifiedActionSet(
@@ -320,9 +306,7 @@ def clustered_conformal_quantile(
 
     if not 0 < alpha < 1:
         raise ValueError("clustered conformal alpha must be in (0, 1)")
-    if not cluster_scores or any(
-        not math.isfinite(score) or score < 0 for score in cluster_scores
-    ):
+    if not cluster_scores or any(not math.isfinite(score) or score < 0 for score in cluster_scores):
         raise ValueError("clustered conformal scores must be finite and non-negative")
     ordered = sorted(cluster_scores)
     order = math.ceil((len(ordered) + 1) * (1 - alpha))

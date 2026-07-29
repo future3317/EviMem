@@ -7,7 +7,9 @@ from pathlib import Path
 
 import pytest
 
-MODULE = runpy.run_path(str(Path(__file__).parents[1] / "tools" / "build_wbm_small_pool_manifest.py"))
+MODULE = runpy.run_path(
+    str(Path(__file__).parents[1] / "tools" / "build_wbm_small_pool_manifest.py")
+)
 SOAP_MODULE = runpy.run_path(
     str(Path(__file__).parents[1] / "tools" / "build_wbm_small_pool_soap_cache.py")
 )
@@ -16,7 +18,8 @@ Candidate = MODULE["ObservableCandidate"]
 
 def _candidate(system: tuple[str, ...], index: int) -> object:
     return Candidate(
-        query_id=f"id-{''.join(system)}-{index}", chemical_system=system,
+        query_id=f"id-{''.join(system)}-{index}",
+        chemical_system=system,
         composition=tuple((element, 1.0) for element in system),
         exact_structure_sha256=f"sha256:{''.join(system)}-{index}",
     )
@@ -25,7 +28,9 @@ def _candidate(system: tuple[str, ...], index: int) -> object:
 def test_exact_duplicate_filter_is_deterministic() -> None:
     first = _candidate(("A", "B"), 1)
     second = Candidate(
-        query_id="id-later", chemical_system=("A", "B"), composition=(("A", 1.0), ("B", 1.0)),
+        query_id="id-later",
+        chemical_system=("A", "B"),
+        composition=(("A", 1.0), ("B", 1.0)),
         exact_structure_sha256=first.exact_structure_sha256,
     )
     retained, duplicates = MODULE["deduplicate_exact_structures"]([second, first])
@@ -53,7 +58,12 @@ def test_policy_identity_and_soap_source_use_initial_not_relaxed_structure(
         "lattice": {"matrix": [[2, 0, 0], [0, 2, 0], [0, 0, 2]], "pbc": [True] * 3},
         "properties": {},
         "sites": [
-            {"species": [{"element": "Li", "occu": 1}], "abc": [0, 0, 0], "properties": {}, "label": "Li"}
+            {
+                "species": [{"element": "Li", "occu": 1}],
+                "abc": [0, 0, 0],
+                "properties": {},
+                "label": "Li",
+            }
         ],
     }
     relaxed = json.loads(json.dumps(initial))

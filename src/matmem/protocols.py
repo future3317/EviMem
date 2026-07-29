@@ -51,7 +51,9 @@ class ProtocolCertificate(BaseModel):
     @field_validator("hubbard_u_ev")
     @classmethod
     def _validate_u(cls, values: dict[str, float]) -> dict[str, float]:
-        if any(not element.strip() or not math.isfinite(value) for element, value in values.items()):
+        if any(
+            not element.strip() or not math.isfinite(value) for element, value in values.items()
+        ):
             raise ValueError("Hubbard-U entries require element keys and finite values")
         return dict(sorted(values.items()))
 
@@ -137,10 +139,13 @@ class ProtocolTransportMap(BaseModel):
         variance = sum((value - mean_source) ** 2 for value in source)
         if variance == 0:
             raise ValueError("transport source residuals must have non-zero variance")
-        slope = sum(
-            (left - mean_source) * (right - mean_target)
-            for left, right in zip(source, target, strict=True)
-        ) / variance
+        slope = (
+            sum(
+                (left - mean_source) * (right - mean_target)
+                for left, right in zip(source, target, strict=True)
+            )
+            / variance
+        )
         intercept = mean_target - slope * mean_source
         errors = sorted(
             abs(right - (slope * left + intercept))
@@ -196,10 +201,13 @@ class ProtocolTransportMap(BaseModel):
         variance = sum((value - mean_source) ** 2 for value in source)
         if variance == 0:
             raise ValueError("transport source residuals must have non-zero variance")
-        slope = sum(
-            (left - mean_source) * (right - mean_target)
-            for left, right in zip(source, target, strict=True)
-        ) / variance
+        slope = (
+            sum(
+                (left - mean_source) * (right - mean_target)
+                for left, right in zip(source, target, strict=True)
+            )
+            / variance
+        )
         intercept = mean_target - slope * mean_source
         errors = sorted(
             abs(
@@ -210,7 +218,9 @@ class ProtocolTransportMap(BaseModel):
         )
         index = math.ceil((len(errors) + 1) * (1 - alpha)) - 1
         if index >= len(errors):
-            raise ValueError("radius-calibration partition is too small for finite conformal radius")
+            raise ValueError(
+                "radius-calibration partition is too small for finite conformal radius"
+            )
         all_groups = fit_groups | radius_groups
         return cls(
             source_protocol=source_protocol,
@@ -287,7 +297,10 @@ class MatchedEnergyPair(BaseModel):
         normalized = {key.strip(): float(value) for key, value in values.items()}
         if (
             not normalized
-            or any(not key or not math.isfinite(value) or value < 0 for key, value in normalized.items())
+            or any(
+                not key or not math.isfinite(value) or value < 0
+                for key, value in normalized.items()
+            )
             or not math.isclose(sum(normalized.values()), 1.0, abs_tol=1e-8)
         ):
             raise ValueError("element fractions must be finite, non-negative, and sum to one")
@@ -388,9 +401,7 @@ class CompositionAwareProtocolTransportMap(BaseModel):
             raise ValueError("transport fit and radius partitions overlap")
         if not all(held_out) or (fit_groups | radius_groups) & held_out:
             raise ValueError("composition-aware transport leaks held-out structures")
-        vocabulary = sorted(
-            {element for item in fit_items for element in item.element_fractions}
-        )
+        vocabulary = sorted({element for item in fit_items for element in item.element_fractions})
         if any(not set(item.element_fractions) <= set(vocabulary) for item in radius_items):
             raise ValueError("radius calibration contains an element absent from transport fit")
         design = np.asarray(
@@ -401,9 +412,7 @@ class CompositionAwareProtocolTransportMap(BaseModel):
             ],
             dtype=float,
         )
-        target = np.asarray(
-            [item.target_energy_ev_per_atom for item in fit_items], dtype=float
-        )
+        target = np.asarray([item.target_energy_ev_per_atom for item in fit_items], dtype=float)
         penalty = np.eye(design.shape[1]) * ridge_penalty
         penalty[0, 0] = 0.0
         coefficients = np.linalg.solve(design.T @ design + penalty, design.T @ target)
@@ -481,7 +490,10 @@ class ProtocolCompatibilityResolver:
 
     def __init__(self, transports: Iterable[ProtocolTransportMap] = ()) -> None:
         self._transports = {
-            (item.source_protocol.scientific_fingerprint, item.target_protocol.scientific_fingerprint): item
+            (
+                item.source_protocol.scientific_fingerprint,
+                item.target_protocol.scientific_fingerprint,
+            ): item
             for item in transports
         }
 

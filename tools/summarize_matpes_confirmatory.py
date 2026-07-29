@@ -120,7 +120,11 @@ def summarize(
         strata: dict[str, Any] = {}
         for stratum in ("binary", "ternary", "quaternary_or_higher"):
             selected = np.asarray(
-                [value for system, value in zip(systems, differences, strict=True) if _stratum(system) == stratum]
+                [
+                    value
+                    for system, value in zip(systems, differences, strict=True)
+                    if _stratum(system) == stratum
+                ]
             )
             if len(selected):
                 strata[stratum] = _paired_summary(

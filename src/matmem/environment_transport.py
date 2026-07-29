@@ -167,12 +167,8 @@ class EnvironmentConditionalProtocolTransportMap(BaseModel):
         ):
             raise ValueError("environment transport vector dimensions disagree")
         augmented_dimension = expected + 1
-        if (
-            len(self.posterior_precision_inverse) != augmented_dimension
-            or any(
-                len(row) != augmented_dimension
-                for row in self.posterior_precision_inverse
-            )
+        if len(self.posterior_precision_inverse) != augmented_dimension or any(
+            len(row) != augmented_dimension for row in self.posterior_precision_inverse
         ):
             raise ValueError("environment transport leverage matrix dimension disagrees")
         if any(value <= 0 for value in self.feature_scale):
@@ -211,17 +207,12 @@ class EnvironmentConditionalProtocolTransportMap(BaseModel):
                 status=EnvironmentTransportStatus.REJECT_DESCRIPTOR_DIMENSION,
                 reason="candidate_descriptor_dimension_differs_from_frozen_transport",
             )
-        standardized = (raw - np.asarray(self.feature_mean)) / np.asarray(
-            self.feature_scale
-        )
+        standardized = (raw - np.asarray(self.feature_mean)) / np.asarray(self.feature_scale)
         augmented = np.concatenate(([1.0], standardized))
         precision_inverse = np.asarray(self.posterior_precision_inverse)
-        leverage = math.sqrt(
-            max(1.0 + float(augmented @ precision_inverse @ augmented), 1.0)
-        )
+        leverage = math.sqrt(max(1.0 + float(augmented @ precision_inverse @ augmented), 1.0))
         correction = float(
-            standardized @ np.asarray(self.delta_coefficient)
-            + self.delta_intercept_ev_per_atom
+            standardized @ np.asarray(self.delta_coefficient) + self.delta_intercept_ev_per_atom
         )
         target = source_energy_ev_per_atom + correction
         radius = self.normalized_error_quantile_ev_per_atom * leverage
@@ -250,9 +241,7 @@ class EnvironmentConditionalProtocolTransportMap(BaseModel):
     ) -> EnvironmentConditionalProtocolTransportMap:
         if not 0 < alpha < 1:
             raise ValueError("environment transport alpha must be in (0, 1)")
-        if ridge_penalty is not None and (
-            not math.isfinite(ridge_penalty) or ridge_penalty <= 0
-        ):
+        if ridge_penalty is not None and (not math.isfinite(ridge_penalty) or ridge_penalty <= 0):
             raise ValueError("environment transport ridge penalty must be positive")
         fit_items = tuple(fit_pairs)
         radius_items = tuple(radius_calibration_pairs)
@@ -277,10 +266,7 @@ class EnvironmentConditionalProtocolTransportMap(BaseModel):
             sorted({element for item in fit_items for element in item.element_fractions})
         )
         raw_fit = np.asarray(
-            [
-                (item.source_energy_ev_per_atom, *item.source_descriptor)
-                for item in fit_items
-            ],
+            [(item.source_energy_ev_per_atom, *item.source_descriptor) for item in fit_items],
             dtype=float,
         )
         mean = raw_fit.mean(axis=0)
@@ -288,10 +274,7 @@ class EnvironmentConditionalProtocolTransportMap(BaseModel):
         scale[scale <= np.finfo(float).eps] = 1.0
         standardized_fit = (raw_fit - mean) / scale
         target_delta = np.asarray(
-            [
-                item.target_energy_ev_per_atom - item.source_energy_ev_per_atom
-                for item in fit_items
-            ],
+            [item.target_energy_ev_per_atom - item.source_energy_ev_per_atom for item in fit_items],
             dtype=float,
         )
         if ridge_penalty is None:

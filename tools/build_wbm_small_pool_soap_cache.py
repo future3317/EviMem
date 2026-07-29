@@ -46,7 +46,9 @@ def _initial_structures_by_id(
     # Reuse the audited alignment path so the selected hashes are explicitly
     # bound to the initial-structure source rather than to relaxed CSE entries.
     candidates = read_observable_candidates(
-        cse_root=cse_root, structures_root=structures_root, cleaned_ids=_read_cleaned_ids(cleaned_ids)
+        cse_root=cse_root,
+        structures_root=structures_root,
+        cleaned_ids=_read_cleaned_ids(cleaned_ids),
     )
     selected_hashes = {
         item.query_id: item.exact_structure_sha256
@@ -59,9 +61,7 @@ def _initial_structures_by_id(
     anomalies = set(STEP3_ANOMALOUS_STRUCTURE_IDS)
     for step in range(1, 6):
         structures = json.loads(
-            bz2.decompress(
-                (structures_root / f"wbm-structures-step-{step}.json.bz2").read_bytes()
-            )
+            bz2.decompress((structures_root / f"wbm-structures-step-{step}.json.bz2").read_bytes())
         )
         for source_id, structure_record in structures.items():
             if source_id in anomalies:
@@ -70,9 +70,12 @@ def _initial_structures_by_id(
             if query_id not in selected:
                 continue
             structure = _extract_initial_structure(structure_record, query_id=query_id)
-            checksum = "sha256:" + hashlib.sha256(
-                json.dumps(structure, sort_keys=True, separators=(",", ":")).encode()
-            ).hexdigest()
+            checksum = (
+                "sha256:"
+                + hashlib.sha256(
+                    json.dumps(structure, sort_keys=True, separators=(",", ":")).encode()
+                ).hexdigest()
+            )
             if checksum != selected_hashes[query_id]:
                 raise ValueError(f"initial-structure checksum mismatch for {query_id}")
             records[query_id] = structure
@@ -91,7 +94,9 @@ def main() -> None:
     parser.add_argument("--output-manifest", type=Path, required=True)
     args = parser.parse_args()
     repo_root = Path(__file__).resolve().parents[1]
-    if args.output_npz.resolve().is_relative_to(repo_root) or args.output_manifest.resolve().is_relative_to(repo_root):
+    if args.output_npz.resolve().is_relative_to(
+        repo_root
+    ) or args.output_manifest.resolve().is_relative_to(repo_root):
         parser.error("SOAP cache outputs must remain outside the repository")
     pool_manifest = json.loads(args.pool_manifest.read_text(encoding="utf-8"))
     pool_by_id = {
@@ -107,8 +112,7 @@ def main() -> None:
     from pymatgen.io.ase import AseAtomsAdaptor
 
     structures = {
-        query_id: Structure.from_dict(structure)
-        for query_id, structure in records.items()
+        query_id: Structure.from_dict(structure) for query_id, structure in records.items()
     }
     species = tuple(
         sorted(
@@ -140,12 +144,20 @@ def main() -> None:
         "structure_source_field": WBMStructureSourceField.ORIGINAL.value,
         "pool_manifest_sha256": _sha256_file(args.pool_manifest),
         "cache_sha256": _sha256_file(args.output_npz),
-        "record_count": len(identifiers), "vector_dimension": int(matrix.shape[1]),
-        "species": list(species), "periodic": True, "cutoff_angstrom": 5.0, "n_max": 8, "l_max": 6,
-        "dscribe_version": importlib.metadata.version("dscribe"), "pool_by_id": pool_by_id,
+        "record_count": len(identifiers),
+        "vector_dimension": int(matrix.shape[1]),
+        "species": list(species),
+        "periodic": True,
+        "cutoff_angstrom": 5.0,
+        "n_max": 8,
+        "l_max": 6,
+        "dscribe_version": importlib.metadata.version("dscribe"),
+        "pool_by_id": pool_by_id,
     }
     args.output_manifest.parent.mkdir(parents=True, exist_ok=True)
-    args.output_manifest.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    args.output_manifest.write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
     print(f"records={len(identifiers)} dimensions={matrix.shape[1]} cache={args.output_npz}")
 
 

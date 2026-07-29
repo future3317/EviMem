@@ -202,9 +202,7 @@ def linear_ridge_hull_influence_acquisition(
 
     query_x = np.asarray(query_features, dtype=np.float64)
     source = np.asarray(query_source_energies, dtype=np.float64).reshape(-1)
-    competing_hull = np.asarray(
-        current_competing_hull_energies, dtype=np.float64
-    ).reshape(-1)
+    competing_hull = np.asarray(current_competing_hull_energies, dtype=np.float64).reshape(-1)
     history_x = np.asarray(history_features, dtype=np.float64)
     history_source = np.asarray(history_source_energies, dtype=np.float64).reshape(-1)
     history_target = np.asarray(history_target_energies, dtype=np.float64).reshape(-1)
@@ -240,7 +238,11 @@ def linear_ridge_hull_influence_acquisition(
         if costs is None
         else np.asarray(costs, dtype=np.float64).reshape(-1)
     )
-    if len(item_costs) != len(query_x) or np.any(~np.isfinite(item_costs)) or np.any(item_costs <= 0):
+    if (
+        len(item_costs) != len(query_x)
+        or np.any(~np.isfinite(item_costs))
+        or np.any(item_costs <= 0)
+    ):
         raise ValueError("ridge query costs must be finite and positive")
 
     query_design, _, _, _, predicted, predictive_std = _ridge_working_state(
@@ -323,8 +325,10 @@ def linear_ridge_predicted_final_hull_acquisition(
         if costs is None
         else np.asarray(costs, dtype=np.float64).reshape(-1)
     )
-    if len(item_costs) != len(query_x) or np.any(~np.isfinite(item_costs)) or np.any(
-        item_costs <= 0
+    if (
+        len(item_costs) != len(query_x)
+        or np.any(~np.isfinite(item_costs))
+        or np.any(item_costs <= 0)
     ):
         raise ValueError("predicted-final query costs must be finite and positive")
     _, _, _, _, predicted, predictive_std = _ridge_working_state(
@@ -367,4 +371,3 @@ def linear_ridge_predicted_final_hull_acquisition(
         predictive_standard_deviations=tuple(float(value) for value in predictive_std),
         feasible_margin_count=feasible,
     )
-

@@ -53,9 +53,7 @@ def test_crossfit_plan_is_outcome_independent_disjoint_and_complete(tmp_path: Pa
         output_path=output_path,
         fold_count=3,
     )
-    assigned = [
-        system for fold in plan["folds"] for system in fold["query_systems"]
-    ]
+    assigned = [system for fold in plan["folds"] for system in fold["query_systems"]]
     assert sorted(assigned) == sorted(eligible)
     assert len(assigned) == len(set(assigned))
     assert not (set(assigned) & set(opened_systems))

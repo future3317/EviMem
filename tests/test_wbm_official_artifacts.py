@@ -8,7 +8,9 @@ from pathlib import Path
 
 import pytest
 
-MODULE = runpy.run_path(str(Path(__file__).parents[1] / "tools" / "audit_wbm_official_artifacts.py"))
+MODULE = runpy.run_path(
+    str(Path(__file__).parents[1] / "tools" / "audit_wbm_official_artifacts.py")
+)
 TOOLS = Path(__file__).parents[1] / "tools"
 sys.path.insert(0, str(TOOLS))
 PARITY_MODULE = runpy.run_path(str(TOOLS / "build_wbm_candidate_parity_audit.py"))
@@ -19,10 +21,12 @@ def test_prediction_join_requires_exact_cleaned_ids_and_unique_keys(tmp_path: Pa
     with gzip.open(path, "wt", encoding="utf-8", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=["material_id", "e_form_per_atom"])
         writer.writeheader()
-        writer.writerows([
-            {"material_id": "wbm-1-1", "e_form_per_atom": "-1.2"},
-            {"material_id": "wbm-1-2", "e_form_per_atom": "-0.4"},
-        ])
+        writer.writerows(
+            [
+                {"material_id": "wbm-1-1", "e_form_per_atom": "-1.2"},
+                {"material_id": "wbm-1-2", "e_form_per_atom": "-0.4"},
+            ]
+        )
     report = MODULE["inspect_prediction_join"](path, {"wbm-1-1", "wbm-1-2"})
     assert report["cleaned_id_parity"]["exact_match"] is True
     with pytest.raises(ValueError, match="exactly match"):
@@ -51,8 +55,7 @@ def test_difference_report_uses_stable_empty_set_checksum() -> None:
 def test_candidate_parity_requires_explicit_summary_ids(tmp_path: Path) -> None:
     explicit = tmp_path / "wbm-summary.txt"
     explicit.write_text(
-        "Fe2\t2\t10.0\t-2.0\t-0.2\t0.0\t0.0\tstep_1_0\n"
-        "Bad\t0\t0.0\t0.0\t0.0\t0.0\t0.0\tNone\n",
+        "Fe2\t2\t10.0\t-2.0\t-0.2\t0.0\t0.0\tstep_1_0\nBad\t0\t0.0\t0.0\t0.0\t0.0\t0.0\tNone\n",
         encoding="utf-8",
     )
     rows = PARITY_MODULE["_official_summary"](explicit, {"wbm-1-1"})

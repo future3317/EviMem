@@ -44,9 +44,7 @@ def _coreset(
         posterior,
         false_stable_cost=false_stable_cost,
     )
-    return StreamingCalibrationCoreset(
-        FacilityLocationCoresetPlanner(capacity, builder)
-    )
+    return StreamingCalibrationCoreset(FacilityLocationCoresetPlanner(capacity, builder))
 
 
 def _protocol(functional: str = "PBE") -> ProtocolCertificate:
@@ -83,9 +81,7 @@ def _query(
     return MaterialQuery(
         query_id=query_id,
         structure_hash=f"structure-{query_id}",
-        structure_identity=StructureArtifactIdentity.initial(
-            query_id, f"structure-{query_id}"
-        ),
+        structure_identity=StructureArtifactIdentity.initial(query_id, f"structure-{query_id}"),
         identity=MaterialIdentity(
             exact_calculation_id=f"calculation-{query_id}",
             canonical_structure_id=f"canonical-{query_id}",
@@ -133,7 +129,8 @@ def _card(
         base_predicted_formation_energy_ev_per_atom=base_energy,
         oracle_residual_ev_per_atom=formation_energy - base_energy,
         hull_snapshot=_snapshot(),
-        recorded_hull_distance_ev_per_atom=formation_energy - _snapshot().reference_hull_energy_ev_per_atom,
+        recorded_hull_distance_ev_per_atom=formation_energy
+        - _snapshot().reference_hull_energy_ev_per_atom,
     )
 
 
@@ -159,7 +156,9 @@ def test_protocol_resolver_is_fail_closed_without_same_structure_transport() -> 
     resolver = ProtocolCompatibilityResolver()
     assert resolver.resolve(source, source).kind == CompatibilityKind.DIRECT
     assert resolver.resolve(source, target).kind == CompatibilityKind.REJECT
-    correction = ResidualCorrector(resolver).correct(_query(protocol=target), [_card(protocol=source)])
+    correction = ResidualCorrector(resolver).correct(
+        _query(protocol=target), [_card(protocol=source)]
+    )
     assert correction.status == "abstain_no_certificate_compatible_neighbor"
 
 
@@ -177,7 +176,9 @@ def test_explicit_transport_is_the_only_cross_protocol_path() -> None:
         calibration_id="same-structure-match-v1",
     )
     resolver = ProtocolCompatibilityResolver([transport])
-    correction = ResidualCorrector(resolver).correct(_query(protocol=target), [_card(protocol=source)])
+    correction = ResidualCorrector(resolver).correct(
+        _query(protocol=target), [_card(protocol=source)]
+    )
     assert correction.status == "corrected"
     assert correction.residual_shift_ev_per_atom == pytest.approx(0.055)
     assert correction.uncertainty_radius_ev_per_atom == pytest.approx(0.02)
@@ -201,7 +202,7 @@ def test_transport_fit_requires_same_structure_calibration_and_has_no_identity_f
         source,
         target,
         [
-                MatchedResidualPair(
+            MatchedResidualPair(
                 exact_calculation_id=f"calculation-{index}",
                 canonical_structure_id=f"canonical-{index}",
                 source_residual_ev_per_atom=float(index),
@@ -324,9 +325,7 @@ def test_coreset_selects_a_costly_false_stable_near_miss_not_a_redundant_card() 
     query = _query(base_energy=-1.03)
     near_miss = _card("near-miss", embedding=(1.0, 0.0), formation_energy=-0.94)
     harmless = _card("harmless", embedding=(0.9, 0.1), formation_energy=-1.02)
-    selection = policy.planner.select_from_archive_greedy(
-        [near_miss, harmless], [query]
-    )
+    selection = policy.planner.select_from_archive_greedy([near_miss, harmless], [query])
     assert selection.selected_card_ids == ("near-miss",)
     assert selection.objective_value > 0
     assert selection.facility_proxy_risk < selection.baseline_decision_risk

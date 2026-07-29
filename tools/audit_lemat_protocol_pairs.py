@@ -57,9 +57,7 @@ def _rows(paths: list[Path]):
                 fingerprint = values["entalpic_fingerprint"][index]
                 row = CompactRow(
                     immutable_id=str(values["immutable_id"][index]).strip(),
-                    fingerprint=(
-                        str(fingerprint).strip() if fingerprint is not None else None
-                    ),
+                    fingerprint=(str(fingerprint).strip() if fingerprint is not None else None),
                     formula=str(values["chemical_formula_reduced"][index]).strip(),
                     nsites=int(values["nsites"][index]),
                     energy_ev=float(values["energy"][index]),
@@ -94,11 +92,7 @@ def _pair_summary(
     pbe_index: dict[str, tuple[int, CompactRow]],
 ) -> dict[str, Any]:
     shared = set(scan_index) & set(pbe_index)
-    unambiguous = [
-        key
-        for key in shared
-        if scan_index[key][0] == 1 and pbe_index[key][0] == 1
-    ]
+    unambiguous = [key for key in shared if scan_index[key][0] == 1 and pbe_index[key][0] == 1]
     deltas: list[float] = []
     formula_agreement = 0
     nsites_agreement = 0
@@ -225,9 +219,7 @@ def run(*, root: Path, output: Path) -> None:
                 ),
                 "unique_fingerprint_count": len(scan_fingerprint),
                 "duplicate_fingerprint_row_count": sum(
-                    count - 1
-                    for count, _ in scan_fingerprint.values()
-                    if count > 1
+                    count - 1 for count, _ in scan_fingerprint.values() if count > 1
                 ),
                 "missing_id_count": scan_missing_id,
                 "missing_fingerprint_count": scan_missing_fingerprint,
@@ -246,9 +238,7 @@ def run(*, root: Path, output: Path) -> None:
         },
     }
     output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(
-        json.dumps(content, indent=2, sort_keys=True) + "\n", encoding="utf-8"
-    )
+    output.write_text(json.dumps(content, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     print(f"output={output.resolve()}")
     print(
         "direct_pairs",

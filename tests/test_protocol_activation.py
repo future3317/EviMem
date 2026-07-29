@@ -67,9 +67,7 @@ def test_all_certified_transports_remain_active() -> None:
     unrelated = _card("a-unrelated", embedding=query.embedding, protocol=source)
     same = _card("z-same", embedding=(0.0, 1.0), protocol=source).model_copy(
         update={
-            "identity": unrelated.identity.model_copy(
-                update={"canonical_structure_id": canonical}
-            )
+            "identity": unrelated.identity.model_copy(update={"canonical_structure_id": canonical})
         }
     )
     activation = ProtocolAwareActivator(ProtocolCompatibilityResolver([_transport()])).activate(
@@ -93,9 +91,9 @@ def test_activation_has_no_similarity_or_capacity_selection_path() -> None:
 
     query = _query(protocol=target)
     anti_aligned = _card("anti", embedding=(-1.0, 0.0), protocol=source)
-    activation = ProtocolAwareActivator(
-        ProtocolCompatibilityResolver([_transport()])
-    ).activate(query, (anti_aligned,))
+    activation = ProtocolAwareActivator(ProtocolCompatibilityResolver([_transport()])).activate(
+        query, (anti_aligned,)
+    )
     assert activation.audit.transported_card_ids == ("anti",)
 
 

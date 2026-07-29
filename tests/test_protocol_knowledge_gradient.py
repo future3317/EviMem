@@ -3,22 +3,33 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from matmem.protocol_knowledge_gradient import (
-    FrozenProtocolRidgeTransport,
+from matmem.hull_geometry import (
+    FixedCompositionHullTemplate,
+    _CausalHullEnvelope,
+)
+from matmem.posterior import (
     ProtocolTargetEnergyPosterior,
+    _sample_gaussian,
+    protocol_target_energy_posterior,
+)
+from matmem.protocol_acquisition import (
+    _simultaneous_paired_lower_bounds,
+    _source_rollout_rewards,
     conformal_one_deviation_source_rollout,
     constrained_dual_horizon_source_rollout,
     delta_hull_active_search,
     fit_conformal_source_rollout_calibration,
-    fit_protocol_kernel_transport,
-    fit_protocol_ridge_transport,
     independent_confirmation_source_rollout,
     protocol_hull_knowledge_gradient,
     protocol_hull_risk_reduction,
-    protocol_target_energy_posterior,
     source_rollout_delta_hull,
     source_rollout_system_score,
 )
+from matmem.protocol_knowledge_gradient import (
+    fit_protocol_kernel_transport,
+    fit_protocol_ridge_transport,
+)
+from matmem.transport import FrozenProtocolRidgeTransport
 
 
 def _ic_rollout(
@@ -29,7 +40,7 @@ def _ic_rollout(
 ) -> object:
     """Small immutable SARR result for IC-SARR gate failure tests."""
 
-    from matmem.protocol_knowledge_gradient import SourceRolloutDeltaHullResult
+    from matmem.protocol_acquisition import SourceRolloutDeltaHullResult
 
     return SourceRolloutDeltaHullResult(
         scores=(0.0, 0.2, 0.1),
@@ -100,10 +111,10 @@ def test_ic_sarr_preserves_accepted_sarr_action_without_stage_two() -> None:
 def test_ic_sarr_falls_back_without_positive_stage_one_advantage(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    import matmem.protocol_knowledge_gradient as knowledge_gradient
+    import matmem.protocol_acquisition as acquisition
 
     monkeypatch.setattr(
-        knowledge_gradient,
+        acquisition,
         "source_rollout_delta_hull",
         lambda *_args, **_kwargs: _ic_rollout(
             selected=0, advantages=(0.0, 0.0, -0.1), lower_bounds=(0.0, -0.2, -0.3)
@@ -121,10 +132,10 @@ def test_ic_sarr_uses_independent_single_comparison_gate(
     candidate_reward: float,
     expected_selected: int,
 ) -> None:
-    import matmem.protocol_knowledge_gradient as knowledge_gradient
+    import matmem.protocol_acquisition as acquisition
 
     monkeypatch.setattr(
-        knowledge_gradient,
+        acquisition,
         "source_rollout_delta_hull",
         lambda *_args, **_kwargs: _ic_rollout(
             selected=0, advantages=(0.0, 0.2, 0.1), lower_bounds=(0.0, -0.2, -0.3)
@@ -132,19 +143,19 @@ def test_ic_sarr_uses_independent_single_comparison_gate(
     )
     observed_seeds: list[int] = []
     monkeypatch.setattr(
-        knowledge_gradient,
+        acquisition,
         "_sample_gaussian",
         lambda mean, covariance, *, sample_count, seed: (
             observed_seeds.append(seed) or np.zeros((sample_count, len(mean)))
         ),
     )
     monkeypatch.setattr(
-        knowledge_gradient,
+        acquisition,
         "_final_hull_membership",
         lambda **kwargs: np.zeros_like(kwargs["sampled_query_energies"], dtype=bool),
     )
     monkeypatch.setattr(
-        knowledge_gradient,
+        acquisition,
         "_source_rollout_rewards",
         lambda *, sampled_query_energies, first_action_indices, **_kwargs: np.column_stack(
             (
@@ -169,7 +180,6 @@ def test_ic_sarr_uses_independent_single_comparison_gate(
 
 
 def test_scrambled_sobol_gaussian_samples_are_deterministic_and_nested() -> None:
-    from matmem.protocol_knowledge_gradient import _sample_gaussian
 
     mean = np.asarray([0.2, -0.1, 0.4])
     covariance = np.asarray(
@@ -191,7 +201,6 @@ def test_scrambled_sobol_gaussian_samples_are_deterministic_and_nested() -> None
 
 
 def test_simultaneous_paired_bounds_apply_familywise_bonferroni_correction() -> None:
-    from matmem.protocol_knowledge_gradient import _simultaneous_paired_lower_bounds
 
     block_differences = np.asarray(
         [
@@ -312,15 +321,15 @@ def test_dual_horizon_requires_terminal_and_causal_gates(
     causal_values: tuple[float, ...],
     expected: int,
 ) -> None:
-    import matmem.protocol_knowledge_gradient as knowledge_gradient
+    import matmem.protocol_acquisition as acquisition
 
     monkeypatch.setattr(
-        knowledge_gradient,
+        acquisition,
         "_sample_gaussian",
         lambda mean, covariance, *, sample_count, seed: np.zeros((sample_count, len(mean))),
     )
     monkeypatch.setattr(
-        knowledge_gradient,
+        acquisition,
         "_final_hull_membership",
         lambda **kwargs: np.zeros_like(kwargs["sampled_query_energies"], dtype=bool),
     )
@@ -329,10 +338,12 @@ def test_dual_horizon_requires_terminal_and_causal_gates(
         # Two identical Sobol blocks make the t lower bound exact and avoid a
         # stochastic test that can intermittently cross a gate.
         terminal = np.tile(np.asarray([[0.0, 1.0, 2.0]]), (len(sampled_query_energies), 1))
-        causal_rewards_output[:] = np.tile(np.asarray(causal_values), (len(sampled_query_energies), 1))
+        causal_rewards_output[:] = np.tile(
+            np.asarray(causal_values), (len(sampled_query_energies), 1)
+        )
         return terminal
 
-    monkeypatch.setattr(knowledge_gradient, "_source_rollout_rewards", fake_rewards)
+    monkeypatch.setattr(acquisition, "_source_rollout_rewards", fake_rewards)
     result = constrained_dual_horizon_source_rollout(**_dual_kwargs())
     assert result.source_action_index == 0
     assert result.selected_action_index == expected
@@ -343,7 +354,6 @@ def test_dual_horizon_requires_terminal_and_causal_gates(
 
 
 def test_dual_horizon_causal_reward_uses_selected_history_only() -> None:
-    from matmem.protocol_knowledge_gradient import _source_rollout_rewards
 
     samples = np.asarray([[-0.1, -0.2, 0.3]])
     terminal_labels = np.asarray([[True, True, False]])
@@ -376,8 +386,6 @@ def test_dual_horizon_causal_reward_matches_manual_phase_diagram() -> None:
     from pymatgen.core import Composition
     from pymatgen.entries.computed_entries import ComputedEntry
 
-    from matmem.protocol_knowledge_gradient import _source_rollout_rewards
-
     compositions = (
         {"A": 0.5, "B": 0.5},
         {"A": 0.25, "B": 0.75},
@@ -407,7 +415,11 @@ def test_dual_horizon_causal_reward_matches_manual_phase_diagram() -> None:
         comp = Composition(compositions[index])
         entries.append(ComputedEntry(comp, energies[0, index] * comp.num_atoms))
         stable = PhaseDiagram(entries).stable_entries
-        expected.append(float(any(entry.composition.reduced_formula == comp.reduced_formula for entry in stable)))
+        expected.append(
+            float(
+                any(entry.composition.reduced_formula == comp.reduced_formula for entry in stable)
+            )
+        )
     np.testing.assert_array_equal(causal[0], np.asarray(expected))
     assert rewards.shape == (1, 3)
 
@@ -770,8 +782,6 @@ def test_cached_causal_hull_envelope_matches_pymatgen_competing_hull(
     from pymatgen.core import Composition
     from pymatgen.entries.computed_entries import ComputedEntry
 
-    from matmem.protocol_knowledge_gradient import _CausalHullEnvelope
-
     rng = np.random.default_rng(72)
     reference_energies = np.zeros(len(reference_compositions))
     sampled = rng.normal(-0.2, 0.15, size=(7, len(query_compositions)))
@@ -916,8 +926,6 @@ def test_source_rollout_finds_full_budget_improvement_over_myopic_source() -> No
 
 def test_fixed_template_preserves_all_source_rollout_values() -> None:
     """The cached final-hull backend is an implementation optimization only."""
-
-    from matmem.protocol_knowledge_gradient import FixedCompositionHullTemplate
 
     query_compositions = (
         {"A": 0.25, "B": 0.75},

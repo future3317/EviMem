@@ -110,9 +110,7 @@ def run(
 
     for row in rows:
         row["source_local_environment_embedding"] = embeddings[row["pair_id"]]
-        row["source_local_environment_isolated_atom_count"] = isolated_atom_counts[
-            row["pair_id"]
-        ]
+        row["source_local_environment_isolated_atom_count"] = isolated_atom_counts[row["pair_id"]]
     metadata = dict(active_encoder.metadata)
     metadata.update(
         {
@@ -129,9 +127,7 @@ def run(
         }
     )
     task["development_pairs"] = rows
-    task["representation_id"] = (
-        str(task["representation_id"]) + "+frozen-chgnet-crystal-fea-v1"
-    )
+    task["representation_id"] = str(task["representation_id"]) + "+frozen-chgnet-crystal-fea-v1"
     task["local_environment_representation"] = metadata
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(task, indent=2, sort_keys=True) + "\n", encoding="utf-8")
@@ -141,9 +137,7 @@ def run(
         "selected_pair_count": len(rows),
         "embedding_dimension": metadata["dimension"],
         "checkpoint_sha256": metadata["checkpoint_sha256"],
-        "isolated_source_structure_count": metadata[
-            "isolated_source_structure_count"
-        ],
+        "isolated_source_structure_count": metadata["isolated_source_structure_count"],
     }
     print(json.dumps(summary, indent=2, sort_keys=True))
     return summary

@@ -258,12 +258,8 @@ class SurvivalConditionedAcquisition:
         self.posterior.fit(memory)
         proposed_ids = {item.query_id for item in base_ranking[: self.proposal_size]}
         by_id = {query.query_id: query for query in candidates}
-        posterior = self.posterior.predict(
-            tuple(by_id[item.query_id] for item in base_ranking)
-        )
-        probabilities = dict(
-            zip(posterior.query_ids, posterior.stable_probability, strict=True)
-        )
+        posterior = self.posterior.predict(tuple(by_id[item.query_id] for item in base_ranking))
+        probabilities = dict(zip(posterior.query_ids, posterior.stable_probability, strict=True))
         rescored: list[AcquisitionScore] = []
         for base in base_ranking:
             if base.query_id not in proposed_ids:

@@ -394,8 +394,7 @@ class PrequentialCausalEvaluator:
                     posterior_mean_ev_per_atom=float(mean[index]),
                     posterior_std_ev_per_atom=float(std[index]),
                     residual_threshold_ev_per_atom=float(
-                        item.stability_threshold_ev_per_atom
-                        - item.base_hull_distance_ev_per_atom
+                        item.stability_threshold_ev_per_atom - item.base_hull_distance_ev_per_atom
                     ),
                     stable_probability=float(probabilities[index]),
                     gaussian_crps=float(crps[index]),

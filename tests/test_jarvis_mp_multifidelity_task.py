@@ -42,9 +42,7 @@ def test_system_split_is_exact_disjoint_and_deterministic() -> None:
         },
     }
     first = MODULE["_choose_systems"](systems, **kwargs)
-    second = MODULE["_choose_systems"](
-        Counter(dict(reversed(list(systems.items())))), **kwargs
-    )
+    second = MODULE["_choose_systems"](Counter(dict(reversed(list(systems.items())))), **kwargs)
     assert first == second
     calibration = {system for values in first[0].values() for system in values}
     evaluation = {system for values in first[1].values() for system in values}

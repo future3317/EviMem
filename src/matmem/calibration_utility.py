@@ -67,8 +67,7 @@ class ReferencePosteriorSnapshot:
             stable_probability=np.asarray(prediction.stable_probability),
             residual_threshold_ev_per_atom=np.asarray(
                 [
-                    item.stability_threshold_ev_per_atom
-                    - item.base_hull_distance_ev_per_atom
+                    item.stability_threshold_ev_per_atom - item.base_hull_distance_ev_per_atom
                     for item in items
                 ]
             ),
@@ -117,8 +116,7 @@ def gaussian_kl_divergence(
         raise ValueError("Gaussian moments must be finite with positive scales")
     value = (
         np.log(candidate_std / reference_std)
-        + (reference_std**2 + (reference_mean - candidate_mean) ** 2)
-        / (2 * candidate_std**2)
+        + (reference_std**2 + (reference_mean - candidate_mean) ** 2) / (2 * candidate_std**2)
         - 0.5
     )
     return float(max(0.0, value))
@@ -221,8 +219,8 @@ class ProperPosteriorDivergence:
         false_stable_cost: float,
         false_unstable_cost: float,
     ) -> np.ndarray:
-        maximum = false_stable_cost * false_unstable_cost / (
-            false_stable_cost + false_unstable_cost
+        maximum = (
+            false_stable_cost * false_unstable_cost / (false_stable_cost + false_unstable_cost)
         )
         bayes_risk = np.minimum(
             false_stable_cost * (1 - reference.stable_probability),
@@ -363,15 +361,10 @@ class CalibrationUtilityBuilder:
         )
 
     def _boundary_weight(self, query: MaterialQuery) -> float:
-        margin = abs(
-            query.base_hull_distance_ev_per_atom
-            - query.stability_threshold_ev_per_atom
-        )
+        margin = abs(query.base_hull_distance_ev_per_atom - query.stability_threshold_ev_per_atom)
         return float(np.exp(-margin / self.boundary_scale_ev_per_atom))
 
-    def boundary_weights(
-        self, queries: Sequence[MaterialQuery]
-    ) -> dict[str, float]:
+    def boundary_weights(self, queries: Sequence[MaterialQuery]) -> dict[str, float]:
         """Return the fixed query weights used by every objective in a round."""
 
         return {query.query_id: self._boundary_weight(query) for query in queries}
@@ -386,9 +379,7 @@ class CalibrationUtilityBuilder:
         query_items = tuple(queries)
         weights = self.boundary_weights(query_items)
         risks = self._risks(query_items, tuple(witnesses))
-        return float(
-            sum(weights[query.query_id] * risks[query.query_id] for query in query_items)
-        )
+        return float(sum(weights[query.query_id] * risks[query.query_id] for query in query_items))
 
     def build(
         self,
@@ -422,10 +413,5 @@ class CalibrationUtilityBuilder:
                 witness_ids=tuple(card.card_id for card in witness_items),
                 gains=gains,
             ),
-            float(
-                sum(
-                    weights[query.query_id] * baseline[query.query_id]
-                    for query in query_items
-                )
-            ),
+            float(sum(weights[query.query_id] * baseline[query.query_id] for query in query_items)),
         )

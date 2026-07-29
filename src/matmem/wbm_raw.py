@@ -107,8 +107,12 @@ class WBMRawOracleVault:
         locators = [observable.source_record_locator for observable, _ in pairs]
         if len(set(locators)) != len(locators):
             raise ValueError("raw WBM oracle source locators must be unique")
-        self._observables = {observable.source_record_locator: observable for observable, _ in pairs}
-        self._energies = {observable.source_record_locator: float(energy) for observable, energy in pairs}
+        self._observables = {
+            observable.source_record_locator: observable for observable, _ in pairs
+        }
+        self._energies = {
+            observable.source_record_locator: float(energy) for observable, energy in pairs
+        }
         self._revealed: list[str] = []
 
     def observable(self, source_record_locator: str) -> WBMRawObservableRecord:

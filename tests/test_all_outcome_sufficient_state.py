@@ -63,8 +63,7 @@ def test_state_size_does_not_grow_with_archive_length() -> None:
     state = _state()
     size = state.state_size_scalars
     state.update_many(
-        _card(f"card-{index}", embedding=(1.0, float(index + 1)))
-        for index in range(20)
+        _card(f"card-{index}", embedding=(1.0, float(index + 1))) for index in range(20)
     )
     assert state.accepted_outcome_count == 20
     assert state.state_size_scalars == size

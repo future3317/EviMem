@@ -72,8 +72,11 @@ def verify_official_files(artifact_dir: Path) -> dict[str, dict[str, object]]:
         if md5 != expected["expected_md5"] or sha256 != expected["expected_sha256"]:
             raise ValueError(f"official {role} checksum mismatch")
         result[role] = {
-            "path": str(path.resolve()), "bytes": path.stat().st_size,
-            "figshare_file_id": expected["figshare_file_id"], "md5": md5, "sha256": sha256,
+            "path": str(path.resolve()),
+            "bytes": path.stat().st_size,
+            "figshare_file_id": expected["figshare_file_id"],
+            "md5": md5,
+            "sha256": sha256,
         }
     return result
 
@@ -106,8 +109,10 @@ def inspect_prediction_join(prediction_path: Path, cleaned_ids: set[str]) -> dic
     if not parity["exact_match"]:
         raise ValueError("official CHGNet prediction IDs do not exactly match cleaned WBM IDs")
     return {
-        "row_count": len(rows), "unique_id_count": len(set(prediction_ids)),
-        "duplicate_id_count": duplicate_count, "columns": ["material_id", "e_form_per_atom"],
+        "row_count": len(rows),
+        "unique_id_count": len(set(prediction_ids)),
+        "duplicate_id_count": duplicate_count,
+        "columns": ["material_id", "e_form_per_atom"],
         "declared_unit": "eV/atom (registry field name e_form_per_atom)",
         "target_task": "IS2RE-SR (pinned CHGNet registry configuration)",
         "mp2020_correction": "already included by registry; no additional correction is applied",
@@ -127,17 +132,25 @@ def inspect_mp_cse(cse_path: Path) -> tuple[dict[str, object], set[str]]:
         raise ValueError("MP CSE artifact requires entry and material_id mappings")
     if set(entries) != set(material_ids):
         raise ValueError("MP CSE entry and material_id mappings have different keys")
-    entry_ids = [str(value.get("entry_id")) for value in entries.values() if isinstance(value, Mapping)]
+    entry_ids = [
+        str(value.get("entry_id")) for value in entries.values() if isinstance(value, Mapping)
+    ]
     if len(entry_ids) != len(entries) or any(item == "None" for item in entry_ids):
         raise ValueError("MP CSE mapping has an invalid entry_id")
     duplicate_count = len(entry_ids) - len(set(entry_ids))
     if duplicate_count:
         raise ValueError(f"MP CSE contains {duplicate_count} duplicate entry IDs")
-    return ({
-        "top_level_keys": sorted(payload), "entry_mapping_count": len(entries),
-        "material_id_mapping_count": len(material_ids), "entry_id_count": len(entry_ids),
-        "duplicate_entry_id_count": duplicate_count, "entry_id_checksum": _id_checksum(entry_ids),
-    }, set(entry_ids))
+    return (
+        {
+            "top_level_keys": sorted(payload),
+            "entry_mapping_count": len(entries),
+            "material_id_mapping_count": len(material_ids),
+            "entry_id_count": len(entry_ids),
+            "duplicate_entry_id_count": duplicate_count,
+            "entry_id_checksum": _id_checksum(entry_ids),
+        },
+        set(entry_ids),
+    )
 
 
 def _load_ppd_read_only(ppd_path: Path) -> Any:
@@ -145,8 +158,13 @@ def _load_ppd_read_only(ppd_path: Path) -> Any:
 
     from pymatgen.entries.compatibility import MaterialsProject2020Compatibility
 
-    original_new, original_init = MaterialsProject2020Compatibility.__new__, MaterialsProject2020Compatibility.__init__
-    MaterialsProject2020Compatibility.__new__ = staticmethod(lambda cls, *args, **kwargs: object.__new__(cls))
+    original_new, original_init = (
+        MaterialsProject2020Compatibility.__new__,
+        MaterialsProject2020Compatibility.__init__,
+    )
+    MaterialsProject2020Compatibility.__new__ = staticmethod(
+        lambda cls, *args, **kwargs: object.__new__(cls)
+    )
     MaterialsProject2020Compatibility.__init__ = lambda self, *args, **kwargs: None
     try:
         with gzip.open(ppd_path, "rb") as handle:
@@ -167,9 +185,12 @@ def inspect_ppd_membership(ppd_path: Path, cse_entry_ids: set[str]) -> dict[str,
         raise ValueError("official PPD phase membership differs from official MP CSE entry IDs")
     return {
         "ppd_type": f"{type(ppd).__module__}.{type(ppd).__qualname__}",
-        "chemical_element_count": len(ppd.elements), "space_count": len(ppd.spaces),
-        "all_entry_count": len(entry_ids), "duplicate_entry_id_count": duplicate_count,
-        "entry_id_checksum": _id_checksum(entry_ids), "cse_phase_membership_parity": parity,
+        "chemical_element_count": len(ppd.elements),
+        "space_count": len(ppd.spaces),
+        "all_entry_count": len(entry_ids),
+        "duplicate_entry_id_count": duplicate_count,
+        "entry_id_checksum": _id_checksum(entry_ids),
+        "cse_phase_membership_parity": parity,
         "loading_note": "Read-only historic compatibility constructor bypass; no correction was recomputed.",
     }
 
@@ -181,13 +202,19 @@ def main() -> None:
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     repo_root = Path(__file__).resolve().parents[1]
-    if args.artifact_dir.resolve().is_relative_to(repo_root) or args.output.resolve().is_relative_to(repo_root):
+    if args.artifact_dir.resolve().is_relative_to(
+        repo_root
+    ) or args.output.resolve().is_relative_to(repo_root):
         raise ValueError("official artifacts and audit report must remain outside the repository")
     files = verify_official_files(args.artifact_dir)
     cleaned_ids = read_cleaned_ids(args.cleaned_ids)
     cse, cse_ids = inspect_mp_cse(args.artifact_dir / str(OFFICIAL_ARTIFACTS["mp_cse"]["filename"]))
-    predictions = inspect_prediction_join(args.artifact_dir / str(OFFICIAL_ARTIFACTS["chgnet_predictions"]["filename"]), cleaned_ids)
-    ppd = inspect_ppd_membership(args.artifact_dir / str(OFFICIAL_ARTIFACTS["mp_ppd"]["filename"]), cse_ids)
+    predictions = inspect_prediction_join(
+        args.artifact_dir / str(OFFICIAL_ARTIFACTS["chgnet_predictions"]["filename"]), cleaned_ids
+    )
+    ppd = inspect_ppd_membership(
+        args.artifact_dir / str(OFFICIAL_ARTIFACTS["mp_ppd"]["filename"]), cse_ids
+    )
     report = {
         "schema_version": 1,
         "scope": "official_artifact_integrity_and_keyset_parity_only_no_policy_execution",
@@ -196,7 +223,9 @@ def main() -> None:
         "formal_gate_blocker": "human license and redistribution manifest review remains pending",
         "artifacts": files,
         "cleaned_wbm_ids": {"count": len(cleaned_ids), "checksum": _id_checksum(cleaned_ids)},
-        "mp_cse": cse, "mp_ppd": ppd, "chgnet_official_prediction": predictions,
+        "mp_cse": cse,
+        "mp_ppd": ppd,
+        "chgnet_official_prediction": predictions,
     }
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")

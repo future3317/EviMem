@@ -215,9 +215,7 @@ def _target_metadata(
                 continue
             parameters = row.get("parameters") or {}
             run_type = str(
-                parameters.get("run_type")
-                or (row.get("data") or {}).get("run_type")
-                or ""
+                parameters.get("run_type") or (row.get("data") or {}).get("run_type") or ""
             )
             run_types[run_type] += 1
             composition_dict = _float_mapping(row["composition"])
@@ -262,17 +260,13 @@ def _load_selected_jarvis_rows(path: Path, mp_ids: set[str]) -> dict[str, list[d
     return rows
 
 
-def _load_selected_mp_structures(
-    cse_path: Path, target_keys: set[str]
-) -> dict[str, Structure]:
+def _load_selected_mp_structures(cse_path: Path, target_keys: set[str]) -> dict[str, Structure]:
     structures: dict[str, Structure] = {}
     with gzip.open(cse_path, "rb") as handle:
         for key, row in ijson.kvitems(handle, "entry"):
             key = str(key)
             if key in target_keys:
-                structure_dict = json.loads(
-                    json.dumps(row["structure"], default=float)
-                )
+                structure_dict = json.loads(json.dumps(row["structure"], default=float))
                 structures[key] = Structure.from_dict(structure_dict)
     if set(structures) != target_keys:
         raise ValueError("selected MP structures are incomplete")
@@ -389,11 +383,14 @@ def _choose_systems(
     calibration: dict[str, list[str]] = {}
     evaluation: dict[str, list[str]] = {}
     for stratum in ("binary", "ternary", "quaternary_plus"):
-        ordered = sorted(by_stratum[stratum], key=lambda system: (
-            _stable_hash(RELEASE_ID, "system", system)
-            if selection_salt is None
-            else _stable_hash(RELEASE_ID, selection_salt, "system", system)
-        ))
+        ordered = sorted(
+            by_stratum[stratum],
+            key=lambda system: (
+                _stable_hash(RELEASE_ID, "system", system)
+                if selection_salt is None
+                else _stable_hash(RELEASE_ID, selection_salt, "system", system)
+            ),
+        )
         n_cal = calibration_per_stratum[stratum]
         n_eval = evaluation_per_stratum[stratum]
         if len(ordered) < n_cal + n_eval:
@@ -429,9 +426,7 @@ def _partition_all_eligible_systems(
     for stratum in ("binary", "ternary", "quaternary_plus"):
         ordered = sorted(
             by_stratum[stratum],
-            key=lambda system: _stable_hash(
-                RELEASE_ID, selection_salt, "system", system
-            ),
+            key=lambda system: _stable_hash(RELEASE_ID, selection_salt, "system", system),
         )
         evaluation[stratum] = [
             system
@@ -483,9 +478,7 @@ def _phase_entries_for_systems(
                 continue
             composition = Composition(_float_mapping(row["composition"]))
             elements = frozenset(element.symbol for element in composition.elements)
-            supported = [
-                system for system, allowed in element_sets.items() if elements <= allowed
-            ]
+            supported = [system for system, allowed in element_sets.items() if elements <= allowed]
             if not supported:
                 continue
             energy = float(row["energy"]) + float(row.get("correction", 0.0))
@@ -529,9 +522,7 @@ def _attach_hull_oracles(
                 "mp_entry_id": row["mp_entry_id"],
                 "chemical_system": row["chemical_system"],
                 "composition": row["target_composition"],
-                "target_corrected_total_energy_ev": row[
-                    "target_corrected_total_energy_ev"
-                ],
+                "target_corrected_total_energy_ev": row["target_corrected_total_energy_ev"],
                 "target_formation_energy_ev_per_atom": float(
                     diagram.get_form_energy_per_atom(entry)
                 ),
@@ -541,9 +532,7 @@ def _attach_hull_oracles(
             }
         )
     return oracle_rows, {
-        "system_phase_counts": {
-            system: len(rows) for system, rows in sorted(phase_rows.items())
-        },
+        "system_phase_counts": {system: len(rows) for system, rows in sorted(phase_rows.items())},
         "initial_phase_entry_count_with_system_duplicates": sum(
             len(rows) for rows in phase_rows.values()
         ),
@@ -591,9 +580,7 @@ def build(args: argparse.Namespace) -> None:
     }
     eligible_mp_ids = {item.mp_id for item in eligible_targets.values()}
     jarvis_rows = _load_selected_jarvis_rows(args.jarvis_jsonl, eligible_mp_ids)
-    target_structures = _load_selected_mp_structures(
-        args.mp_cse, set(eligible_targets)
-    )
+    target_structures = _load_selected_mp_structures(args.mp_cse, set(eligible_targets))
     matcher = StructureMatcher(
         ltol=args.ltol,
         stol=args.stol,
@@ -602,21 +589,16 @@ def build(args: argparse.Namespace) -> None:
         scale=True,
         attempt_supercell=False,
     )
-    matched, match_audit = _match_pairs(
-        eligible_targets, target_structures, jarvis_rows, matcher
-    )
+    matched, match_audit = _match_pairs(eligible_targets, target_structures, jarvis_rows, matcher)
     matched_counts = Counter(row["chemical_system"] for row in matched)
     matched_counts = Counter(
         {system: count for system, count in matched_counts.items() if count >= args.min_system_size}
     )
     excluded_systems: set[str] = set()
     if args.excluded_systems_file is not None:
-        exclusion_payload = json.loads(
-            args.excluded_systems_file.read_text(encoding="utf-8")
-        )
+        exclusion_payload = json.loads(args.excluded_systems_file.read_text(encoding="utf-8"))
         excluded_systems = {
-            str(system).strip()
-            for system in exclusion_payload["excluded_exact_systems"]
+            str(system).strip() for system in exclusion_payload["excluded_exact_systems"]
         }
         if not all(excluded_systems):
             raise ValueError("excluded exact systems must be non-empty")
@@ -663,16 +645,12 @@ def build(args: argparse.Namespace) -> None:
         raise ValueError("selected pair IDs are not unique")
     representation_audit = _attach_source_embeddings(selected)
     representation_manifest = {
-        key: value
-        for key, value in representation_audit.items()
-        if key != "checkpoint_path"
+        key: value for key, value in representation_audit.items() if key != "checkpoint_path"
     }
     calibration_system_set = {
         system for values in calibration_systems.values() for system in values
     }
-    eval_system_set = {
-        system for values in evaluation_systems.values() for system in values
-    }
+    eval_system_set = {system for values in evaluation_systems.values() for system in values}
     excluded_entry_ids = {row["mp_entry_id"] for row in selected}
     phase_rows = _phase_entries_for_systems(
         args.mp_cse,
@@ -739,12 +717,8 @@ def build(args: argparse.Namespace) -> None:
             "fields": "118 elemental fractions, log1p(volume/atom), log1p(density), lattice anisotropy, three normalized angles",
         },
         "environment_representation": representation_manifest,
-        "calibration_pairs": [
-            _public_pair(row, "calibration") for row in calibration_rows
-        ],
-        "evaluation_pairs": [
-            _public_pair(row, "evaluation") for row in evaluation_rows
-        ],
+        "calibration_pairs": [_public_pair(row, "calibration") for row in calibration_rows],
+        "evaluation_pairs": [_public_pair(row, "evaluation") for row in evaluation_rows],
         "evaluation_initial_phase_entries": {
             system: phase_rows[system] for system in sorted(eval_system_set)
         },
@@ -766,9 +740,7 @@ def build(args: argparse.Namespace) -> None:
         },
         "target_outcomes": oracle_rows,
     }
-    vault_path.write_text(
-        json.dumps(vault, indent=2, sort_keys=True) + "\n", encoding="utf-8"
-    )
+    vault_path.write_text(json.dumps(vault, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     vault_sha = _sha256(vault_path)
     audit = {
         "schema_version": 1,
@@ -800,28 +772,20 @@ def build(args: argparse.Namespace) -> None:
         "excluded_exact_system_count": len(excluded_systems),
         "matched_system_count_by_stratum": dict(
             Counter(
-                stratum
-                for system in matched_counts
-                if (stratum := _stratum(system)) is not None
+                stratum for system in matched_counts if (stratum := _stratum(system)) is not None
             )
         ),
         "selected_calibration_pair_count": len(calibration_rows),
         "selected_evaluation_pair_count": len(evaluation_rows),
-        "selected_pair_id_checksum": _id_checksum(
-            [row["pair_id"] for row in selected]
-        ),
-        "calibration_evaluation_system_overlap": sorted(
-            calibration_system_set & eval_system_set
-        ),
+        "selected_pair_id_checksum": _id_checksum([row["pair_id"] for row in selected]),
+        "calibration_evaluation_system_overlap": sorted(calibration_system_set & eval_system_set),
         "phase_diagrams": phase_audit,
         "task_manifest_sha256": task_sha,
         "oracle_vault_sha256": vault_sha,
         "technical_gate_passed": True,
         "paper_claim_authorized": False,
     }
-    audit_path.write_text(
-        json.dumps(audit, indent=2, sort_keys=True) + "\n", encoding="utf-8"
-    )
+    audit_path.write_text(json.dumps(audit, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     print(f"technical_gate_passed={audit['technical_gate_passed']}")
     print(f"matched_pair_count={len(matched)}")
     print(f"calibration_pairs={len(calibration_rows)}")

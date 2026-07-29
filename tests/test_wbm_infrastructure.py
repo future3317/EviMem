@@ -59,9 +59,7 @@ def _observable(query_id: str) -> WBMObservableRecord:
     return WBMObservableRecord(
         query_id=query_id,
         structure_hash=f"structure-{query_id}",
-        structure_identity=StructureArtifactIdentity.initial(
-            query_id, f"structure-{query_id}"
-        ),
+        structure_identity=StructureArtifactIdentity.initial(query_id, f"structure-{query_id}"),
         identity=MaterialIdentity(
             exact_calculation_id=f"calc-{query_id}",
             canonical_structure_id=f"canonical-{query_id}",

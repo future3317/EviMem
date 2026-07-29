@@ -4,6 +4,7 @@ The tool is deliberately read-only with respect to task and oracle artifacts:
 it receives only the audit replay and its precommitted state plan.  Its output
 is a descriptive diagnostic, not a rule that retunes the policy.
 """
+
 from __future__ import annotations
 
 import argparse

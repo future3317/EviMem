@@ -73,9 +73,7 @@ def build(
     if set(outcomes) != {row["pair_id"] for row in rows}:
         raise ValueError("all-eligible task/vault join is not exact")
     excluded_systems = set(development_task.get("development_systems", ()))
-    excluded_ids = {
-        row["pair_id"] for row in development_task.get("development_pairs", ())
-    }
+    excluded_ids = {row["pair_id"] for row in development_task.get("development_pairs", ())}
     by_system: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for row in rows:
         if row["chemical_system"] not in excluded_systems and row["pair_id"] not in excluded_ids:
@@ -104,7 +102,9 @@ def build(
         )[:max_systems_per_stratum]
         selection_by_stratum[stratum] = systems
         selected.extend(systems)
-    selected = sorted(selected, key=lambda system: _stable_hash(str(all_task["release_id"]), system))
+    selected = sorted(
+        selected, key=lambda system: _stable_hash(str(all_task["release_id"]), system)
+    )
     if max_systems is not None:
         selected = selected[:max_systems]
     if not selected:
@@ -176,8 +176,7 @@ def build(
         "status": "confirmatory_sealed_oracle_vault",
         "selected_pair_id_set_sha256": selected_id_checksum,
         "target_outcomes": [
-            {**outcomes[pair_id], "split": "confirmatory"}
-            for pair_id in sorted(selected_ids)
+            {**outcomes[pair_id], "split": "confirmatory"} for pair_id in sorted(selected_ids)
         ],
     }
     task_output.parent.mkdir(parents=True, exist_ok=True)

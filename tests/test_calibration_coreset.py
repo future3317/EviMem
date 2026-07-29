@@ -211,10 +211,7 @@ def test_fixed_gp_predictive_discrepancy_and_transport_uncertainty_are_distinct(
     conditioned = posterior.fit((exact_card,)).predict((query,))
     # The independent predictive discrepancy remains after conditioning. An
     # exact-protocol card has no transport radius, so it is not double-counted.
-    assert (
-        conditioned.std_ev_per_atom[0] ** 2
-        >= config.noise_std_ev_per_atom**2 - 1e-10
-    )
+    assert conditioned.std_ev_per_atom[0] ** 2 >= config.noise_std_ev_per_atom**2 - 1e-10
     assert conditioned.std_ev_per_atom[0] < prior.std_ev_per_atom[0]
 
 

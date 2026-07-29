@@ -67,7 +67,9 @@ class ResidualCorrector:
                 continue
             protocol_weight = 1.0 / (1.0 + compatibility.uncertainty_radius_ev_per_atom)
             weight = similarity * protocol_weight * card.quality_weight
-            compatible.append((weight, transferred, compatibility.uncertainty_radius_ev_per_atom, card.card_id))
+            compatible.append(
+                (weight, transferred, compatibility.uncertainty_radius_ev_per_atom, card.card_id)
+            )
         compatible.sort(key=lambda item: (-item[0], item[3]))
         compatible = compatible[: self.max_neighbors]
         total_weight = sum(item[0] for item in compatible)

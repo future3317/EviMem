@@ -132,9 +132,7 @@ class GPVarianceOneSwapMemory:
         }
         current_objective = objectives[current_ids]
         improving = [
-            candidate
-            for candidate in candidates[1:]
-            if objectives[candidate] < current_objective
+            candidate for candidate in candidates[1:] if objectives[candidate] < current_objective
         ]
         if not improving:
             return

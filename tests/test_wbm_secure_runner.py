@@ -76,9 +76,7 @@ def _query(
     return MaterialQuery(
         query_id=query_id,
         structure_hash=f"structure-{query_id}",
-        structure_identity=StructureArtifactIdentity.initial(
-            query_id, f"structure-{query_id}"
-        ),
+        structure_identity=StructureArtifactIdentity.initial(query_id, f"structure-{query_id}"),
         identity=MaterialIdentity(
             exact_calculation_id=query_id,
             canonical_structure_id=f"canonical-{query_id}",
@@ -165,9 +163,7 @@ def _run(
     prefix_checks: tuple[float, ...] = (),
     second_formation_energy: float = -0.10,
 ):
-    queries, records, entries, universe = _fixture(
-        second_formation_energy=second_formation_energy
-    )
+    queries, records, entries, universe = _fixture(second_formation_energy=second_formation_energy)
     log = AppendOnlyWBMEventLog(tmp_path / log_name)
     runner = SecureWBMRunner(
         queries=queries,
@@ -254,7 +250,9 @@ def test_unqueried_oracle_counterfactual_cannot_change_actions(tmp_path: Path) -
         second_formation_energy=0.40,
     )
     assert baseline.selected_query_ids == changed.selected_query_ids
-    assert baseline.events[0].pre_reveal_state_checksum == changed.events[0].pre_reveal_state_checksum
+    assert (
+        baseline.events[0].pre_reveal_state_checksum == changed.events[0].pre_reveal_state_checksum
+    )
     assert baseline.events[0].action_checksum == changed.events[0].action_checksum
 
 

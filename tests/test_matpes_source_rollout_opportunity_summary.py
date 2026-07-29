@@ -31,7 +31,11 @@ def _plan() -> dict:
         "state_count": 2,
         "states": [
             {"chemical_system": "A-B", "round_index": 1, "reasons": ["sarr_deviation"]},
-            {"chemical_system": "A-B", "round_index": 2, "reasons": ["final_win_system", "positive_but_simultaneously_unresolved"]},
+            {
+                "chemical_system": "A-B",
+                "round_index": 2,
+                "reasons": ["final_win_system", "positive_but_simultaneously_unresolved"],
+            },
         ],
     }
 
@@ -45,8 +49,28 @@ def _audit(plan_sha: str) -> dict:
         "evaluation_systems_accessed": False,
         "state_count": 2,
         "states": [
-            {"chemical_system": "A-B", "round_index": 1, "selected_pair_id": "x", "source_pair_id": "source", "selected_opportunity_cost": 0.0, "source_opportunity_cost": 0.2, "best_second_gap": 0.1, "selected_high_precision_advantage": 0.2, "selected_high_precision_lower_bound": 0.1},
-            {"chemical_system": "A-B", "round_index": 2, "selected_pair_id": "source", "source_pair_id": "source", "selected_opportunity_cost": 0.1, "source_opportunity_cost": 0.1, "best_second_gap": 0.1, "selected_high_precision_advantage": 0.0, "selected_high_precision_lower_bound": -0.1},
+            {
+                "chemical_system": "A-B",
+                "round_index": 1,
+                "selected_pair_id": "x",
+                "source_pair_id": "source",
+                "selected_opportunity_cost": 0.0,
+                "source_opportunity_cost": 0.2,
+                "best_second_gap": 0.1,
+                "selected_high_precision_advantage": 0.2,
+                "selected_high_precision_lower_bound": 0.1,
+            },
+            {
+                "chemical_system": "A-B",
+                "round_index": 2,
+                "selected_pair_id": "source",
+                "source_pair_id": "source",
+                "selected_opportunity_cost": 0.1,
+                "source_opportunity_cost": 0.1,
+                "best_second_gap": 0.1,
+                "selected_high_precision_advantage": 0.0,
+                "selected_high_precision_lower_bound": -0.1,
+            },
         ],
     }
 
@@ -74,7 +98,9 @@ def test_opportunity_summary_requires_exact_plan_coverage(tmp_path: Path) -> Non
     audit["states"].pop()
     audit_path.write_text(json.dumps(audit))
     with pytest.raises(ValueError, match="exactly equal"):
-        module.summarize(audit_path=audit_path, plan_path=plan_path, output_path=tmp_path / "bad.json")
+        module.summarize(
+            audit_path=audit_path, plan_path=plan_path, output_path=tmp_path / "bad.json"
+        )
 
 
 def test_opportunity_summary_rejects_task_or_sarr_provenance_mismatch(tmp_path: Path) -> None:
@@ -87,10 +113,14 @@ def test_opportunity_summary_rejects_task_or_sarr_provenance_mismatch(tmp_path: 
     audit_path.write_text(json.dumps(audit))
 
     with pytest.raises(ValueError, match="task checksum"):
-        module.summarize(audit_path=audit_path, plan_path=plan_path, output_path=tmp_path / "bad-task.json")
+        module.summarize(
+            audit_path=audit_path, plan_path=plan_path, output_path=tmp_path / "bad-task.json"
+        )
 
     audit = _audit(_sha(plan_path))
     audit["sarr_sha256"] = "wrong-sarr"
     audit_path.write_text(json.dumps(audit))
     with pytest.raises(ValueError, match="SARR checksum"):
-        module.summarize(audit_path=audit_path, plan_path=plan_path, output_path=tmp_path / "bad-sarr.json")
+        module.summarize(
+            audit_path=audit_path, plan_path=plan_path, output_path=tmp_path / "bad-sarr.json"
+        )

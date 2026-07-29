@@ -29,9 +29,7 @@ def diagnose(
     if output_path.exists():
         raise FileExistsError(f"refusing to overwrite {output_path}")
     result = json.loads(result_path.read_text(encoding="utf-8"))
-    if result.get("split") != "confirmatory" or not result.get(
-        "evaluation_systems_accessed"
-    ):
+    if result.get("split") != "confirmatory" or not result.get("evaluation_systems_accessed"):
         raise ValueError("horizon diagnosis requires an opened confirmatory result")
     systems = sorted(result["systems"])
     if not systems:
@@ -100,12 +98,8 @@ def diagnose(
                 "losses": int(np.sum(values < 0)),
             }
         )
-    nonzero_headroom = [
-        row for row in system_rows.values() if row["source_oracle_headroom"] > 0
-    ]
-    final_losses = [
-        system for system, row in system_rows.items() if row["final_difference"] < 0
-    ]
+    nonzero_headroom = [row for row in system_rows.values() if row["source_oracle_headroom"] > 0]
+    final_losses = [system for system, row in system_rows.items() if row["final_difference"] < 0]
     payload = {
         "schema_version": 1,
         "status": "opened_attribution_only_horizon_diagnostic",
@@ -130,8 +124,7 @@ def diagnose(
         "final_loss_systems": final_losses,
         "final_loss_onset_counts": {
             str(round_index): sum(
-                row["persistent_loss_onset_round"] == round_index
-                for row in system_rows.values()
+                row["persistent_loss_onset_round"] == round_index for row in system_rows.values()
             )
             for round_index in range(1, maximum_rounds + 1)
         },

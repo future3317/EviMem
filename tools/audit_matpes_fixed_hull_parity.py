@@ -80,11 +80,15 @@ def audit(
             config=config,
         )
         results[backend] = json.loads(output.read_text(encoding="utf-8"))
-    systems = sorted(set(results["pymatgen"]["systems"]) | set(results["fixed_composition"]["systems"]))
+    systems = sorted(
+        set(results["pymatgen"]["systems"]) | set(results["fixed_composition"]["systems"])
+    )
     mismatches: list[dict[str, Any]] = []
     for system in systems:
         left = results["pymatgen"]["systems"][system]["strategies"]["delta_hull_active_search"]
-        right = results["fixed_composition"]["systems"][system]["strategies"]["delta_hull_active_search"]
+        right = results["fixed_composition"]["systems"][system]["strategies"][
+            "delta_hull_active_search"
+        ]
         if left["selected_pair_ids"] != right["selected_pair_ids"]:
             mismatches.append({"system": system, "kind": "action_trace"})
 

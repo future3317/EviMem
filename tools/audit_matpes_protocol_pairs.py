@@ -185,9 +185,7 @@ def run(*, pbe_root: Path, r2scan_root: Path, output: Path) -> dict[str, Any]:
                 "chemsys": source.chemsys == target.chemsys,
                 "composition": source.composition_key == target.composition_key,
                 "original_mp_id": source.original_mp_id == target.original_mp_id,
-                "exact_geometry": (
-                    source.exact_geometry_sha256 == target.exact_geometry_sha256
-                ),
+                "exact_geometry": (source.exact_geometry_sha256 == target.exact_geometry_sha256),
                 "rounded_geometry_1e-10": (
                     source.rounded_geometry_sha256 == target.rounded_geometry_sha256
                 ),
@@ -218,8 +216,7 @@ def run(*, pbe_root: Path, r2scan_root: Path, output: Path) -> dict[str, Any]:
                     and target.formation_energy_ev_per_atom is not None
                 ):
                     formation_deltas.append(
-                        target.formation_energy_ev_per_atom
-                        - source.formation_energy_ev_per_atom
+                        target.formation_energy_ev_per_atom - source.formation_energy_ev_per_atom
                     )
                     formation_chemsys_counts[target.chemsys] += 1
         r2_profiles.append(_file_profile(path, row_count=row_count, digest=digest))
@@ -283,8 +280,7 @@ def run(*, pbe_root: Path, r2scan_root: Path, output: Path) -> dict[str, Any]:
             "pbe_duplicate_id_rows": sum(pbe_duplicates.values()),
             "r2scan_duplicate_id_rows": sum(r2_duplicates.values()),
             "functional_counts": {
-                name: dict(sorted(counts_.items()))
-                for name, counts_ in functional_counts.items()
+                name: dict(sorted(counts_.items())) for name, counts_ in functional_counts.items()
             },
             "pbe_formation_energy_available": pbe_formation_count,
             "r2scan_formation_energy_available": r2_formation_count,
@@ -300,9 +296,7 @@ def run(*, pbe_root: Path, r2scan_root: Path, output: Path) -> dict[str, Any]:
             },
             "r2scan_minus_pbe_energy_ev_per_atom": _quantiles(deltas),
             "both_formation_energy_pair_count": len(formation_deltas),
-            "r2scan_minus_pbe_formation_energy_ev_per_atom": _quantiles(
-                formation_deltas
-            ),
+            "r2scan_minus_pbe_formation_energy_ev_per_atom": _quantiles(formation_deltas),
         },
         "chemical_systems": {
             "exact_system_count": len(chemsys_counts),
@@ -341,8 +335,7 @@ def run(*, pbe_root: Path, r2scan_root: Path, output: Path) -> dict[str, Any]:
                 same_configuration_pair_gate and len(deltas) >= 1000
             ),
             "formation_energy_labels_available": (
-                pbe_formation_count == len(pbe_index)
-                and r2_formation_count == len(r2_seen)
+                pbe_formation_count == len(pbe_index) and r2_formation_count == len(r2_seen)
             ),
             "hull_requirement": (
                 "Use only pairs where both protocol formation_energy_per_atom fields "

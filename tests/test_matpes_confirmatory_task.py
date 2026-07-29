@@ -26,7 +26,9 @@ def _row(system: str, index: int) -> dict:
     }
 
 
-def test_confirmatory_builder_excludes_development_and_is_outcome_independent(tmp_path: Path) -> None:
+def test_confirmatory_builder_excludes_development_and_is_outcome_independent(
+    tmp_path: Path,
+) -> None:
     builder = _load_builder()
     systems = ["A-B", "C-D", "E-F", "G-H", "I-J"]
     rows = [row for system in systems for row in (_row(system, i) for i in range(4))]

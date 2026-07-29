@@ -34,15 +34,9 @@ def test_robust_hull_certifies_stable_unstable_and_abstain() -> None:
         _phase("B", {"B": 1.0}, 0.0),
     )
     certifier = RobustHullDecisionCertifier()
-    stable = certifier.certify(
-        _phase("stable", {"A": 0.5, "B": 0.5}, -0.2, -0.1), references
-    )
-    unstable = certifier.certify(
-        _phase("unstable", {"A": 0.5, "B": 0.5}, 0.1, 0.2), references
-    )
-    abstain = certifier.certify(
-        _phase("uncertain", {"A": 0.5, "B": 0.5}, -0.1, 0.1), references
-    )
+    stable = certifier.certify(_phase("stable", {"A": 0.5, "B": 0.5}, -0.2, -0.1), references)
+    unstable = certifier.certify(_phase("unstable", {"A": 0.5, "B": 0.5}, 0.1, 0.2), references)
+    abstain = certifier.certify(_phase("uncertain", {"A": 0.5, "B": 0.5}, -0.1, 0.1), references)
     assert stable.kind is RobustHullDecisionKind.STABLE
     assert unstable.kind is RobustHullDecisionKind.UNSTABLE
     assert abstain.kind is RobustHullDecisionKind.ABSTAIN
@@ -74,7 +68,8 @@ def test_certified_decisions_are_sound_for_every_interval_endpoint() -> None:
         decision = certifier.certify(candidate, references)
         assert decision.kind is not RobustHullDecisionKind.ABSTAIN
         for a_energy, b_energy, candidate_energy in itertools.product(
-            (-0.02, 0.02), (-0.03, 0.01),
+            (-0.02, 0.02),
+            (-0.03, 0.01),
             (candidate.lower_energy_ev_per_atom, candidate.upper_energy_ev_per_atom),
         ):
             actual_hull = 0.5 * a_energy + 0.5 * b_energy

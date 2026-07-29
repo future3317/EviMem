@@ -97,9 +97,7 @@ def main() -> None:
             raise ValueError("license evidence and manifests must remain outside Git")
     manifest = build_manifest(registry=args.registry, artifact_audit=args.artifact_audit)
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(
-        json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
-    )
+    args.output.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     print(f"local_research_gate_passed={manifest['local_research_gate_passed']}")
     print("publication_redistribution_gate_passed=False")
     print(f"output={args.output.resolve()}")

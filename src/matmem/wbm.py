@@ -196,7 +196,9 @@ class MPPhaseRecord(BaseModel):
     @classmethod
     def _composition(cls, values: dict[str, float]) -> dict[str, float]:
         normalized = {key.strip(): float(value) for key, value in values.items()}
-        if not normalized or any(not key or value < 0 or not math.isfinite(value) for key, value in normalized.items()):
+        if not normalized or any(
+            not key or value < 0 or not math.isfinite(value) for key, value in normalized.items()
+        ):
             raise ValueError("phase composition requires finite non-negative fractions")
         total = sum(normalized.values())
         if not math.isclose(total, 1.0, abs_tol=1e-9):
@@ -229,7 +231,9 @@ class MPCausalHullBuilder:
             raise RuntimeError("MP causal hull construction requires scipy") from exc
 
         target = {key.strip(): float(value) for key, value in target_composition.items()}
-        if not target or any(not key or value < 0 or not math.isfinite(value) for key, value in target.items()):
+        if not target or any(
+            not key or value < 0 or not math.isfinite(value) for key, value in target.items()
+        ):
             raise ValueError("target composition requires finite non-negative fractions")
         total = sum(target.values())
         if total <= 0:
@@ -243,16 +247,13 @@ class MPCausalHullBuilder:
                     for phase in phases
                     if set(phase.composition_fractions) <= set(system)
                     and phase.source_release == source_release
-                    and phase.protocol.scientific_fingerprint
-                    == protocol.scientific_fingerprint
+                    and phase.protocol.scientific_fingerprint == protocol.scientific_fingerprint
                 ),
                 key=lambda phase: phase.phase_id,
             )
         )
         if not eligible:
-            raise ValueError(
-                "no frozen MP phases support the target chemical system and protocol"
-            )
+            raise ValueError("no frozen MP phases support the target chemical system and protocol")
         known_through = max(phase.known_at for phase in eligible)
         if built_at < known_through:
             raise ValueError("MP hull cannot be built before all frozen phases are known")
@@ -297,7 +298,11 @@ class SOAPCacheConfig(BaseModel):
     @classmethod
     def _species(cls, values: tuple[str, ...]) -> tuple[str, ...]:
         normalized = tuple(sorted(value.strip() for value in values))
-        if not normalized or any(not value for value in normalized) or len(set(normalized)) != len(normalized):
+        if (
+            not normalized
+            or any(not value for value in normalized)
+            or len(set(normalized)) != len(normalized)
+        ):
             raise ValueError("SOAP species vocabulary must be non-empty and unique")
         return normalized
 

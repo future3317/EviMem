@@ -70,14 +70,11 @@ def split(source: Path, output_dir: Path) -> None:
         "calibration_vault_sha256": _sha256(paths["calibration"]),
         "sealed_evaluation_vault_sha256": _sha256(paths["evaluation"]),
         "split_overlap": sorted(
-            {row["pair_id"] for row in calibration}
-            & {row["pair_id"] for row in evaluation}
+            {row["pair_id"] for row in calibration} & {row["pair_id"] for row in evaluation}
         ),
         "evaluation_results_accessed_by_calibration_runner": False,
     }
-    paths["audit"].write_text(
-        json.dumps(audit, indent=2, sort_keys=True) + "\n", encoding="utf-8"
-    )
+    paths["audit"].write_text(json.dumps(audit, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     print(f"calibration_rows={len(calibration)}")
     print(f"evaluation_rows={len(evaluation)}")
     print(f"calibration_vault={paths['calibration'].resolve()}")

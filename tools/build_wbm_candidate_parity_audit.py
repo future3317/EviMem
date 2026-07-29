@@ -54,9 +54,7 @@ def _pool_rows(path: Path) -> dict[str, dict[str, Any]]:
             rows[query_id] = {
                 "query_id": query_id,
                 "exact_chemsys": exact_chemsys,
-                "canonical_structure_id": (
-                    "byte-identical:" + candidate["exact_structure_sha256"]
-                ),
+                "canonical_structure_id": ("byte-identical:" + candidate["exact_structure_sha256"]),
                 "prototype_cluster_id": None,
                 "mp_overlap_group": None,
             }
@@ -111,9 +109,7 @@ def _official_summary(path: Path, query_ids: set[str]) -> dict[str, dict[str, fl
             if not fields or fields[0].startswith("#"):
                 continue
             if len(fields) != 8:
-                raise ValueError(
-                    "candidate parity requires the explicit-ID WBM summary"
-                )
+                raise ValueError("candidate parity requires the explicit-ID WBM summary")
             if fields[7] == "None":
                 continue
             match = source_id.fullmatch(fields[7])
@@ -191,9 +187,7 @@ def build(args: argparse.Namespace) -> None:
         if args.raw_cse_root is None:
             raise ValueError("build requires --raw-cse-root or --compact-entries")
         raw = _load_raw_entries(args.raw_cse_root, query_ids)
-        entries = [
-            ComputedStructureEntry.from_dict(raw[query_id]) for query_id in sorted(raw)
-        ]
+        entries = [ComputedStructureEntry.from_dict(raw[query_id]) for query_id in sorted(raw)]
         corrected = MaterialsProject2020Compatibility().process_entries(
             entries,
             clean=True,
@@ -234,9 +228,7 @@ def build(args: argparse.Namespace) -> None:
                     "uncorrected_total_energy_ev": energy_metadata[query_id][
                         "uncorrected_total_energy_ev"
                     ],
-                    "correction_ev_per_atom": energy_metadata[query_id][
-                        "correction_ev_per_atom"
-                    ],
+                    "correction_ev_per_atom": energy_metadata[query_id]["correction_ev_per_atom"],
                 }
                 for query_id, entry in sorted(corrected_by_id.items())
             ],
@@ -288,9 +280,7 @@ def build(args: argparse.Namespace) -> None:
         "summary_sha256": _sha256(args.summary),
         "prediction_sha256": _sha256(args.predictions),
         "strict_tolerance_ev_per_atom": STRICT_TOLERANCE_EV_PER_ATOM,
-        "official_rounding_tolerance_ev_per_atom": (
-            OFFICIAL_ROUNDING_TOLERANCE_EV_PER_ATOM
-        ),
+        "official_rounding_tolerance_ev_per_atom": (OFFICIAL_ROUNDING_TOLERANCE_EV_PER_ATOM),
         "candidate_count": len(rows),
         "rows": rows,
     }
@@ -312,19 +302,14 @@ def _reason(row: dict[str, Any]) -> str:
     modern_form = row["modern_corrected_formation_energy_ev_per_atom"]
     modern_hull = row["initial_e_above_hull_modern_ev_per_atom"]
     reasons = ["official_compiled_corrected_artifact_unavailable"]
-    if (
-        abs(parity_raw_form - official_raw_form)
-        > OFFICIAL_ROUNDING_TOLERANCE_EV_PER_ATOM
-    ):
+    if abs(parity_raw_form - official_raw_form) > OFFICIAL_ROUNDING_TOLERANCE_EV_PER_ATOM:
         reasons.append("raw_energy_or_elemental_reference_mismatch")
     if (
         abs(modern_form - parity_form) > CROSS_ENVIRONMENT_TOLERANCE_EV_PER_ATOM
         or abs(modern_hull - parity_hull) > CROSS_ENVIRONMENT_TOLERANCE_EV_PER_ATOM
     ):
         reasons.append("environment_version_difference")
-    if min(abs(parity_hull), abs(modern_hull)) <= (
-        OFFICIAL_ROUNDING_TOLERANCE_EV_PER_ATOM
-    ):
+    if min(abs(parity_hull), abs(modern_hull)) <= (OFFICIAL_ROUNDING_TOLERANCE_EV_PER_ATOM):
         reasons.append("boundary_ambiguous")
     return ";".join(reasons)
 
@@ -348,9 +333,7 @@ def merge(args: argparse.Namespace) -> None:
             "canonical_structure_id": pool_rows[query_id]["canonical_structure_id"],
             "prototype_cluster_id": pool_rows[query_id]["prototype_cluster_id"],
             "mp_overlap_group": pool_rows[query_id]["mp_overlap_group"],
-            "official_prediction_ev_per_atom": historic[
-                "official_prediction_ev_per_atom"
-            ],
+            "official_prediction_ev_per_atom": historic["official_prediction_ev_per_atom"],
             "modern_corrected_formation_energy_ev_per_atom": current[
                 "computed_corrected_formation_energy_ev_per_atom"
             ],
@@ -396,12 +379,8 @@ def merge(args: argparse.Namespace) -> None:
         "modern_environment": modern["pymatgen_version"],
         "parity_environment": parity["pymatgen_version"],
         "strict_tolerance_ev_per_atom": STRICT_TOLERANCE_EV_PER_ATOM,
-        "cross_environment_tolerance_ev_per_atom": (
-            CROSS_ENVIRONMENT_TOLERANCE_EV_PER_ATOM
-        ),
-        "official_rounding_tolerance_ev_per_atom": (
-            OFFICIAL_ROUNDING_TOLERANCE_EV_PER_ATOM
-        ),
+        "cross_environment_tolerance_ev_per_atom": (CROSS_ENVIRONMENT_TOLERANCE_EV_PER_ATOM),
+        "official_rounding_tolerance_ev_per_atom": (OFFICIAL_ROUNDING_TOLERANCE_EV_PER_ATOM),
         "candidate_count": len(rows),
         "pool_manifest_sha256": _sha256(args.pool_manifest),
         "rows": rows,

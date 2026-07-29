@@ -57,9 +57,7 @@ class StructureArtifactIdentity(BaseModel):
         )
 
     @classmethod
-    def low_fidelity_relaxed(
-        cls, query_id: str, structure_hash: str
-    ) -> StructureArtifactIdentity:
+    def low_fidelity_relaxed(cls, query_id: str, structure_hash: str) -> StructureArtifactIdentity:
         """A cheap-protocol relaxed structure available before a costly query.
 
         This is deliberately distinct from a target-protocol relaxed structure,
@@ -154,7 +152,11 @@ class CanonicalGroupSplit(BaseModel):
         }
         overlaps = [
             f"{left}/{right}:{sorted(partitions[left] & partitions[right])}"
-            for left, right in (("calibration", "memory"), ("calibration", "evaluation"), ("memory", "evaluation"))
+            for left, right in (
+                ("calibration", "memory"),
+                ("calibration", "evaluation"),
+                ("memory", "evaluation"),
+            )
             if partitions[left] & partitions[right]
         ]
         if overlaps:
