@@ -17,20 +17,22 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-from pymatgen.analysis.phase_diagram import PhaseDiagram
 from pymatgen.core import Composition
-from pymatgen.entries.computed_entries import ComputedEntry
 from scipy.stats import t as student_t
 
-from matmem.protocol_knowledge_gradient import (
+from matmem.constants import DEFAULT_EXPERIMENT_SEED, ROUND_SEED_OFFSET
+from matmem.hull_geometry import (
     FixedCompositionHullTemplate,
-    FrozenProtocolRidgeTransport,
+    _current_hull_energies,
     _final_hull_membership,
+)
+from matmem.posterior import protocol_target_energy_posterior
+from matmem.protocol_acquisition import (
     _source_rollout_rewards,
     constrained_dual_horizon_source_rollout,
-    protocol_target_energy_posterior,
     source_margin_action_indices,
 )
+from matmem.transport import FrozenProtocolRidgeTransport
 
 
 def _sha256(path: Path) -> str:
@@ -65,32 +67,6 @@ def _reference_state(
         compositions.append(dict(row["composition"]))
         energies.append(float(outcome["target_formation_energy_ev_per_atom"]))
     return tuple(compositions), np.asarray(energies, dtype=float)
-
-
-def _current_hull_energies(
-    *,
-    query_compositions: tuple[dict[str, float], ...],
-    reference_compositions: tuple[dict[str, float], ...],
-    reference_energies: np.ndarray,
-) -> np.ndarray:
-    entries = [
-        ComputedEntry(
-            Composition(composition),
-            float(energy) * Composition(composition).num_atoms,
-            entry_id=f"reference:{index}",
-        )
-        for index, (composition, energy) in enumerate(
-            zip(reference_compositions, reference_energies, strict=True)
-        )
-    ]
-    diagram = PhaseDiagram(entries)
-    values = []
-    for composition in query_compositions:
-        parsed = Composition(composition)
-        hull = float(diagram.get_hull_energy_per_atom(parsed))
-        fake = ComputedEntry(parsed, hull * parsed.num_atoms)
-        values.append(float(diagram.get_form_energy_per_atom(fake)))
-    return np.asarray(values, dtype=float)
 
 
 def _upper_bounds(
@@ -183,9 +159,7 @@ def run(
     systems = list(trace["query_systems"][:max_systems])
     state_records: list[dict[str, Any]] = []
     for system in systems:
-        system_rows = [
-            row for row in task["development_pairs"] if row["chemical_system"] == system
-        ]
+        system_rows = [row for row in task["development_pairs"] if row["chemical_system"] == system]
         system_rows.sort(key=lambda row: row["pair_id"])
         trace_ids = _system_trace(trace, system)
         if not trace_ids:
@@ -233,7 +207,10 @@ def run(
                 [row["source_formation_energy_ev_per_atom"] for row in history_rows], dtype=float
             )
             history_target = np.asarray(
-                [outcomes_by_id[pair_id]["target_formation_energy_ev_per_atom"] for pair_id in history_ids],
+                [
+                    outcomes_by_id[pair_id]["target_formation_energy_ev_per_atom"]
+                    for pair_id in history_ids
+                ],
                 dtype=float,
             )
             kernel_dim = len(transport.kernel_feature_mean)
@@ -264,11 +241,14 @@ def run(
                 costs=np.ones(len(query_rows)),
                 remaining_budget=float(len(trace_ids) - round_index),
                 posterior_sample_count=posterior_sample_count,
-                seed=20270720 + 1009 * round_index,
+                seed=DEFAULT_EXPERIMENT_SEED + ROUND_SEED_OFFSET * round_index,
                 fixed_template=fixed_template,
             )
             true_query_energies = np.asarray(
-                [outcomes_by_id[pair_id]["target_formation_energy_ev_per_atom"] for pair_id in query_ids],
+                [
+                    outcomes_by_id[pair_id]["target_formation_energy_ev_per_atom"]
+                    for pair_id in query_ids
+                ],
                 dtype=float,
             )
             true_samples = true_query_energies[None, :]
@@ -368,14 +348,22 @@ def run(
 
     oracle_exists = [record["oracle_feasible_exists"] for record in state_records]
     oracle_action_count = sum(sum(record["oracle_feasible"]) for record in state_records)
-    oracle_feasible_records = [record for record in state_records if record["oracle_feasible_exists"]]
+    oracle_feasible_records = [
+        record for record in state_records if record["oracle_feasible_exists"]
+    ]
     recall_values = [
-        sum(bool(p) and bool(o) for p, o in zip(record["posterior_point_feasible"], record["oracle_feasible"]))
+        sum(
+            bool(p) and bool(o)
+            for p, o in zip(record["posterior_point_feasible"], record["oracle_feasible"])
+        )
         / max(sum(record["oracle_feasible"]), 1)
         for record in oracle_feasible_records
     ]
     point_gate_rejection = [
-        sum(bool(p) and not bool(g) for p, g in zip(record["posterior_point_feasible"], record["posterior_gate_feasible"]))
+        sum(
+            bool(p) and not bool(g)
+            for p, g in zip(record["posterior_point_feasible"], record["posterior_gate_feasible"])
+        )
         / max(sum(record["posterior_point_feasible"]), 1)
         for record in state_records
         if sum(record["posterior_point_feasible"])
@@ -388,7 +376,10 @@ def run(
     source_regret = []
     gate_regret = []
     trace_regret = []
-    confusion = {"oracle_feasible": {"point": 0, "gate": 0}, "oracle_infeasible": {"point": 0, "gate": 0}}
+    confusion = {
+        "oracle_feasible": {"point": 0, "gate": 0},
+        "oracle_infeasible": {"point": 0, "gate": 0},
+    }
     for record in state_records:
         ot = np.asarray(record["oracle_terminal_advantages"])
         of = np.asarray(record["oracle_selected_history_advantages"])
@@ -396,8 +387,18 @@ def run(
         pf = np.asarray(record["posterior_selected_history_advantages"])
         t_sign.extend((np.sign(ot) == np.sign(pt)).tolist())
         f_sign.extend((np.sign(of) == np.sign(pf)).tolist())
-        coverage_t.extend(((ot >= np.asarray(record["posterior_terminal_lower_bounds"])) & (ot <= np.asarray(record["posterior_terminal_upper_bounds"]))).tolist())
-        coverage_f.extend(((of >= np.asarray(record["posterior_selected_history_lower_bounds"])) & (of <= np.asarray(record["posterior_selected_history_upper_bounds"]))).tolist())
+        coverage_t.extend(
+            (
+                (ot >= np.asarray(record["posterior_terminal_lower_bounds"]))
+                & (ot <= np.asarray(record["posterior_terminal_upper_bounds"]))
+            ).tolist()
+        )
+        coverage_f.extend(
+            (
+                (of >= np.asarray(record["posterior_selected_history_lower_bounds"]))
+                & (of <= np.asarray(record["posterior_selected_history_upper_bounds"]))
+            ).tolist()
+        )
         best = record["oracle_best_action_id"]
         ids = record["query_ids"]
         best_value = ot[ids.index(best)]
@@ -425,14 +426,20 @@ def run(
         "state_count": len(state_records),
         "states": state_records,
         "summary": {
-            "oracle_feasible_action_existence_rate": mean([float(value) for value in oracle_exists]),
+            "oracle_feasible_action_existence_rate": mean(
+                [float(value) for value in oracle_exists]
+            ),
             "oracle_feasible_action_count": oracle_action_count,
             "posterior_recall_of_oracle_feasible_actions": mean(recall_values),
             "posterior_point_feasible_action_gate_rejection_rate": mean(point_gate_rejection),
             "terminal_sign_accuracy": mean([float(value) for value in t_sign]),
             "selected_history_sign_accuracy": mean([float(value) for value in f_sign]),
-            "terminal_joint_advantage_interval_coverage": mean([float(value) for value in coverage_t]),
-            "selected_history_joint_advantage_interval_coverage": mean([float(value) for value in coverage_f]),
+            "terminal_joint_advantage_interval_coverage": mean(
+                [float(value) for value in coverage_t]
+            ),
+            "selected_history_joint_advantage_interval_coverage": mean(
+                [float(value) for value in coverage_f]
+            ),
             "posterior_point_action_oracle_terminal_regret": mean(point_regret),
             "source_action_oracle_terminal_regret": mean(source_regret),
             "dual_gate_action_oracle_terminal_regret": mean(gate_regret),

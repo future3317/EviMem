@@ -15,17 +15,31 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from .protocol_knowledge_gradient import (
+from .constants import (
+    CAMPAIGN_POLICY_SEED_OFFSET,
+    DEFAULT_CAMPAIGN_INNER_STAGE_ONE_SAMPLE_COUNT,
+    DEFAULT_CAMPAIGN_INNER_STAGE_TWO_SAMPLE_COUNT,
+    DEFAULT_CAMPAIGN_OUTER_SAMPLE_COUNT,
+    DEFAULT_CAMPAIGN_OUTER_SEED,
+    DEFAULT_CAMPAIGN_SOBOL_SCRAMBLE_COUNT,
+    DEFAULT_INTEGRATION_CONFIDENCE,
+    ROUND_SEED_OFFSET,
+    SOBOL_BLOCK_OFFSET,
+)
+from .hull_geometry import (
     FixedCompositionHullTemplate,
-    FrozenProtocolRidgeTransport,
+    _current_hull_energies,
     _final_hull_membership,
-    _sample_gaussian,
-    _simultaneous_paired_lower_bounds,
     fixed_composition_hull_membership,
+)
+from .policy_registry import CampaignPolicy
+from .posterior import _sample_gaussian, protocol_target_energy_posterior
+from .protocol_acquisition import (
+    _simultaneous_paired_lower_bounds,
     independent_confirmation_source_rollout,
-    protocol_target_energy_posterior,
     source_margin_action_indices,
 )
+from .transport import FrozenProtocolRidgeTransport
 
 
 @dataclass(frozen=True, slots=True)
@@ -49,41 +63,9 @@ class CampaignGatedICSARRResult:
     inner_stage_two_sample_count: int
 
 
-def _current_hull_energies(
-    *,
-    query_compositions: Sequence[dict[str, float]],
-    reference_compositions: Sequence[dict[str, float]],
-    reference_energies: np.ndarray,
-) -> np.ndarray:
-    """Compute competing-hull energies using the same phase-diagram backend."""
-
-    from pymatgen.analysis.phase_diagram import PhaseDiagram
-    from pymatgen.core import Composition
-    from pymatgen.entries.computed_entries import ComputedEntry
-
-    entries = [
-        ComputedEntry(
-            Composition(composition),
-            float(energy) * Composition(composition).num_atoms,
-            entry_id=f"reference:{index}",
-        )
-        for index, (composition, energy) in enumerate(
-            zip(reference_compositions, reference_energies, strict=True)
-        )
-    ]
-    diagram = PhaseDiagram(entries)
-    values: list[float] = []
-    for composition in query_compositions:
-        parsed = Composition(composition)
-        hull = float(diagram.get_hull_energy_per_atom(parsed))
-        fake = ComputedEntry(parsed, hull * parsed.num_atoms)
-        values.append(float(diagram.get_form_energy_per_atom(fake)))
-    return np.asarray(values, dtype=float)
-
-
 def _simulate_campaign(
     *,
-    policy: str,
+    policy: CampaignPolicy,
     world: np.ndarray,
     model: FrozenProtocolRidgeTransport,
     query_compositions: Sequence[dict[str, float]],
@@ -102,7 +84,7 @@ def _simulate_campaign(
 ) -> tuple[float, float, tuple[int, ...]]:
     """Simulate one complete policy under one shared posterior energy world."""
 
-    if policy not in {"source_margin", "ic_sarr"}:
+    if policy not in {CampaignPolicy.SOURCE_MARGIN, CampaignPolicy.IC_SARR}:
         raise ValueError("campaign policy must be source_margin or ic_sarr")
     source = np.asarray(query_source_energies, dtype=float).reshape(-1)
     world_values = np.asarray(world, dtype=float).reshape(-1)
@@ -134,7 +116,7 @@ def _simulate_campaign(
             reference_compositions=active_reference_compositions,
             reference_energies=active_reference_energies_array,
         )
-        if policy == "source_margin":
+        if policy == CampaignPolicy.SOURCE_MARGIN:
             local_index = int(
                 source_margin_action_indices(
                     source_energies=query_source_local,
@@ -175,7 +157,7 @@ def _simulate_campaign(
                 remaining_budget=float(budget - round_index),
                 stage_one_posterior_sample_count=inner_stage_one_sample_count,
                 stage_two_posterior_sample_count=inner_stage_two_sample_count,
-                seed=policy_seed + 1009 * round_index,
+                seed=policy_seed + ROUND_SEED_OFFSET * round_index,
                 fixed_template=local_template,
                 sobol_scramble_count=sobol_scramble_count,
                 integration_confidence=integration_confidence,
@@ -224,12 +206,12 @@ def campaign_gated_ic_sarr(
     reference_compositions: Sequence[dict[str, float]],
     reference_energies: np.ndarray,
     budget: int,
-    outer_sample_count: int = 128,
-    outer_seed: int = 0,
-    inner_stage_one_sample_count: int = 64,
-    inner_stage_two_sample_count: int = 128,
-    sobol_scramble_count: int = 8,
-    integration_confidence: float = 0.95,
+    outer_sample_count: int = DEFAULT_CAMPAIGN_OUTER_SAMPLE_COUNT,
+    outer_seed: int = DEFAULT_CAMPAIGN_OUTER_SEED,
+    inner_stage_one_sample_count: int = DEFAULT_CAMPAIGN_INNER_STAGE_ONE_SAMPLE_COUNT,
+    inner_stage_two_sample_count: int = DEFAULT_CAMPAIGN_INNER_STAGE_TWO_SAMPLE_COUNT,
+    sobol_scramble_count: int = DEFAULT_CAMPAIGN_SOBOL_SCRAMBLE_COUNT,
+    integration_confidence: float = DEFAULT_INTEGRATION_CONFIDENCE,
 ) -> CampaignGatedICSARRResult:
     """Select IC-SARR or source once using a campaign-level paired gate."""
 
@@ -250,7 +232,7 @@ def campaign_gated_ic_sarr(
             mean,
             covariance,
             sample_count=blocks,
-            seed=outer_seed + 104729 * block_index,
+            seed=outer_seed + SOBOL_BLOCK_OFFSET * block_index,
         )
         for block_index in range(sobol_scramble_count)
     )
@@ -265,7 +247,7 @@ def campaign_gated_ic_sarr(
         block_f: list[float] = []
         for world in worlds:
             source_values = _simulate_campaign(
-                policy="source_margin",
+                policy=CampaignPolicy.SOURCE_MARGIN,
                 world=world,
                 model=model,
                 query_compositions=query_compositions,
@@ -276,14 +258,14 @@ def campaign_gated_ic_sarr(
                 reference_compositions=reference_compositions,
                 reference_energies=reference_energies,
                 budget=budget,
-                policy_seed=outer_seed + 700001,
+                policy_seed=outer_seed + CAMPAIGN_POLICY_SEED_OFFSET,
                 inner_stage_one_sample_count=inner_stage_one_sample_count,
                 inner_stage_two_sample_count=inner_stage_two_sample_count,
                 sobol_scramble_count=sobol_scramble_count,
                 integration_confidence=integration_confidence,
             )
             ic_values = _simulate_campaign(
-                policy="ic_sarr",
+                policy=CampaignPolicy.IC_SARR,
                 world=world,
                 model=model,
                 query_compositions=query_compositions,
@@ -294,7 +276,7 @@ def campaign_gated_ic_sarr(
                 reference_compositions=reference_compositions,
                 reference_energies=reference_energies,
                 budget=budget,
-                policy_seed=outer_seed + 700001,
+                policy_seed=outer_seed + CAMPAIGN_POLICY_SEED_OFFSET,
                 inner_stage_one_sample_count=inner_stage_one_sample_count,
                 inner_stage_two_sample_count=inner_stage_two_sample_count,
                 sobol_scramble_count=sobol_scramble_count,
@@ -321,7 +303,9 @@ def campaign_gated_ic_sarr(
     terminal_advantage = float(np.mean(paired_t))
     history_advantage = float(np.mean(paired_f))
     selected_policy = (
-        "ic_sarr" if float(terminal_bounds[0]) > 0 and float(history_bounds[0]) >= 0 else "source_margin"
+        CampaignPolicy.IC_SARR
+        if float(terminal_bounds[0]) > 0 and float(history_bounds[0]) >= 0
+        else CampaignPolicy.SOURCE_MARGIN
     )
     return CampaignGatedICSARRResult(
         selected_policy=selected_policy,
