@@ -266,6 +266,27 @@ def _fixed_stable_candidate_mask(
             dtype=bool,
         )
     qhull_data = np.column_stack((matrix[qhull_indices, 1:], values[qhull_indices]))
+    if dimension == 3 and len(qhull_data) >= 4:
+        # For ternaries, Qhull already exposes the oriented facet equations.
+        # A negative energy-axis normal identifies the lower facets directly,
+        # avoiding the synthetic high-energy point and the Python determinant
+        # loop used by pymatgen's dimension-generic construction.  Degenerate
+        # inputs retain that reference path below.
+        try:
+            hull = ConvexHull(qhull_data, qhull_options="Qt i")
+        except QhullError:
+            pass
+        else:
+            lower = hull.simplices[hull.equations[:, -2] < -1e-14]
+            if len(lower):
+                stable_qhull_indices = {
+                    int(index) for index in np.asarray(lower, dtype=np.int64).reshape(-1)
+                }
+                stable_combined_indices = {qhull_indices[index] for index in stable_qhull_indices}
+                return np.asarray(
+                    [index in stable_combined_indices for index in template.candidate_indices],
+                    dtype=bool,
+                )
     extra_point = np.zeros(dimension, dtype=np.float64) + 1.0 / dimension
     extra_point[-1] = float(np.max(qhull_data[:, -1]) + 1.0)
     qhull_data = np.concatenate((qhull_data, extra_point[None, :]), axis=0)

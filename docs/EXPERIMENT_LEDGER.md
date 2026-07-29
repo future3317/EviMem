@@ -1293,3 +1293,26 @@ by the user before the first complete JSON output was written. It is therefore
 `Incomplete/interrupted`, has no metrics or policy conclusion, and must not be
 resumed or partially interpreted as evidence. A smaller rerun may only be
 started explicitly as a new development smoke with a new output identity.
+
+## E37 -- Exact ternary lower-facet specialization (2026-07-29)
+
+**Authorized engineering optimization; no policy or effect change.** The
+fixed-composition backend now uses Qhull's oriented facet equations directly
+for nondegenerate three-element systems. Facets with a negative energy-axis
+normal are exactly the lower hull, so this path avoids the synthetic
+high-energy point and per-facet determinant loop used by the
+dimension-generic pymatgen construction. Degenerate ternary inputs retain the
+existing fail-closed reference path. Binary systems continue to use the exact
+monotone-chain specialization from E30; quaternary and higher systems are
+unchanged.
+
+The fast path matches pymatgen membership exactly on 256 sampled energy vectors
+with duplicate compositions, four additional randomized composition panels
+with 64 samples each, and the existing rollout/action/reveal regression suite.
+It also matched the pre-change implementation element-for-element on a local
+64-candidate, 1,024-sample ternary fixture. Across five timed repetitions on
+that fixture, median fixed-backend time fell from 0.7186 to 0.4940 seconds
+(`1.45x`). Full local validation at this change had 207 passing tests plus
+Ruff lint and format checks. These are implementation and local
+microbenchmark results only; no MatPES policy output was rerun and no
+scientific disposition changed.

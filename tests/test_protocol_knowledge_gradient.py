@@ -1012,6 +1012,85 @@ def test_fixed_binary_chain_matches_pymatgen_for_random_and_collinear_samples() 
     np.testing.assert_array_equal(actual, expected)
 
 
+def test_fixed_ternary_oriented_facets_match_pymatgen_random_samples() -> None:
+    """The oriented-facet fast path preserves pymatgen stable membership."""
+
+    from matmem.protocol_knowledge_gradient import (
+        FixedCompositionHullTemplate,
+        _final_hull_membership,
+    )
+
+    query_compositions = (
+        {"A": 0.5, "B": 0.5},
+        {"A": 0.5, "C": 0.5},
+        {"B": 0.5, "C": 0.5},
+        {"A": 0.333333333333, "B": 0.333333333333, "C": 0.333333333334},
+        {"A": 0.25, "B": 0.25, "C": 0.5},
+        {"A": 0.5, "B": 0.5},
+    )
+    references = ({"A": 1.0}, {"B": 1.0}, {"C": 1.0})
+    samples = np.random.default_rng(20260729).normal(
+        -0.15, 0.25, size=(256, len(query_compositions))
+    )
+    template = FixedCompositionHullTemplate.from_compositions(
+        query_compositions=query_compositions,
+        reference_compositions=references,
+    )
+    expected = _final_hull_membership(
+        query_compositions=query_compositions,
+        sampled_query_energies=samples,
+        reference_compositions=references,
+        reference_energies=np.zeros(3),
+    )
+    actual = _final_hull_membership(
+        query_compositions=query_compositions,
+        sampled_query_energies=samples,
+        reference_compositions=references,
+        reference_energies=np.zeros(3),
+        fixed_template=template,
+    )
+    np.testing.assert_array_equal(actual, expected)
+
+
+@pytest.mark.parametrize("seed", (31, 47, 73, 101))
+def test_fixed_ternary_oriented_facets_match_pymatgen_random_compositions(
+    seed: int,
+) -> None:
+    """Random ternary geometries preserve lower-facet vertex semantics."""
+
+    from matmem.protocol_knowledge_gradient import (
+        FixedCompositionHullTemplate,
+        _final_hull_membership,
+    )
+
+    rng = np.random.default_rng(seed)
+    elements = ("A", "B", "C")
+    integer_compositions = rng.integers(1, 9, size=(12, 3))
+    query_compositions = tuple(
+        dict(zip(elements, row, strict=True)) for row in integer_compositions
+    )
+    references = ({"A": 1.0}, {"B": 1.0}, {"C": 1.0})
+    samples = rng.normal(-0.1, 0.3, size=(64, len(query_compositions)))
+    template = FixedCompositionHullTemplate.from_compositions(
+        query_compositions=query_compositions,
+        reference_compositions=references,
+    )
+    expected = _final_hull_membership(
+        query_compositions=query_compositions,
+        sampled_query_energies=samples,
+        reference_compositions=references,
+        reference_energies=np.zeros(3),
+    )
+    actual = _final_hull_membership(
+        query_compositions=query_compositions,
+        sampled_query_energies=samples,
+        reference_compositions=references,
+        reference_energies=np.zeros(3),
+        fixed_template=template,
+    )
+    np.testing.assert_array_equal(actual, expected)
+
+
 @pytest.mark.parametrize(
     ("query_compositions", "reference_compositions"),
     (
