@@ -178,3 +178,12 @@ not add functionality to it. Import from the focused modules above.
 4. For a scientific change, create a new development identity and explain why
    it addresses the documented joint-advantage/gate failure rather than merely
    tuning an opened MatPES task.
+
+The current engineering freeze is complete at the ternary specialization:
+local and remote `equivcompiler` both pass 207 tests and Ruff, and the remote
+four-system fixed-backend audit passed action and sampled-membership parity.
+The provisioned DATA roots still contain no second MatPES release or new
+same-configuration protocol pool. The next scientific action is therefore to
+obtain and audit a genuinely new upstream pool before creating any new
+development/holdout split; the existing 324 systems remain closed to that
+purpose.

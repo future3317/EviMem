@@ -1317,3 +1317,28 @@ Ruff lint and format checks. Remote validation at commit `7b12aa0` reproduced
 207 passing tests and both Ruff gates in `equivcompiler`. These are
 implementation and local microbenchmark results only; no MatPES policy output
 was rerun and no scientific disposition changed.
+
+## E38 -- Engineering freeze and provisioned-pool availability audit (2026-07-29)
+
+The synchronized local and remote DATA roots were inventoried without opening
+any target outcome. The only MatPES protocol task provisioned remains the
+canonical v6 all-eligible task with its v5 oracle vault; the other multifidelity
+artifacts are the historical JARVIS--MP v1--v4/v4-natural tasks and WBM
+artifacts. No second MatPES release or new same-configuration protocol pool is
+present in the provisioned roots. This is an artifact-availability finding,
+not a claim about all public upstream releases.
+
+A small remote fixed-backend audit at a new output identity
+(`ternary-hull-parity-v3-small-20260729`) compared four canonical development
+systems, budget six, 128 deterministic samples, complete Delta-Hull action
+traces and sampled memberships. It passed with zero mismatches and matching
+task/vault checksums. The complete trace took 8.175 seconds with pymatgen and
+3.385 seconds with the fixed backend. A preceding 24-system/1,024-sample
+attempt exceeded its ten-minute operational cap after writing only the
+pymatgen-side partial output; it is retained as `Incomplete/interrupted` and
+contributes no parity or timing conclusion.
+
+Together with the 207-test local/remote regression gates, this closes the
+current implementation optimization gate. It does not create a holdout or
+authorize a MatPES policy comparison. The next scientific action is upstream
+pool acquisition and a fresh system-overlap audit.
