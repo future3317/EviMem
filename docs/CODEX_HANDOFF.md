@@ -18,7 +18,8 @@ CHGNet is frozen and the transport model is a small frozen ridge/kernel fit.
 
 ## Scientific status
 
-There is **no paper-level positive result or unopened MatPES holdout**.
+There is **no paper-level positive state-compression result and no unopened
+MatPES holdout**.
 
 | Topic | Current evidence | Required interpretation |
 |---|---|---|
@@ -71,7 +72,7 @@ with paths and SHA-256 values in the remote
 ship these artifacts. Superseded data are recoverable under
 `DATA/EviMem-RL/archive/superseded-20260722/` and are not active inputs.
 
-Last verified baseline at commit `7b12aa0`: local `llm` and remote
+Last verified baseline at commit `99e1311`: local `llm` and remote
 `equivcompiler` each had 207 passing tests. Both passed Ruff lint and format
 checks. The remote pre-sync work remains recoverable in
 `stash@{0}: codex-remote-presync-20260729`; inspect it with `git stash show`
@@ -183,7 +184,10 @@ The current engineering freeze is complete at the ternary specialization:
 local and remote `equivcompiler` both pass 207 tests and Ruff, and the remote
 four-system fixed-backend audit passed action and sampled-membership parity.
 The provisioned DATA roots still contain no second MatPES release or new
-same-configuration protocol pool. The next scientific action is therefore to
-obtain and audit a genuinely new upstream pool before creating any new
-development/holdout split; the existing 324 systems remain closed to that
-purpose.
+same-configuration protocol pool. The public `v2025.3.10` MatPES tag is a
+software release, not evidence of a second paired data release, and the
+expected `MatPES_2025_2` PBE/r2SCAN objects were unavailable. The next
+scientific action is therefore to obtain or independently construct and audit a
+genuinely new same-configuration pool, freeze its development/holdout split
+before fitting or opening outcomes, and evaluate frozen IC-SARR once; the
+existing 324 systems and JARVIS v4-natural remain closed to that purpose.

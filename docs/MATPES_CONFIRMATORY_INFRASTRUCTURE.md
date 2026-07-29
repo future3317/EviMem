@@ -84,12 +84,15 @@ tests. Its sixteen-block Bonferroni-simultaneous paired-Sobol fallback controls
 only numerical integration noise and must not be described as a calibrated
 policy-safety guarantee.
 
-The first 46-system cross-fit fold was evaluated at MC512 and MC1024 without
-changing the method. System-level effects agree in 45/46 systems and first
-actions in 41/46, but complete traces agree in only 31/46 and individual
-actions in 220/276. Consequently folds 1--5 are paused. This is a numerical
-integration gate, not authorization to change the transport posterior,
-terminal reward, source continuation, or selection threshold.
+The first 46-system cross-fit fold at MC512/MC1024 is a pre-SARR numerical
+diagnostic: system-level effects agree in 45/46, but complete traces agree in
+only 31/46. It is not a result for the corrected IC-SARR gate. The subsequent
+unchanged IC-SARR policy completed five outcome-independent development folds
+(230 systems) and improved full-pool terminal confirmations by
+`+0.161/system`, with system-bootstrap 95% CI `[+0.083,+0.239]`. This is
+development-only acquisition evidence; final-causal confirmation is
+`+0.013/system` with an interval crossing zero, and no external holdout
+exists. The 324-system corpus remains closed to confirmatory relabeling.
 
 ## Conformal One-Deviation Source-Rollout (development implementation)
 

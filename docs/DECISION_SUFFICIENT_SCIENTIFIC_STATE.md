@@ -401,13 +401,16 @@ has 11 wins, 30 ties and 5 losses, bootstrap 95% interval
 `[-0.0217,+0.3696]`, and exact two-sided sign-flip `p=0.1351`. On the 22
 systems where source leaves budget-feasible headroom, the effect is `+0.5455`
 with interval `[+0.2273,+0.8636]`. Binary, ternary and higher-order stratum
-means are respectively `+0.0833`, `+0.2105` and `+0.2000`. MC512 and MC1024
-agree on 45/46 system-level effects and 41/46 first actions, but only 31/46
-complete traces and 220/276 individual actions. The outcome signal is stable
-enough to reject simple effect collapse, but action-level numerical convergence
-is not established. Folds 1--5 are therefore paused; no positive claim or
-cross-fold expansion is authorized before resolving integration stability
-without changing the posterior or acquisition objective.
+means are respectively `+0.0833`, `+0.2105` and `+0.2000`. The first
+46-system cross-fit fold at MC512/MC1024 is a pre-SARR numerical diagnostic:
+system-level effects agree in 45/46, but complete traces agree in only 31/46.
+It is not a result for the corrected IC-SARR gate. The subsequent unchanged
+IC-SARR policy completed five outcome-independent development folds (230
+systems) and improved full-pool terminal confirmations by `+0.161/system`,
+with system-bootstrap 95% CI `[+0.083,+0.239]`. This is development-only
+acquisition evidence; final-causal confirmation is `+0.013/system` with an
+interval crossing zero, and no external holdout exists. The 324-system corpus
+remains closed to confirmatory relabeling.
 
 The report-motivated continuation is implemented separately as
 `conformal_source_rollout_delta_hull`. It calibrates an exact-system

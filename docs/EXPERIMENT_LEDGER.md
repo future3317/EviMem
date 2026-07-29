@@ -90,11 +90,13 @@ baselines, but does not beat the strongest simple baseline. It is therefore a
 method-level NO-GO on the tested MatPES task. Source-Rollout Delta-Hull changes
 the failed one-step horizon assumption: it evaluates each first action under a
 complete posterior energy sample and then uses source margin as continuation
-for the remaining budget. It is implemented and the first 46-system
-cross-fitted fold remains positive from MC512 to MC1024 at the effect level,
-but only 31/46 complete traces agree. The other folds are paused for a
-numerical-integration-only diagnosis; no paper-level positive result is
-claimed.
+for the remaining budget. Its corrected Independent-Confirmation SARR
+(IC-SARR) gate now has a five-fold development replication over 230 systems
+with a `+0.161/system` full-pool terminal confirmation effect (95% CI
+`[+0.083,+0.239]`). This is acquisition-side development evidence only:
+final-causal confirmation is `+0.013/system` with an interval crossing zero,
+runtime increases by about `+22.35 s/system`, and there is no paper-level
+positive state-compression result or independent MatPES holdout.
 
 ## Current research decision (not an experiment)
 
@@ -108,8 +110,9 @@ posterior on exact same-configuration MatPES pairs. Every paid target
 outcome remains in the archive and conditions the posterior. WBM remains the
 homogeneous low-compute null, and opened JARVIS evaluation systems remain
 closed to development. The decision-sufficient-state definition still governs
-archive, protocol and null behavior; no MatPES superiority claim is currently
-supported.
+archive, protocol and null behavior. IC-SARR provides a narrow acquisition-side
+development signal, but no external, paper-level, final-causal, or general
+MatPES superiority claim is currently supported.
 
 ## Terminology that must not be blurred
 
@@ -158,7 +161,7 @@ paths and hashes appear in the numbered entries below.
 | LeMat PBE/SCAN pair audit | Authoritative data-quality NO-GO | The downloaded Unique configs are intact but have zero ID/fingerprint overlap | Same-structure multi-protocol pairs | Do not pair by formula; use MatPES PBE--r2SCAN instead |
 | MatPES pair/task and stoichiometry audit | Authoritative infrastructure plus historical invalidation | Exact PBE--r2SCAN pairs exist at scale; action-driven reveal works after preserving cell stoichiometry | Any result from the old normalized-composition/total-energy path | Never cite pre-repair MatPES closed-loop traces |
 | Hierarchical MatPES posterior + Delta-Hull Active Search | Development mechanism followed by repartitioned NO-GO | Composition/reference correction and a local Matern posterior are non-degenerate; the 24-system signal is real on that panel | Superiority over source margin or a paper-level method claim | The 48-system repartition gives `+0.0625`, CI crossing zero and `p=0.6291`; do not tune Delta-Hull on the opened systems |
-| Source-Rollout Delta-Hull | Implemented development method with an unresolved numerical gate | Full-budget posterior rollout, exact simulated causal-hull updates and source continuation pass independent pymatgen and reveal-boundary tests; fold-0 system effects agree 45/46 from MC512 to MC1024 | Cross-fitted superiority, action-level numerical convergence or a paper-level positive claim | Pause folds 1--5; diagnose integration only on the 276-system cross-fit partition and never use the 48 opened systems for development |
+| Source-Rollout / IC-SARR | Authoritative development replication; no external confirmation | Full-budget posterior rollout, exact simulated causal-hull updates and source continuation pass independent pymatgen and reveal-boundary tests; IC-SARR improves full-pool terminal confirmations by `+0.161/system` over 230 development systems | External holdout superiority, final-causal confirmation gain, general discovery superiority, or memory/state-compression benefit | Keep the 324-system corpus closed; acquire/build a new same-configuration protocol pool, freeze a development/holdout split, then evaluate the frozen policy once |
 
 ## Cross-iteration cause judgments
 

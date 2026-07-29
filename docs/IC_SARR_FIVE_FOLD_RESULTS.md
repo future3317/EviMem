@@ -133,3 +133,21 @@ not be treated as scientific evidence.
 This is a five-fold development replication, not a sealed external evaluation
 or a claim of real DFT deployment benefit. The manuscript may report the
 result as cross-fitted real-data evidence only with these scope limitations.
+
+## Holdout boundary and next gate
+
+The provisioned MatPES corpus contains 324 eligible exact systems. All of them
+have already entered development or historical experimentation: the 230
+systems in IC-SARR folds 1--5, the earlier fold-0 Source-Rollout work, and the
+historical 48-system repartition collectively exhaust the corpus. The
+48-system repartition therefore cannot be renamed as an untouched IC-SARR
+holdout after the fact.
+
+The current artifact audit found no second paired MatPES release. The public
+`materialyzeai/matpes` `v2025.3.10` tag is software, while the expected
+`MatPES_2025_2` PBE/r2SCAN objects were unavailable. JARVIS v4-natural is a
+different OptB88vdW--MP protocol task and is not a MatPES holdout substitute.
+The next valid evaluation requires a genuinely new same-configuration protocol
+pool (or an independently constructed protocol dataset), an outcome-independent
+frozen development/holdout split, and one evaluation of the frozen IC-SARR
+policy.
