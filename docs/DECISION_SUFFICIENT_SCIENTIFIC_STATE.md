@@ -427,6 +427,17 @@ thereafter. This is development infrastructure, not a new result: no
 calibration artifact or evaluation run exists, and it cannot be used to
 change the pending SARR fold-0 gate or support a positive claim.
 
+The separate MAD-1.5 PBE-to-r2SCAN task now has a 96-system frozen mechanism
+probe. At MC64, the independent-confirmation source-rollout policy improves
+oracle-pool terminal confirmations by `+0.0521/system` versus source margin,
+with system-bootstrap interval `[0.0000,+0.1042]` and Monte Carlo sign-flip
+`p=0.1249`; final-causal confirmation changes by `+0.0417/system`, with
+interval `[+0.0104,+0.0833]` and `p=0.1246`. Mean wall time increases by
+`2.752 seconds/system`. This is a small development-task signal, not
+confirmatory superiority and not evidence for decision-sufficient state
+compression. The existing MatPES corpus remains closed, and the full
+interpretation boundary is registered in `docs/MAD_1_5_PROTOCOL_SHIFT_TASK.md`.
+
 ## 9. Scope and literature boundary
 
 Decision-sufficient representations motivate preserving downstream decisions

@@ -1422,3 +1422,30 @@ fitting when no active policy requires transport, and their output provenance
 no longer labels unused candidate systems as transport-fit systems. Full local
 regression remains required before commit. No posterior, score, threshold,
 budget, or policy was tuned on the opened MAD outcomes.
+
+## E41 -- MAD-1.5 96-system frozen probe statistical audit (2026-07-30)
+
+The completed 96-system fixed-backend MC64 runner output was summarized at
+exact chemical-system grain by `tools/summarize_mad15_probe.py`. The input was
+`E:\DATA\MAD-1.5-v1\mad15_ic_probe_96_mc64_fixed_20260730.json`; the output
+summary was written outside Git to
+`E:\DATA\MAD-1.5-v1\mad15_ic_probe_96_summary_20260730.json` and records the
+input SHA-256, seed, 20,000 bootstrap replicates and 100,000 Monte Carlo
+sign-flips.
+
+For `independent_confirmation_source_rollout` minus `source_margin`, the
+oracle-pool terminal confirmation difference was `+0.0521/system`, with a
+system-bootstrap 95% interval `[0.0000,+0.1042]`, Monte Carlo sign-flip
+`p=0.1249`, and 6 wins, 89 ties and 1 loss. Final-causal confirmation
+differed by `+0.0417/system`, with interval `[+0.0104,+0.0833]`, sign-flip
+`p=0.1246`, and 4 wins, 92 ties and 0 losses. Mean wall time was higher by
+`2.752 seconds/system`.
+
+This is a development-only statistical audit of the registered MAD-1.5
+protocol-shift task. The point estimates are a small mechanism signal, but
+the sign-flip tests are not confirmatory and the added runtime remains part of
+the tradeoff. The result cannot be promoted to a MatPES holdout, a universal
+superiority claim, a final-causal gain, or a state-compression result. The
+opened panel is frozen against score, posterior, threshold and seed tuning;
+further work must use a fresh frozen cross-fit or a genuinely new protocol
+task.

@@ -1,7 +1,7 @@
 # MAD-1.5 protocol-shift task
 
-Status: registered external-task development/replication plan; no effect
-result has been run and no holdout claim is made.
+Status: registered external-task development/replication plan; the first
+96-system effect probe is development-only and no holdout claim is made.
 
 ## Why this is a different route
 
@@ -137,3 +137,26 @@ runtime on the 12-system MC64 probe from 14.412 to 4.502 seconds/system while
 preserving all selected action IDs and oracle/final-causal metrics. Backend
 identity remains part of the policy checksum, so implementation trace
 checksums differ even when the legal action/reveal sequence is identical.
+
+## 96-system frozen probe and interpretation
+
+The next outcome-independent 96-system panel was evaluated with the same
+fixed-composition backend and MC64 integration setting. The frozen
+`independent_confirmation_source_rollout` policy versus `source_margin`
+obtained an oracle-pool difference of `+0.0521 confirmations/system`, with
+system-bootstrap 95% interval `[0.0000,+0.1042]`, Monte Carlo sign-flip
+`p=0.1249`, and 6 wins, 89 ties and 1 loss. The final-causal difference was
+`+0.0417/system`, with interval `[+0.0104,+0.0833]`, sign-flip `p=0.1246`,
+and 4 wins, 92 ties and 0 losses. Mean wall time increased by
+`+2.752 seconds/system`. The summary is reproducible from
+`E:\DATA\MAD-1.5-v1\mad15_ic_probe_96_summary_20260730.json`; its input
+runner SHA-256 is recorded there.
+
+This result is compatible with a small acquisition signal, but the intervals
+and sign-flip tests do not establish a confirmatory superiority claim. It is
+development-only evidence for the registered MAD-1.5 task, not a MatPES
+holdout, not a universal discovery result, and not evidence of a causal gain
+or state-compression benefit. No further score, posterior, threshold or seed
+tuning is authorized on this opened panel. The next useful step is a frozen
+cross-fit or genuinely new protocol task, with the runtime cost included in
+the prespecified comparison.
