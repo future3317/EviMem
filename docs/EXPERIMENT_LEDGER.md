@@ -1328,6 +1328,13 @@ artifacts. No second MatPES release or new same-configuration protocol pool is
 present in the provisioned roots. This is an artifact-availability finding,
 not a claim about all public upstream releases.
 
+A read-only public-index check found `materialyzeai/matpes` software tag
+`v2025.3.10`, but its download code still points to the `MatPES_2025_1` S3
+prefix. The expected public `MatPES_2025_2` PBE and r2SCAN objects both return
+HTTP 404. No data were downloaded. Thus the software tag is not evidence of a
+new paired data release; a future holdout requires an independently located or
+constructed protocol pool with a fresh pair audit.
+
 A small remote fixed-backend audit at a new output identity
 (`ternary-hull-parity-v3-small-20260729`) compared four canonical development
 systems, budget six, 128 deterministic samples, complete Delta-Hull action
