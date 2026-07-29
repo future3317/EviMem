@@ -73,3 +73,7 @@ terminal/full-pool metrics separately. Any state compression must reduce to
 full-history use in the homogeneous zero-transport-cost null. Read the ledger
 and [`docs/DECISION_SUFFICIENT_SCIENTIFIC_STATE.md`](docs/DECISION_SUFFICIENT_SCIENTIFIC_STATE.md)
 before changing a method or launching an experiment.
+
+For a complete operational and scientific handoff, including the remote
+environment and commit discipline, read
+[`docs/CODEX_HANDOFF.md`](docs/CODEX_HANDOFF.md).
