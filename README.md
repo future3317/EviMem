@@ -24,17 +24,31 @@ exploratory runners are not part of the live method path.
 
 - `src/matmem/protocol_closed_loop.py`: typed candidates, observable policy
   state, append-only action/reveal records, oracle vault, and causal hull.
-- `src/matmem/protocol_knowledge_gradient.py`: frozen protocol transport,
-  hierarchical discrepancy posterior, scrambled-Sobol hull rollout,
-  source-margin continuation, and IC-SARR.
+- `src/matmem/transport.py`: frozen protocol ridge/kernel transport models.
+- `src/matmem/posterior.py`: Gaussian working posterior over target-protocol
+  energies.
+- `src/matmem/hull_geometry.py`: shared fixed-composition hull primitives and
+  membership checks.
+- `src/matmem/protocol_acquisition.py`: acquisition and rollout policies
+  (knowledge gradient, risk reduction, source-rollout, dual-horizon,
+  independent-confirmation, and IC-SARR).
 - `src/matmem/campaign_gate.py`: one-time campaign-level gate between complete
   source-margin and IC-SARR policies under paired posterior worlds.
 - `src/matmem/protocol_policy_worker.py`: oracle-free subprocess policies.
+- `src/matmem/worker_subprocess.py`: shared secure subprocess infrastructure
+  for protocol and WBM policy workers.
+- `src/matmem/constants.py`, `src/matmem/utils.py`, `src/matmem/policy_registry.py`,
+  and `src/matmem/configs/`: shared constants, helpers, policy enums, and
+  experiment defaults.
 - `src/matmem/wbm*.py`: WBM data contracts, secure runner, raw-release audit,
   and fixed-pool infrastructure.
 - `src/matmem/hull_certificate.py` and `src/matmem/environment_transport.py`:
   protocol certificates and robust hull decisions for the separate
   multi-fidelity diagnostics.
+
+`src/matmem/protocol_knowledge_gradient.py` is now a thin compatibility shim
+that re-exports the symbols above; new code should import from the focused
+modules directly.
 
 ## Development commands
 
