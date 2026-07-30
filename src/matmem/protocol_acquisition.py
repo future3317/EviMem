@@ -19,13 +19,14 @@ from scipy.stats import t as student_t
 
 from .hull_geometry import (
     FixedCompositionHullTemplate,
+    FixedHullRuntimePlan,
     _CausalHullEnvelope,
     _final_hull_membership,
     _final_hull_values,
     _fixed_evaluation_compositions,
     fixed_composition_hull_membership,
 )
-from .posterior import ProtocolTargetEnergyPosterior, _sample_gaussian
+from .posterior import ProtocolTargetEnergyPosterior, _sample_gaussian, _sample_gaussian_blocks
 
 
 class ProtocolHullKnowledgeGradientResult(BaseModel):
@@ -316,6 +317,7 @@ def _source_rollout_rewards(
     else:
         causal_values = None
     geometry_cache: dict[tuple[int, ...], _CausalHullEnvelope] = {}
+    causal_geometry_cache: dict[tuple[int, ...], tuple[FixedCompositionHullTemplate, FixedHullRuntimePlan]] = {}
 
     def geometry(selected: tuple[int, ...]) -> _CausalHullEnvelope:
         cached = geometry_cache.get(selected)
@@ -329,12 +331,15 @@ def _source_rollout_rewards(
         return cached
 
     for output_index, first_action in enumerate(action_indices):
-        selected = np.zeros((sample_count, query_count), dtype=bool)
-        selected[:, first_action] = True
-        for _ in range(1, horizon):
+        # A rollout can select at most ``horizon`` candidates.  Keeping that
+        # compact canonical set avoids repeatedly scanning a sample-by-query
+        # boolean matrix merely to reconstruct the same selected tuple.
+        selected_indices = np.empty((sample_count, horizon), dtype=np.int64)
+        selected_indices[:, 0] = first_action
+        for selected_count in range(1, horizon):
             groups: dict[tuple[int, ...], list[int]] = {}
             for sample_index in range(sample_count):
-                key = tuple(int(index) for index in np.flatnonzero(selected[sample_index]))
+                key = tuple(int(index) for index in selected_indices[sample_index, :selected_count])
                 groups.setdefault(key, []).append(sample_index)
             for key, row_indices in groups.items():
                 rows = np.asarray(row_indices, dtype=np.int64)
@@ -354,32 +359,39 @@ def _source_rollout_rewards(
                     query_ids=query_ids,
                     eligible=eligible,
                 )
-                selected[rows, next_actions] = True
-        rewards[:, output_index] = np.sum(selected & labels, axis=1)
+                selected_indices[rows, selected_count] = next_actions
+            # The historical bool-mask key was ascending query index.  Preserve
+            # that exact canonical state representation after each transition.
+            selected_indices[:, : selected_count + 1].sort(axis=1)
+        rewards[:, output_index] = labels[
+            np.arange(sample_count, dtype=np.int64)[:, None], selected_indices
+        ].sum(axis=1)
         if causal_values is not None:
             # The causal horizon uses exactly the outcomes that the simulated
             # source continuation selected.  No unselected sampled outcome is
             # allowed to enter this hull.  Grouping by the selected-set key
             # lets us reuse the composition-only template across samples.
-            causal_geometry: dict[tuple[int, ...], FixedCompositionHullTemplate] = {}
             causal_groups: dict[tuple[int, ...], list[int]] = {}
             for sample_index in range(sample_count):
-                key = tuple(int(index) for index in np.flatnonzero(selected[sample_index]))
+                key = tuple(int(index) for index in selected_indices[sample_index])
                 causal_groups.setdefault(key, []).append(sample_index)
             for key, row_indices in causal_groups.items():
-                template = causal_geometry.get(key)
-                if template is None:
+                cached = causal_geometry_cache.get(key)
+                if cached is None:
                     template = FixedCompositionHullTemplate.from_compositions(
                         query_compositions=tuple(query_compositions[index] for index in key),
                         reference_compositions=reference_compositions,
                     )
-                    causal_geometry[key] = template
+                    cached = (template, FixedHullRuntimePlan.from_template(template))
+                    causal_geometry_cache[key] = cached
+                template, runtime_plan = cached
                 rows = np.asarray(row_indices, dtype=np.int64)
                 selected_energies = samples[np.ix_(rows, np.asarray(key, dtype=np.int64))]
                 stable = fixed_composition_hull_membership(
                     template,
                     query_energies=selected_energies,
                     reference_energies=references,
+                    runtime_plan=runtime_plan,
                 )
                 causal_values[rows, output_index] = np.sum(stable, axis=1)
     return rewards
@@ -551,6 +563,9 @@ def delta_hull_active_search(
     if posterior_sample_count < 4:
         raise ValueError("delta-hull active search needs at least four posterior samples")
 
+    runtime_plan = (
+        None if fixed_template is None else FixedHullRuntimePlan.from_template(fixed_template)
+    )
     labels = _final_hull_membership(
         query_compositions=query_compositions,
         sampled_query_energies=_sample_gaussian(
@@ -562,6 +577,7 @@ def delta_hull_active_search(
         reference_compositions=reference_compositions,
         reference_energies=reference_energies,
         fixed_template=fixed_template,
+        fixed_runtime_plan=runtime_plan,
     )
     probabilities = labels.mean(axis=0)
     return DeltaHullActiveSearchResult(
@@ -628,22 +644,23 @@ def source_rollout_delta_hull(
         raise ValueError("source-rollout integration confidence must lie in (0.5, 1)")
     horizon = min(size, int(math.floor((remaining_budget + 1e-12) / item_costs[0])))
 
-    sample_blocks = tuple(
-        _sample_gaussian(
-            mean,
-            covariance,
-            sample_count=block_size,
-            seed=seed + 104729 * block_index,
-        )
-        for block_index in range(sobol_scramble_count)
+    sample_blocks = _sample_gaussian_blocks(
+        mean,
+        covariance,
+        sample_count=block_size,
+        seeds=tuple(seed + 104729 * block_index for block_index in range(sobol_scramble_count)),
     )
     samples = np.concatenate(sample_blocks, axis=0)
+    runtime_plan = (
+        None if fixed_template is None else FixedHullRuntimePlan.from_template(fixed_template)
+    )
     labels = _final_hull_membership(
         query_compositions=query_compositions,
         sampled_query_energies=samples,
         reference_compositions=reference_compositions,
         reference_energies=reference_energies,
         fixed_template=fixed_template,
+        fixed_runtime_plan=runtime_plan,
     )
     rewards = _source_rollout_rewards(
         sampled_query_energies=samples,
@@ -1226,16 +1243,19 @@ def independent_confirmation_source_rollout(
         raise ValueError("each IC-SARR stage-two Sobol block must have power-of-two size")
     stage_two_seed = _independent_confirmation_seed(seed)
     samples = np.concatenate(
-        tuple(
-            _sample_gaussian(
-                np.asarray(posterior.mean, dtype=np.float64),
-                np.asarray(posterior.covariance, dtype=np.float64),
-                sample_count=block_size,
-                seed=stage_two_seed + 104729 * block_index,
-            )
-            for block_index in range(sobol_scramble_count)
+        _sample_gaussian_blocks(
+            np.asarray(posterior.mean, dtype=np.float64),
+            np.asarray(posterior.covariance, dtype=np.float64),
+            sample_count=block_size,
+            seeds=tuple(
+                stage_two_seed + 104729 * block_index
+                for block_index in range(sobol_scramble_count)
+            ),
         ),
         axis=0,
+    )
+    runtime_plan = (
+        None if fixed_template is None else FixedHullRuntimePlan.from_template(fixed_template)
     )
     labels = _final_hull_membership(
         query_compositions=query_compositions,
@@ -1243,6 +1263,7 @@ def independent_confirmation_source_rollout(
         reference_compositions=reference_compositions,
         reference_energies=reference_energies,
         fixed_template=fixed_template,
+        fixed_runtime_plan=runtime_plan,
     )
     horizon = stage_one.horizon
     rewards = _source_rollout_rewards(

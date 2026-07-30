@@ -10,6 +10,7 @@ from matmem.hull_geometry import (
 from matmem.posterior import (
     ProtocolTargetEnergyPosterior,
     _sample_gaussian,
+    _sample_gaussian_blocks,
     protocol_target_energy_posterior,
 )
 from matmem.protocol_acquisition import (
@@ -167,9 +168,10 @@ def test_ic_sarr_uses_independent_single_comparison_gate(
     observed_seeds: list[int] = []
     monkeypatch.setattr(
         acquisition,
-        "_sample_gaussian",
-        lambda mean, covariance, *, sample_count, seed: (
-            observed_seeds.append(seed) or np.zeros((sample_count, len(mean)))
+        "_sample_gaussian_blocks",
+        lambda mean, covariance, *, sample_count, seeds: (
+            observed_seeds.extend(seeds)
+            or tuple(np.zeros((sample_count, len(mean))) for _ in seeds)
         ),
     )
     monkeypatch.setattr(
@@ -221,6 +223,20 @@ def test_scrambled_sobol_gaussian_samples_are_deterministic_and_nested() -> None
     assert np.array_equal(small, large[: len(small)])
     assert not np.array_equal(small, other_seed)
     assert np.isfinite(large).all()
+
+
+def test_hoisted_gaussian_factor_preserves_each_registered_sobol_block() -> None:
+    mean = np.asarray([0.2, -0.1, 0.4])
+    covariance = np.asarray(
+        [[0.5, 0.1, 0.0], [0.1, 0.3, -0.05], [0.0, -0.05, 0.2]]
+    )
+    seeds = (17, 104746, 209475)
+    expected = tuple(
+        _sample_gaussian(mean, covariance, sample_count=8, seed=seed) for seed in seeds
+    )
+    actual = _sample_gaussian_blocks(mean, covariance, sample_count=8, seeds=seeds)
+    for left, right in zip(expected, actual, strict=True):
+        np.testing.assert_array_equal(left, right)
 
 
 def test_simultaneous_paired_bounds_apply_familywise_bonferroni_correction() -> None:

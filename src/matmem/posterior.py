@@ -77,14 +77,60 @@ def _sample_gaussian(
     dimension = len(mean)
     if dimension < 1:
         raise ValueError("Gaussian posterior sampling requires a nonempty mean")
+    factor = _gaussian_factor(covariance)
+    return _sample_gaussian_from_factor(mean, factor, sample_count=sample_count, seed=seed)
+
+
+def _gaussian_factor(covariance: np.ndarray) -> np.ndarray:
+    """Return the frozen symmetric-eigendecomposition Gaussian factor."""
+
     eigenvalues, eigenvectors = np.linalg.eigh(0.5 * (covariance + covariance.T))
-    factor = eigenvectors @ np.diag(np.sqrt(np.maximum(eigenvalues, 0.0)))
+    return eigenvectors @ np.diag(np.sqrt(np.maximum(eigenvalues, 0.0)))
+
+
+def _sample_gaussian_from_factor(
+    mean: np.ndarray,
+    factor: np.ndarray,
+    *,
+    sample_count: int,
+    seed: int,
+) -> np.ndarray:
+    """Draw one original Sobol block from an already computed exact factor."""
+
+    if sample_count < 1:
+        raise ValueError("Gaussian posterior sampling requires a positive count")
+    dimension = len(mean)
+    if factor.shape != (dimension, dimension):
+        raise ValueError("Gaussian factor dimensions disagree with mean")
     exponent = math.ceil(math.log2(sample_count))
     unit = qmc.Sobol(d=dimension, scramble=True, seed=seed).random_base2(exponent)
     unit = unit[:sample_count]
     epsilon = COVARIANCE_CLIP_EPSILON
     normal = ndtri(np.clip(unit, epsilon, 1.0 - epsilon))
     return mean + normal @ factor.T
+
+
+def _sample_gaussian_blocks(
+    mean: np.ndarray,
+    covariance: np.ndarray,
+    *,
+    sample_count: int,
+    seeds: tuple[int, ...],
+) -> tuple[np.ndarray, ...]:
+    """Draw independent registered Sobol blocks with one exact factorization.
+
+    The block seed sequence and each block's Sobol construction remain exactly
+    those of independent :func:`_sample_gaussian` calls.  Only the repeated
+    covariance symmetrization/eigendecomposition is removed.
+    """
+
+    if not seeds:
+        raise ValueError("Gaussian block sampling requires at least one seed")
+    factor = _gaussian_factor(covariance)
+    return tuple(
+        _sample_gaussian_from_factor(mean, factor, sample_count=sample_count, seed=seed)
+        for seed in seeds
+    )
 
 
 def protocol_target_energy_posterior(

@@ -138,17 +138,52 @@ class FixedCompositionHullTemplate(BaseModel):
     ) -> np.ndarray:
         """Return the candidate stable mask for one complete energy vector."""
 
-        values = np.concatenate(
-            (
-                np.asarray(reference_energies, dtype=np.float64).reshape(-1),
-                np.asarray(query_energies, dtype=np.float64).reshape(-1),
-            )
-        )
-        matrix = np.asarray(self.normalized_composition_matrix, dtype=np.float64)
-        return _fixed_stable_candidate_mask(
+        return fixed_composition_hull_membership(
             self,
-            combined_energies=values,
-            composition_matrix=matrix,
+            query_energies=np.asarray(query_energies, dtype=np.float64),
+            reference_energies=np.asarray(reference_energies, dtype=np.float64),
+            runtime_plan=FixedHullRuntimePlan.from_template(self),
+        )[0]
+
+
+@dataclass(frozen=True, slots=True)
+class FixedHullRuntimePlan:
+    """Process-local NumPy companion for one immutable hull template.
+
+    The Pydantic template is the audited, serializable geometry contract.  This
+    plan contains only prevalidated arrays and index maps derived from it, so a
+    posterior world never needs to rebuild composition matrices, duplicate
+    dictionaries, or elemental-reference lookups.  It intentionally has no
+    energy-dependent hull state.
+    """
+
+    template: FixedCompositionHullTemplate
+    composition_matrix: np.ndarray
+    candidate_indices: np.ndarray
+    reference_indices: np.ndarray
+    duplicate_groups_by_entry_name: tuple[np.ndarray, ...]
+    elemental_group_indices: np.ndarray
+
+    @classmethod
+    def from_template(cls, template: FixedCompositionHullTemplate) -> FixedHullRuntimePlan:
+        entry_to_group: dict[int, int] = {}
+        groups: list[np.ndarray] = []
+        for group_index, group in enumerate(template.duplicate_composition_groups):
+            ordered = np.asarray(
+                sorted(group, key=lambda index: template.entry_names[index]), dtype=np.int64
+            )
+            groups.append(ordered)
+            entry_to_group.update({int(index): group_index for index in ordered})
+        return cls(
+            template=template,
+            composition_matrix=np.asarray(template.normalized_composition_matrix, dtype=np.float64),
+            candidate_indices=np.asarray(template.candidate_indices, dtype=np.int64),
+            reference_indices=np.asarray(template.reference_indices, dtype=np.int64),
+            duplicate_groups_by_entry_name=tuple(groups),
+            elemental_group_indices=np.asarray(
+                [entry_to_group[index] for _, index in template.element_reference_indices],
+                dtype=np.int64,
+            ),
         )
 
 
@@ -157,6 +192,7 @@ def fixed_composition_hull_membership(
     *,
     query_energies: np.ndarray,
     reference_energies: np.ndarray,
+    runtime_plan: FixedHullRuntimePlan | None = None,
 ) -> np.ndarray:
     """Evaluate one or more sampled energy vectors with the cached backend."""
 
@@ -173,16 +209,17 @@ def fixed_composition_hull_membership(
         raise ValueError("fixed-composition hull reference energies are inconsistent")
     if not np.isfinite(samples).all():
         raise ValueError("fixed-composition hull query energies must be finite")
-    composition_matrix = np.asarray(template.normalized_composition_matrix, dtype=np.float64)
+    plan = FixedHullRuntimePlan.from_template(template) if runtime_plan is None else runtime_plan
+    if plan.template != template:
+        raise ValueError("fixed-composition runtime plan does not match template")
     combined = np.empty((len(samples), template.entry_count), dtype=np.float64)
-    combined[:, template.reference_indices] = reference_values
-    combined[:, template.candidate_indices] = samples
+    combined[:, plan.reference_indices] = reference_values
+    combined[:, plan.candidate_indices] = samples
     return np.asarray(
         [
             _fixed_stable_candidate_mask(
-                template,
                 combined_energies=sample,
-                composition_matrix=composition_matrix,
+                runtime_plan=plan,
             )
             for sample in combined
         ],
@@ -191,10 +228,9 @@ def fixed_composition_hull_membership(
 
 
 def _fixed_stable_candidate_mask(
-    template: FixedCompositionHullTemplate,
     *,
     combined_energies: np.ndarray,
-    composition_matrix: np.ndarray,
+    runtime_plan: FixedHullRuntimePlan,
 ) -> np.ndarray:
     """Evaluate one cached-geometry lower hull from its complete energy vector.
 
@@ -206,37 +242,23 @@ def _fixed_stable_candidate_mask(
 
     from scipy.spatial import ConvexHull, QhullError
 
-    values = np.asarray(combined_energies, dtype=np.float64).reshape(-1)
-    matrix = np.asarray(composition_matrix, dtype=np.float64)
-    if (
-        len(values) != template.entry_count
-        or matrix.shape != (template.entry_count, len(template.elements))
-        or not np.isfinite(values).all()
-        or not np.isfinite(matrix).all()
-    ):
-        raise ValueError("fixed-composition hull energy dimensions are inconsistent")
-    selected: list[int] = []
-    selected_by_group: dict[int, int] = {}
-    for group in template.duplicate_composition_groups:
-        chosen = min(group, key=lambda index: (values[index], template.entry_names[index]))
-        selected.append(chosen)
-        for index in group:
-            selected_by_group[index] = chosen
-    elemental_indices = tuple(
-        selected_by_group[index] for _, index in template.element_reference_indices
-    )
-    element_energies = np.asarray(
-        [values[selected_by_group[index]] for _, index in template.element_reference_indices],
-        dtype=np.float64,
-    )
-    selected_indices = np.asarray(selected, dtype=np.int64)
+    template = runtime_plan.template
+    values = combined_energies
+    matrix = runtime_plan.composition_matrix
+    selected_indices = np.empty(len(runtime_plan.duplicate_groups_by_entry_name), dtype=np.int64)
+    for group_index, group in enumerate(runtime_plan.duplicate_groups_by_entry_name):
+        # Groups are ordered by entry name, therefore argmin exactly reproduces
+        # the historical (energy, entry_name) duplicate tie break.
+        selected_indices[group_index] = group[int(np.argmin(values[group]))]
+    elemental_indices = selected_indices[runtime_plan.elemental_group_indices]
+    element_energies = values[elemental_indices]
     formation = values[selected_indices] - matrix[selected_indices] @ element_energies
     qhull_indices = [
-        index
-        for index, formation_energy in zip(selected, formation, strict=True)
+        int(index)
+        for index, formation_energy in zip(selected_indices, formation, strict=True)
         if formation_energy < -template.numerical_tolerance
     ]
-    qhull_indices.extend(elemental_indices)
+    qhull_indices.extend(int(index) for index in elemental_indices)
     qhull_indices = list(dict.fromkeys(qhull_indices))
     dimension = len(template.elements)
     if dimension == 2:
@@ -262,10 +284,12 @@ def _fixed_stable_candidate_mask(
             lower_chain.append(index)
         stable_combined_indices = set(lower_chain)
         return np.asarray(
-            [index in stable_combined_indices for index in template.candidate_indices],
+            [int(index) in stable_combined_indices for index in runtime_plan.candidate_indices],
             dtype=bool,
         )
-    qhull_data = np.column_stack((matrix[qhull_indices, 1:], values[qhull_indices]))
+    qhull_data = np.empty((len(qhull_indices), dimension), dtype=np.float64)
+    qhull_data[:, :-1] = matrix[qhull_indices, 1:]
+    qhull_data[:, -1] = values[qhull_indices]
     if dimension == 3 and len(qhull_data) >= 4:
         # For ternaries, Qhull already exposes the oriented facet equations.
         # A negative energy-axis normal identifies the lower facets directly,
@@ -284,7 +308,7 @@ def _fixed_stable_candidate_mask(
                 }
                 stable_combined_indices = {qhull_indices[index] for index in stable_qhull_indices}
                 return np.asarray(
-                    [index in stable_combined_indices for index in template.candidate_indices],
+                    [int(index) in stable_combined_indices for index in runtime_plan.candidate_indices],
                     dtype=bool,
                 )
     extra_point = np.zeros(dimension, dtype=np.float64) + 1.0 / dimension
@@ -313,7 +337,7 @@ def _fixed_stable_candidate_mask(
         qhull_indices[index] for index in stable_qhull_indices if index < len(qhull_indices)
     }
     return np.asarray(
-        [index in stable_combined_indices for index in template.candidate_indices],
+        [int(index) in stable_combined_indices for index in runtime_plan.candidate_indices],
         dtype=bool,
     )
 
@@ -384,19 +408,24 @@ def _final_hull_membership(
     reference_compositions: Sequence[dict[str, float]],
     reference_energies: np.ndarray,
     fixed_template: FixedCompositionHullTemplate | None = None,
+    fixed_runtime_plan: FixedHullRuntimePlan | None = None,
 ) -> np.ndarray:
     if fixed_template is not None:
-        expected = FixedCompositionHullTemplate.from_compositions(
-            query_compositions=query_compositions,
-            reference_compositions=reference_compositions,
-            numerical_tolerance=fixed_template.numerical_tolerance,
-        )
-        if expected != fixed_template:
-            raise ValueError("fixed-composition hull template does not match compositions")
+        if fixed_runtime_plan is None:
+            expected = FixedCompositionHullTemplate.from_compositions(
+                query_compositions=query_compositions,
+                reference_compositions=reference_compositions,
+                numerical_tolerance=fixed_template.numerical_tolerance,
+            )
+            if expected != fixed_template:
+                raise ValueError("fixed-composition hull template does not match compositions")
+        elif fixed_runtime_plan.template != fixed_template:
+            raise ValueError("fixed-composition runtime plan does not match template")
         return fixed_composition_hull_membership(
             fixed_template,
             query_energies=sampled_query_energies,
             reference_energies=reference_energies,
+            runtime_plan=fixed_runtime_plan,
         )
 
     from pymatgen.analysis.phase_diagram import PhaseDiagram
