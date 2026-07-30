@@ -9,7 +9,12 @@ import subprocess
 import sys
 from pathlib import Path
 
-P0_POLICIES = (
+CORE_POLICIES = (
+    "source_margin",
+    "delta_hull_active_search",
+    "independent_confirmation_source_rollout",
+)
+ABLATION_POLICIES = (
     "source_margin",
     "posterior_mean_target_margin",
     "ridge_margin",
@@ -59,13 +64,17 @@ def main() -> None:
     parser.add_argument("--crossfit-manifest", type=Path, required=True)
     parser.add_argument("--output-root", type=Path, required=True)
     parser.add_argument("--runner", type=Path, default=Path(__file__).with_name("run_matpes_protocol_closed_loop_exploratory.py"))
-    parser.add_argument("--budgets", type=int, nargs="+", default=(1, 2, 3, 4, 5, 6))
+    parser.add_argument("--tier", choices=("core", "ablation"), required=True)
+    parser.add_argument("--budgets", type=int, nargs="+", default=None)
     parser.add_argument("--folds", type=int, nargs="+", default=(0, 1, 2, 3, 4))
     args = parser.parse_args()
-    if tuple(args.budgets) != tuple(sorted(set(args.budgets))) or any(
-        budget not in {1, 2, 3, 4, 5, 6} for budget in args.budgets
+    budgets = tuple(args.budgets) if args.budgets is not None else ((1, 2, 3, 4, 5, 6) if args.tier == "core" else (6,))
+    if tuple(budgets) != tuple(sorted(set(budgets))) or any(
+        budget not in {1, 2, 3, 4, 5, 6} for budget in budgets
     ):
         raise ValueError("P0 budgets must be a unique ordered subset of 1..6")
+    if args.tier == "ablation" and budgets != (6,):
+        raise ValueError("the registered component ablation runs only at B=6")
     manifest = json.loads(args.crossfit_manifest.read_text(encoding="utf-8"))
     if not set(args.folds) <= set(range(len(manifest["folds"]))):
         raise ValueError("requested fold index is outside the frozen manifest")
@@ -75,12 +84,14 @@ def main() -> None:
         "vault_sha256": _sha256(args.vault),
         "crossfit_manifest_sha256": _sha256(args.crossfit_manifest),
         "seed": 20270720,
-        "policies": P0_POLICIES,
-        "random_seeds": RANDOM_SEEDS,
+        "tier": args.tier,
+        "policies": CORE_POLICIES if args.tier == "core" else ABLATION_POLICIES,
+        "random_seeds": () if args.tier == "core" else RANDOM_SEEDS,
     }
-    for budget in args.budgets:
+    policies = CORE_POLICIES if args.tier == "core" else ABLATION_POLICIES
+    for budget in budgets:
         for fold in args.folds:
-            main_output = args.output_root / f"matpes-p0-fold{fold + 1}-b{budget}-main.json"
+            main_output = args.output_root / f"matpes-p0v2-{args.tier}-fold{fold + 1}-b{budget}-main.json"
             command = [
                 sys.executable,
                 str(args.runner),
@@ -96,11 +107,13 @@ def main() -> None:
                 "--transport-family", "hierarchical_matern52_frozen_structure",
                 "--crossfit-manifest", str(args.crossfit_manifest),
                 "--fold-index", str(fold),
-                "--policies", *P0_POLICIES,
+                "--policies", *policies,
             ]
             _run(command, output=main_output, identity=identity)
+            if args.tier == "core":
+                continue
             for seed in RANDOM_SEEDS:
-                random_output = args.output_root / f"matpes-p0-fold{fold + 1}-b{budget}-random-seed{seed}.json"
+                random_output = args.output_root / f"matpes-p0v2-ablation-fold{fold + 1}-b{budget}-random-seed{seed}.json"
                 random_command = [
                     sys.executable,
                     str(args.runner),

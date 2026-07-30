@@ -1,6 +1,35 @@
 # P0 mechanism-suite protocol
 
-**Status:** locked before implementation or new outcomes (2026-07-30).
+**Status:** amended by explicit user authorization after P0-v1 runtime audit
+(2026-07-30).
+
+## Amendment A: layered runtime-preserving design
+
+The original all-policies-at-all-budgets Cartesian schedule was stopped after
+one complete `fold 1 / B=1` batch and before any `fold 2` aggregate output was
+written. The six complete JSON artifacts (one ten-policy main output and five
+predeclared random-seed outputs) remain at
+`E:\DATA\EviMem-RL\analysis\p0_mechanism_suite_20260730\`; the partial
+fold-2 trace is scratch and is excluded from every summary, table and claim.
+The complete v1 fold-1 batch is preserved for audit but is not pooled with the
+new schedule, whose output identity is
+`E:\DATA\EviMem-RL\analysis\p0_mechanism_suite_v2_20260730\`.
+
+This amendment changes only the allocation of already-fixed comparator runs;
+it changes no task, outcome, method, posterior, seed, target, metric, or
+statistical unit. It avoids a needlessly repeated expensive ablation at every
+horizon while preserving the two questions the suite was designed to answer:
+
+1. **Finite-horizon curve:** at every `B=1,...,6` and all five folds, compare
+   only `source_margin`, `delta_hull_active_search` (greedy final), and frozen
+   `independent_confirmation_source_rollout` (IC-SARR).
+2. **B=6 baseline and component audit:** at all five folds and only `B=6`,
+   compare the full registered roster below, including five fixed random seeds.
+
+All curve and B=6-ablation tables report their entire predeclared rosters; no
+cell may be dropped after outcomes are known. The B=6 calibration audit uses
+the v2 core IC-SARR traces only. This is still retrospective cross-fitted
+development evidence, never a holdout or a claim upgrade.
 
 ## Scope and scientific status
 
@@ -40,8 +69,9 @@ No artifact is committed to Git.
 
 ## Predeclared policies and comparison ladder
 
-Every MatPES budget/fold output contains every policy below; a policy may not
-be omitted after its results are known.
+The B=6 baseline/component output contains every policy below; a policy may
+not be omitted after its results are known. The complete `B=1,...,6` curve
+contains only the three explicitly named curve policies in Amendment A.
 
 | Identity | Role | Joint covariance | source continuation | common worlds | numerical gate |
 |---|---|---:|---:|---:|---:|
