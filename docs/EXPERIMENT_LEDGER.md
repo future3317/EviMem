@@ -1449,3 +1449,32 @@ superiority claim, a final-causal gain, or a state-compression result. The
 opened panel is frozen against score, posterior, threshold and seed tuning;
 further work must use a fresh frozen cross-fit or a genuinely new protocol
 task.
+
+## E42 -- MAD-1.5 next acquisition-curve protocol lock (2026-07-30)
+
+Before opening any new target outcome, the next fixed-budget curve was frozen
+in `docs/MAD_1_5_CURVE_PROTOCOL_LOCK.md`. The manifest at
+`E:\DATA\MAD-1.5-v1\mad15_curve_manifest_v1.json` has SHA-256
+`d713ecd2f442ac0bdf2b2fb6acfbc233be32c637c23385a1539acebc99c7f7ae` and
+selects 96 exact chemical systems outside the union of all previously opened
+MAD panels. The union contains 96 systems, so there is no system overlap.
+The manifest also records six outcome-independent folds with counts
+`17,17,16,16,16,14`.
+
+The primary run is the same 96-system set at exact budgets `B=0..6`, comparing
+only `source_margin` with the frozen
+`independent_confirmation_source_rollout`. The implementation freeze is
+`1621159`; the fixed backend is `fixed_composition`, posterior MC count is 64,
+the policy seed is `20270720`, and all budgets share the same task, vault,
+transport-fit rule and numerical settings. The explicit query-budget override
+was added because the prior runner's candidate-count fallback could otherwise
+turn a nominal budget six into a smaller budget on eight-candidate systems.
+
+The primary curve reports oracle-final and final-causal AUC over `B=0..6`,
+paired exact-system bootstrap intervals, 100,000-draw Monte Carlo sign-flip
+tests, wall time, incremental confirmations per second, and recovered
+finite-pool headroom. Cost is co-primary through the frozen utility
+`U_AUC = delta oracle AUC - 0.10 confirmations/(second*system) * delta wall-time AUC`.
+No score, posterior, seed, MC, threshold or cost-weight change is allowed
+after curve output is opened. The run remains MAD task-level development
+evidence and cannot become a MatPES holdout or universal superiority claim.

@@ -160,3 +160,9 @@ or state-compression benefit. No further score, posterior, threshold or seed
 tuning is authorized on this opened panel. The next useful step is a frozen
 cross-fit or genuinely new protocol task, with the runtime cost included in
 the prespecified comparison.
+
+The detailed next-run lock is recorded in
+`docs/MAD_1_5_CURVE_PROTOCOL_LOCK.md`. It fixes a new 96-system manifest,
+exact budgets `B=0..6`, curve-level AUC estimands, system-bootstrap and
+sign-flip settings, and the cost-aware utility before any new curve output is
+read.
