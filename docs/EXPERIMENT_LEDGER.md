@@ -1478,3 +1478,31 @@ finite-pool headroom. Cost is co-primary through the frozen utility
 No score, posterior, seed, MC, threshold or cost-weight change is allowed
 after curve output is opened. The run remains MAD task-level development
 evidence and cannot become a MatPES holdout or universal superiority claim.
+
+## E43 -- MAD-1.5 frozen B=0..6 acquisition curve (2026-07-30)
+
+The protocol-locked 96-system curve completed at exact budgets `B=0..6`.
+Outputs remain outside Git under
+`E:\DATA\MAD-1.5-v1\mad15_curve_B1_20260730.json` through
+`mad15_curve_B6_20260730.json`; the curve summary is
+`E:\DATA\MAD-1.5-v1\mad15_curve_summary_20260730.json`. Every budget used
+the same manifest SHA-256
+`d713ecd2f442ac0bdf2b2fb6acfbc233be32c637c23385a1539acebc99c7f7ae`, exact
+96-system query set, 1,788 disjoint fit systems, fixed-composition hull
+backend, MC64, and the frozen policy settings.
+
+The oracle-final AUC was `13.9479` for IC-SARR versus `13.6979` for source
+margin, paired difference `+0.2240`, system-bootstrap 95% interval
+`[+0.0365,+0.4167]`, Monte Carlo sign-flip `p=0.0230`, and 18 wins, 73 ties
+and 5 losses. Final-causal AUC differed by `+0.0260`, interval
+`[-0.0313,+0.0833]`, `p=0.5320`, with 4 wins, 90 ties and 2 losses. Wall-time
+AUC increased by `+8.5739 s*budget/system`.
+
+The pre-registered cost utility was
+`U_AUC = delta oracle AUC - 0.10 confirmations/(second*system) * delta wall-time AUC`.
+It evaluates to `-0.6334`. The curve therefore gives a nonzero oracle-final
+acquisition signal on this MAD protocol-shift task, but fails the cost-aware
+superiority criterion and does not show a final-causal gain. This result is
+development-only and cannot be promoted to a MatPES holdout, universal
+discovery superiority or state-compression evidence. No tuning is authorized
+on this opened 96-system panel.
