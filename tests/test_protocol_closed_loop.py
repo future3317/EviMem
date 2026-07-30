@@ -264,7 +264,11 @@ def _protocol_transport_fixture():
     "policy_name",
     (
         "delta_hull_active_search",
+        "posterior_mean_target_margin",
+        "ungated_source_rollout",
         "source_rollout_delta_hull",
+        "diagonal_ic_sarr",
+        "independent_mc_ic_sarr",
         "constrained_dual_horizon_source_rollout",
         "independent_confirmation_source_rollout",
         "conformal_source_rollout_delta_hull",

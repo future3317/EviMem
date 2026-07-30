@@ -493,7 +493,10 @@ class ProtocolPolicySubprocess(PersistentWorkerSubprocess):
         if requires_protocol_transport(self.policy) and transport_model is None:
             raise ValueError("protocol hull policies require a frozen transport model")
         if self.policy in {
+            ProtocolPolicy.UNGATED_SOURCE_ROLLOUT,
             ProtocolPolicy.SOURCE_ROLLOUT_DELTA_HULL,
+            ProtocolPolicy.DIAGONAL_IC_SARR,
+            ProtocolPolicy.INDEPENDENT_MC_IC_SARR,
             ProtocolPolicy.CONSTRAINED_DUAL_HORIZON_SOURCE_ROLLOUT,
             ProtocolPolicy.CONFORMAL_SOURCE_ROLLOUT_DELTA_HULL,
         }:

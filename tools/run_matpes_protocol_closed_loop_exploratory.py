@@ -626,7 +626,10 @@ def run(
                     300.0
                     if policy_name
                     in {
+                        ProtocolPolicy.UNGATED_SOURCE_ROLLOUT.value,
                         ProtocolPolicy.SOURCE_ROLLOUT_DELTA_HULL.value,
+                        ProtocolPolicy.DIAGONAL_IC_SARR.value,
+                        ProtocolPolicy.INDEPENDENT_MC_IC_SARR.value,
                         ProtocolPolicy.CONSTRAINED_DUAL_HORIZON_SOURCE_ROLLOUT.value,
                         ProtocolPolicy.INDEPENDENT_CONFIRMATION_SOURCE_ROLLOUT.value,
                         ProtocolPolicy.CONFORMAL_SOURCE_ROLLOUT_DELTA_HULL.value,
@@ -911,7 +914,12 @@ def main() -> None:
         ),
         default="ridge_random_intercept",
     )
-    parser.add_argument("--policies", nargs="+", choices=DEFAULT_POLICIES, default=DEFAULT_POLICIES)
+    parser.add_argument(
+        "--policies",
+        nargs="+",
+        choices=tuple(policy.value for policy in ProtocolPolicy),
+        default=DEFAULT_POLICIES,
+    )
     parser.add_argument("--crossfit-manifest", type=Path, default=None)
     parser.add_argument("--fold-index", type=int, default=None)
     parser.add_argument("--query-manifest", type=Path, default=None)
@@ -969,6 +977,9 @@ def main() -> None:
     )
     _rollout_policies = {
         ProtocolPolicy.SOURCE_ROLLOUT_DELTA_HULL.value,
+        ProtocolPolicy.UNGATED_SOURCE_ROLLOUT.value,
+        ProtocolPolicy.DIAGONAL_IC_SARR.value,
+        ProtocolPolicy.INDEPENDENT_MC_IC_SARR.value,
         ProtocolPolicy.CONSTRAINED_DUAL_HORIZON_SOURCE_ROLLOUT.value,
         ProtocolPolicy.INDEPENDENT_CONFIRMATION_SOURCE_ROLLOUT.value,
         ProtocolPolicy.CONFORMAL_SOURCE_ROLLOUT_DELTA_HULL.value,

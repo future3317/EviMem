@@ -23,11 +23,14 @@ from matmem.protocol_acquisition import (
     conformal_one_deviation_source_rollout,
     constrained_dual_horizon_source_rollout,
     delta_hull_active_search,
+    diagonal_independent_confirmation_source_rollout,
     independent_confirmation_source_rollout,
+    independent_world_confirmation_source_rollout,
     protocol_hull_knowledge_gradient,
     protocol_hull_risk_reduction,
     source_margin_action_indices,
     source_rollout_delta_hull,
+    ungated_source_rollout_delta_hull,
 )
 from matmem.ridge_acquisition import (
     linear_ridge_hull_influence_acquisition,
@@ -105,8 +108,12 @@ def select(
         "ridge_margin",
         "ridge_uncertainty",
         "ridge_predicted_final_margin",
+        "posterior_mean_target_margin",
         "delta_hull_active_search",
+        "ungated_source_rollout",
         "source_rollout_delta_hull",
+        "diagonal_ic_sarr",
+        "independent_mc_ic_sarr",
         "constrained_dual_horizon_source_rollout",
         "independent_confirmation_source_rollout",
         "conformal_source_rollout_delta_hull",
@@ -141,7 +148,11 @@ def select(
         )
         if policy in {
             "delta_hull_active_search",
+            "posterior_mean_target_margin",
+            "ungated_source_rollout",
             "source_rollout_delta_hull",
+            "diagonal_ic_sarr",
+            "independent_mc_ic_sarr",
             "constrained_dual_horizon_source_rollout",
             "independent_confirmation_source_rollout",
             "conformal_source_rollout_delta_hull",
@@ -224,6 +235,28 @@ def select(
                         )[0]
                     )
                     return str(queries[source_index]["pair_id"])
+                if policy == "posterior_mean_target_margin":
+                    posterior_margins = np.asarray(posterior.mean, dtype=np.float64) - arguments[
+                        "current_competing_hull_energies"
+                    ]
+                    selected_index = min(
+                        range(len(queries)),
+                        key=lambda index: (posterior_margins[index], str(queries[index]["pair_id"])),
+                    )
+                    if diagnostics is not None:
+                        diagnostics.update(
+                            {
+                                "diagnostic_schema_version": 1,
+                                "kind": "posterior_mean_target_margin",
+                                "candidate_pair_ids": tuple(str(row["pair_id"]) for row in queries),
+                                "posterior_mean_target_margins": {
+                                    str(row["pair_id"]): float(posterior_margins[index])
+                                    for index, row in enumerate(queries)
+                                },
+                                "selected_pair_id": str(queries[selected_index]["pair_id"]),
+                            }
+                        )
+                    return str(queries[selected_index]["pair_id"])
                 if policy == "delta_hull_active_search":
                     result = delta_hull_active_search(
                         posterior,
@@ -236,6 +269,42 @@ def select(
                         fixed_template=fixed_template,
                     )
                     values = result.scores
+                elif policy == "ungated_source_rollout":
+                    result = ungated_source_rollout_delta_hull(
+                        posterior,
+                        query_compositions=hull_arguments["query_compositions"],
+                        query_source_energies=arguments["query_source_energies"],
+                        query_ids=tuple(str(row["pair_id"]) for row in queries),
+                        reference_compositions=hull_arguments["reference_compositions"],
+                        reference_energies=hull_arguments["reference_energies"],
+                        current_competing_hull_energies=arguments["current_competing_hull_energies"],
+                        costs=hull_arguments["costs"],
+                        remaining_budget=float(payload["remaining_budget"]),
+                        posterior_sample_count=hull_arguments["posterior_sample_count"],
+                        seed=hull_arguments["seed"],
+                        fixed_template=fixed_template,
+                    )
+                    if diagnostics is not None:
+                        query_ids = tuple(str(row["pair_id"]) for row in queries)
+                        diagnostics.update(
+                            {
+                                "diagnostic_schema_version": 1,
+                                "kind": "ungated_source_rollout",
+                                "candidate_pair_ids": query_ids,
+                                "source_pair_id": query_ids[result.source_action_index],
+                                "selected_pair_id": query_ids[result.selected_action_index],
+                                "mean_advantages_over_source": {
+                                    pair_id: advantage
+                                    for pair_id, advantage in zip(
+                                        query_ids,
+                                        result.paired_advantages_over_source,
+                                        strict=True,
+                                    )
+                                },
+                                "horizon": result.horizon,
+                            }
+                        )
+                    return str(queries[result.selected_action_index]["pair_id"])
                 elif policy == "source_rollout_delta_hull":
                     result = source_rollout_delta_hull(
                         posterior,
@@ -426,6 +495,48 @@ def select(
                             }
                         )
                     return str(queries[result.selected_action_index]["pair_id"])
+                elif policy in {"diagonal_ic_sarr", "independent_mc_ic_sarr"}:
+                    function = (
+                        diagonal_independent_confirmation_source_rollout
+                        if policy == "diagonal_ic_sarr"
+                        else independent_world_confirmation_source_rollout
+                    )
+                    result = function(
+                        posterior,
+                        query_compositions=hull_arguments["query_compositions"],
+                        query_source_energies=arguments["query_source_energies"],
+                        query_ids=tuple(str(row["pair_id"]) for row in queries),
+                        reference_compositions=hull_arguments["reference_compositions"],
+                        reference_energies=hull_arguments["reference_energies"],
+                        current_competing_hull_energies=arguments["current_competing_hull_energies"],
+                        costs=hull_arguments["costs"],
+                        remaining_budget=float(payload["remaining_budget"]),
+                        stage_one_posterior_sample_count=1024,
+                        stage_two_posterior_sample_count=8192,
+                        seed=hull_arguments["seed"],
+                        fixed_template=fixed_template,
+                    )
+                    if diagnostics is not None:
+                        query_ids = tuple(str(row["pair_id"]) for row in queries)
+                        diagnostics.update(
+                            {
+                                "diagnostic_schema_version": 1,
+                                "kind": policy,
+                                "candidate_pair_ids": query_ids,
+                                "source_pair_id": query_ids[result.source_action_index],
+                                "screened_pair_id": (
+                                    None
+                                    if result.screened_action_index is None
+                                    else query_ids[result.screened_action_index]
+                                ),
+                                "selected_pair_id": query_ids[result.selected_action_index],
+                                "stage_two_used": result.stage_two_used,
+                                "stage_two_paired_advantage": result.stage_two_paired_advantage,
+                                "stage_two_paired_lower_bound": result.stage_two_paired_lower_bound,
+                                "fallback_reason": result.fallback_reason,
+                            }
+                        )
+                    return str(queries[result.selected_action_index]["pair_id"])
                 elif policy == "conformal_source_rollout_delta_hull":
                     if conformal_threshold is None:
                         raise ValueError("conformal source rollout has no calibration threshold")
@@ -539,8 +650,12 @@ def main() -> None:
             "ridge_margin",
             "ridge_uncertainty",
             "ridge_predicted_final_margin",
+            "posterior_mean_target_margin",
             "delta_hull_active_search",
+            "ungated_source_rollout",
             "source_rollout_delta_hull",
+            "diagonal_ic_sarr",
+            "independent_mc_ic_sarr",
             "constrained_dual_horizon_source_rollout",
             "independent_confirmation_source_rollout",
             "conformal_source_rollout_delta_hull",

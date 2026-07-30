@@ -701,6 +701,275 @@ def source_rollout_delta_hull(
     )
 
 
+def ungated_source_rollout_delta_hull(
+    posterior: ProtocolTargetEnergyPosterior,
+    **kwargs: object,
+) -> SourceRolloutDeltaHullResult:
+    """Return the source-continuation rollout action without a gate.
+
+    This is an ablation-only comparator.  It computes exactly the same joint
+    posterior worlds and source continuation as SARR but always follows the
+    largest mean rollout value.  The numerical bounds are retained solely for
+    diagnostics and never affect its action.
+    """
+
+    gated = source_rollout_delta_hull(posterior, **kwargs)  # type: ignore[arg-type]
+    selected = min(
+        range(len(gated.scores)),
+        key=lambda index: (-gated.scores[index], index),
+    )
+    return gated.model_copy(
+        update={
+            "selected_action_index": selected,
+            "fallback_reason": None if selected != gated.source_action_index else "ungated_score_tie_to_source",
+        }
+    )
+
+
+def diagonal_independent_confirmation_source_rollout(
+    posterior: ProtocolTargetEnergyPosterior,
+    **kwargs: object,
+) -> IndependentConfirmationSourceRolloutResult:
+    """Run the frozen IC gate after removing posterior cross-covariances.
+
+    The target mean, marginal variances, query order, source continuation,
+    seeds and numerical gates are unchanged.  This comparator is therefore a
+    direct test of the joint-world covariance component, not a new IC-SARR
+    setting.
+    """
+
+    covariance = np.asarray(posterior.covariance, dtype=np.float64)
+    diagonal = posterior.model_copy(
+        update={"covariance": tuple(tuple(float(value) for value in row) for row in np.diag(np.diag(covariance)))}
+    )
+    return independent_confirmation_source_rollout(diagonal, **kwargs)  # type: ignore[arg-type]
+
+
+def _independent_world_stage_one(
+    posterior: ProtocolTargetEnergyPosterior,
+    *,
+    query_compositions: Sequence[dict[str, float]],
+    query_source_energies: np.ndarray,
+    query_ids: Sequence[str],
+    reference_compositions: Sequence[dict[str, float]],
+    reference_energies: np.ndarray,
+    current_competing_hull_energies: np.ndarray,
+    costs: np.ndarray,
+    remaining_budget: float,
+    posterior_sample_count: int,
+    seed: int,
+    fixed_template: FixedCompositionHullTemplate | None,
+    sobol_scramble_count: int,
+    integration_confidence: float,
+) -> SourceRolloutDeltaHullResult:
+    """Stage one with independently sampled worlds for each first action."""
+
+    # Reuse SARR's complete validation and geometry/horizon conventions; only
+    # the action-specific randomized world streams below differ.
+    checked = source_rollout_delta_hull(
+        posterior,
+        query_compositions=query_compositions,
+        query_source_energies=query_source_energies,
+        query_ids=query_ids,
+        reference_compositions=reference_compositions,
+        reference_energies=reference_energies,
+        current_competing_hull_energies=current_competing_hull_energies,
+        costs=costs,
+        remaining_budget=remaining_budget,
+        posterior_sample_count=posterior_sample_count,
+        seed=seed,
+        fixed_template=fixed_template,
+        sobol_scramble_count=sobol_scramble_count,
+        integration_confidence=integration_confidence,
+    )
+    size = len(query_ids)
+    block_size = posterior_sample_count // sobol_scramble_count
+    blocks = np.empty((sobol_scramble_count, size), dtype=np.float64)
+    mean = np.asarray(posterior.mean, dtype=np.float64)
+    covariance = np.asarray(posterior.covariance, dtype=np.float64)
+    for action in range(size):
+        samples = np.concatenate(
+            tuple(
+                np.random.default_rng(seed + 104729 * block + 15485863 * (action + 1)).multivariate_normal(
+                    mean, covariance, size=block_size, check_valid="raise"
+                )
+                for block in range(sobol_scramble_count)
+            ),
+            axis=0,
+        )
+        labels = _final_hull_membership(
+            query_compositions=query_compositions,
+            sampled_query_energies=samples,
+            reference_compositions=reference_compositions,
+            reference_energies=reference_energies,
+            fixed_template=fixed_template,
+        )
+        rewards = _source_rollout_rewards(
+            sampled_query_energies=samples,
+            final_hull_membership=labels,
+            query_compositions=query_compositions,
+            query_source_energies=query_source_energies,
+            query_ids=query_ids,
+            reference_compositions=reference_compositions,
+            reference_energies=reference_energies,
+            horizon=checked.horizon,
+            first_action_indices=(action,),
+        )[:, 0]
+        blocks[:, action] = rewards.reshape(sobol_scramble_count, block_size).mean(axis=1)
+    differences = blocks - blocks[:, [checked.source_action_index]]
+    advantages = differences.mean(axis=0)
+    lower_bounds = _simultaneous_paired_lower_bounds(
+        differences,
+        confidence=integration_confidence,
+        comparison_count=max(size - 1, 1),
+    )
+    lower_bounds[checked.source_action_index] = 0.0
+    improving = np.flatnonzero(lower_bounds > 0.0)
+    selected = (
+        min(improving, key=lambda index: (-blocks[:, index].mean(), str(query_ids[index])))
+        if len(improving)
+        else checked.source_action_index
+    )
+    return checked.model_copy(
+        update={
+            "scores": tuple(float(value) for value in blocks.mean(axis=0)),
+            "block_scores": tuple(tuple(float(value) for value in row) for row in blocks),
+            "paired_advantages_over_source": tuple(float(value) for value in advantages),
+            "paired_advantage_lower_bounds": tuple(float(value) for value in lower_bounds),
+            "selected_action_index": int(selected),
+            "fallback_reason": None if selected != checked.source_action_index else "no_positive_independent_world_lower_bound",
+        }
+    )
+
+
+def independent_world_confirmation_source_rollout(
+    posterior: ProtocolTargetEnergyPosterior,
+    *,
+    query_compositions: Sequence[dict[str, float]],
+    query_source_energies: np.ndarray,
+    query_ids: Sequence[str],
+    reference_compositions: Sequence[dict[str, float]],
+    reference_energies: np.ndarray,
+    current_competing_hull_energies: np.ndarray,
+    costs: np.ndarray,
+    remaining_budget: float,
+    stage_one_posterior_sample_count: int = 1024,
+    stage_two_posterior_sample_count: int = 8192,
+    seed: int = 0,
+    fixed_template: FixedCompositionHullTemplate | None = None,
+    sobol_scramble_count: int = 16,
+    integration_confidence: float = 0.95,
+) -> IndependentConfirmationSourceRolloutResult:
+    """IC-style two-stage gate with independent worlds for candidate actions."""
+
+    stage_one = _independent_world_stage_one(
+        posterior,
+        query_compositions=query_compositions,
+        query_source_energies=query_source_energies,
+        query_ids=query_ids,
+        reference_compositions=reference_compositions,
+        reference_energies=reference_energies,
+        current_competing_hull_energies=current_competing_hull_energies,
+        costs=costs,
+        remaining_budget=remaining_budget,
+        posterior_sample_count=stage_one_posterior_sample_count,
+        seed=seed,
+        fixed_template=fixed_template,
+        sobol_scramble_count=sobol_scramble_count,
+        integration_confidence=integration_confidence,
+    )
+    source = stage_one.source_action_index
+    if stage_one.selected_action_index != source:
+        return IndependentConfirmationSourceRolloutResult(
+            stage_one=stage_one,
+            source_action_index=source,
+            selected_action_index=stage_one.selected_action_index,
+            stage_two_used=False,
+            stage_one_seed=seed,
+            stage_one_posterior_sample_count=stage_one_posterior_sample_count,
+            sobol_scramble_count=sobol_scramble_count,
+            fallback_reason="stage_one_accepted_independent_worlds",
+        )
+    advantages = np.asarray(stage_one.paired_advantages_over_source, dtype=np.float64)
+    positive = np.flatnonzero(advantages > 0.0)
+    positive = positive[positive != source]
+    if not len(positive):
+        return IndependentConfirmationSourceRolloutResult(
+            stage_one=stage_one,
+            source_action_index=source,
+            selected_action_index=source,
+            stage_two_used=False,
+            stage_one_seed=seed,
+            stage_one_posterior_sample_count=stage_one_posterior_sample_count,
+            sobol_scramble_count=sobol_scramble_count,
+            fallback_reason="no_positive_independent_world_advantage",
+        )
+    screened = min(positive, key=lambda index: (-advantages[index], str(query_ids[index])))
+    if stage_two_posterior_sample_count % sobol_scramble_count:
+        raise ValueError("stage-two independent-world samples must divide into Sobol blocks")
+    block_size = stage_two_posterior_sample_count // sobol_scramble_count
+    if block_size < 2 or block_size & (block_size - 1):
+        raise ValueError("each stage-two independent-world block must have power-of-two size")
+    stage_two_seed = _independent_confirmation_seed(seed)
+    mean = np.asarray(posterior.mean, dtype=np.float64)
+    covariance = np.asarray(posterior.covariance, dtype=np.float64)
+
+    def rewards_for(action: int, stream: int) -> np.ndarray:
+        samples = np.concatenate(
+            tuple(
+                np.random.default_rng(stage_two_seed + 104729 * block + stream).multivariate_normal(
+                    mean, covariance, size=block_size, check_valid="raise"
+                )
+                for block in range(sobol_scramble_count)
+            ),
+            axis=0,
+        )
+        labels = _final_hull_membership(
+            query_compositions=query_compositions,
+            sampled_query_energies=samples,
+            reference_compositions=reference_compositions,
+            reference_energies=reference_energies,
+            fixed_template=fixed_template,
+        )
+        return _source_rollout_rewards(
+            sampled_query_energies=samples,
+            final_hull_membership=labels,
+            query_compositions=query_compositions,
+            query_source_energies=query_source_energies,
+            query_ids=query_ids,
+            reference_compositions=reference_compositions,
+            reference_energies=reference_energies,
+            horizon=stage_one.horizon,
+            first_action_indices=(action,),
+        )[:, 0]
+
+    difference = rewards_for(int(screened), 15485863) - rewards_for(source, 32452843)
+    block_advantages = difference.reshape(sobol_scramble_count, block_size).mean(axis=1)
+    advantage = float(block_advantages.mean())
+    lower = float(
+        _simultaneous_paired_lower_bounds(
+            block_advantages.reshape(-1, 1), confidence=integration_confidence, comparison_count=1
+        )[0]
+    )
+    selected = int(screened) if lower > 0.0 else source
+    return IndependentConfirmationSourceRolloutResult(
+        stage_one=stage_one,
+        source_action_index=source,
+        screened_action_index=int(screened),
+        selected_action_index=selected,
+        stage_two_used=True,
+        stage_two_paired_advantage=advantage,
+        stage_two_paired_lower_bound=lower,
+        stage_two_block_advantages=tuple(float(value) for value in block_advantages),
+        stage_one_seed=seed,
+        stage_two_seed=stage_two_seed,
+        stage_one_posterior_sample_count=stage_one_posterior_sample_count,
+        stage_two_posterior_sample_count=stage_two_posterior_sample_count,
+        sobol_scramble_count=sobol_scramble_count,
+        fallback_reason=None if selected != source else "stage_two_independent_world_lower_bound_not_positive",
+    )
+
+
 def constrained_dual_horizon_source_rollout(
     posterior: ProtocolTargetEnergyPosterior,
     *,

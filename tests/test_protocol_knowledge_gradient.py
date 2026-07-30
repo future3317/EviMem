@@ -18,12 +18,15 @@ from matmem.protocol_acquisition import (
     conformal_one_deviation_source_rollout,
     constrained_dual_horizon_source_rollout,
     delta_hull_active_search,
+    diagonal_independent_confirmation_source_rollout,
     fit_conformal_source_rollout_calibration,
     independent_confirmation_source_rollout,
+    independent_world_confirmation_source_rollout,
     protocol_hull_knowledge_gradient,
     protocol_hull_risk_reduction,
     source_rollout_delta_hull,
     source_rollout_system_score,
+    ungated_source_rollout_delta_hull,
 )
 from matmem.protocol_knowledge_gradient import (
     fit_protocol_kernel_transport,
@@ -106,6 +109,26 @@ def test_ic_sarr_preserves_accepted_sarr_action_without_stage_two() -> None:
     assert result.selected_action_index == stage_one.selected_action_index
     assert not result.stage_two_used
     assert result.fallback_reason == "stage_one_accepted"
+
+
+def test_p0_rollout_ablations_are_legal_and_do_not_mutate_ic_sarr() -> None:
+    kwargs = _ic_kwargs()
+    rollout_kwargs = {
+        key: value
+        for key, value in kwargs.items()
+        if key not in {"posterior", "stage_one_posterior_sample_count", "stage_two_posterior_sample_count"}
+    }
+    ungated = ungated_source_rollout_delta_hull(
+        kwargs["posterior"], **rollout_kwargs, posterior_sample_count=32
+    )
+    diagonal = diagonal_independent_confirmation_source_rollout(**kwargs)
+    independent_worlds = independent_world_confirmation_source_rollout(**kwargs)
+
+    assert 0 <= ungated.selected_action_index < 3
+    assert 0 <= diagonal.selected_action_index < 3
+    assert 0 <= independent_worlds.selected_action_index < 3
+    assert diagonal.stage_one_seed == kwargs["seed"]
+    assert independent_worlds.stage_one_seed == kwargs["seed"]
 
 
 def test_ic_sarr_falls_back_without_positive_stage_one_advantage(
