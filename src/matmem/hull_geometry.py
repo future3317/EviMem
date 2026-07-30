@@ -163,6 +163,8 @@ class FixedHullRuntimePlan:
     reference_indices: np.ndarray
     duplicate_groups_by_entry_name: tuple[np.ndarray, ...]
     elemental_group_indices: np.ndarray
+    candidate_group_indices: np.ndarray
+    binary_group_order: np.ndarray
 
     @classmethod
     def from_template(cls, template: FixedCompositionHullTemplate) -> FixedHullRuntimePlan:
@@ -182,6 +184,21 @@ class FixedHullRuntimePlan:
             duplicate_groups_by_entry_name=tuple(groups),
             elemental_group_indices=np.asarray(
                 [entry_to_group[index] for _, index in template.element_reference_indices],
+                dtype=np.int64,
+            ),
+            candidate_group_indices=np.asarray(
+                [entry_to_group[index] for index in template.candidate_indices], dtype=np.int64
+            ),
+            binary_group_order=np.asarray(
+                sorted(
+                    range(len(groups)),
+                    key=lambda group_index: (
+                        float(template.normalized_composition_matrix[groups[group_index][0]][1]),
+                        template.entry_names[int(groups[group_index][0])],
+                    ),
+                )
+                if len(template.elements) == 2
+                else (),
                 dtype=np.int64,
             ),
         )
@@ -253,27 +270,19 @@ def _fixed_stable_candidate_mask(
     elemental_indices = selected_indices[runtime_plan.elemental_group_indices]
     element_energies = values[elemental_indices]
     formation = values[selected_indices] - matrix[selected_indices] @ element_energies
-    qhull_indices = [
-        int(index)
-        for index, formation_energy in zip(selected_indices, formation, strict=True)
-        if formation_energy < -template.numerical_tolerance
-    ]
-    qhull_indices.extend(int(index) for index in elemental_indices)
-    qhull_indices = list(dict.fromkeys(qhull_indices))
     dimension = len(template.elements)
     if dimension == 2:
-        ordered_indices = sorted(
-            qhull_indices,
-            key=lambda index: (
-                matrix[index, 1],
-                values[index],
-                template.entry_names[index],
-            ),
-        )
+        active_groups = formation < -template.numerical_tolerance
+        active_groups[runtime_plan.elemental_group_indices] = True
+        ordered_groups = runtime_plan.binary_group_order[
+            active_groups[runtime_plan.binary_group_order]
+        ]
         lower_chain: list[int] = []
-        for index in ordered_indices:
+        for group_index in ordered_groups:
+            index = int(selected_indices[group_index])
             while len(lower_chain) >= 2:
-                left, middle = lower_chain[-2:]
+                left = int(selected_indices[lower_chain[-2]])
+                middle = int(selected_indices[lower_chain[-1]])
                 cross = (matrix[middle, 1] - matrix[left, 1]) * (values[index] - values[left]) - (
                     values[middle] - values[left]
                 ) * (matrix[index, 1] - matrix[left, 1])
@@ -281,12 +290,22 @@ def _fixed_stable_candidate_mask(
                     lower_chain.pop()
                 else:
                     break
-            lower_chain.append(index)
-        stable_combined_indices = set(lower_chain)
+            lower_chain.append(int(group_index))
+        stable_groups = np.zeros(len(selected_indices), dtype=bool)
+        stable_groups[np.asarray(lower_chain, dtype=np.int64)] = True
+        candidate_winners = selected_indices[runtime_plan.candidate_group_indices]
         return np.asarray(
-            [int(index) in stable_combined_indices for index in runtime_plan.candidate_indices],
+            stable_groups[runtime_plan.candidate_group_indices]
+            & (candidate_winners == runtime_plan.candidate_indices),
             dtype=bool,
         )
+    qhull_indices = [
+        int(index)
+        for index, formation_energy in zip(selected_indices, formation, strict=True)
+        if formation_energy < -template.numerical_tolerance
+    ]
+    qhull_indices.extend(int(index) for index in elemental_indices)
+    qhull_indices = list(dict.fromkeys(qhull_indices))
     qhull_data = np.empty((len(qhull_indices), dimension), dtype=np.float64)
     qhull_data[:, :-1] = matrix[qhull_indices, 1:]
     qhull_data[:, -1] = values[qhull_indices]
