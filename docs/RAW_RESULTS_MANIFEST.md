@@ -29,6 +29,21 @@ closed-loop worker process was present at inventory time. The remote raw roots
 are authoritative for the MatPES runs; the local copy currently contains the
 synthetic suite and preflight records only.
 
+## Derived post-processing artifacts
+
+These files are also external to Git and are safe to regenerate only with the
+same frozen inputs and registered code:
+
+| Artifact | Bytes | SHA-256 | Status |
+|---|---:|---|---|
+| `/home/workspace/lrh/DATA/EviMem-RL/analysis/matpes_ic_sarr_mechanism_reduced_v1_20260802/derived_summary_reduced_v1.json` | 232,812 | `d9607180cb769896a68c7544d60ac97a50e5b3ad420ebb8e98cb8056fbc9d6ab` | complete |
+| `/home/workspace/lrh/DATA/EviMem-RL/analysis/matpes_ic_sarr_mechanism_v3_20260802/derived_ic_sarr_calibration_v3.json` | — | — | audit process active; output not yet written |
+
+The calibration audit initially exposed and then fixed a task-schema adapter
+bug: initial reference phases store corrected total energy and composition,
+so the audit now converts total energy by atom count, matching the frozen
+closed-loop implementation. This does not alter any experiment or estimand.
+
 ## Local checksums
 
 SHA-256 values below cover the locally available v3 directory at inventory
