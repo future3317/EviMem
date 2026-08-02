@@ -1506,3 +1506,104 @@ superiority criterion and does not show a final-causal gain. This result is
 development-only and cannot be promoted to a MatPES holdout, universal
 discovery superiority or state-compression evidence. No tuning is authorized
 on this opened 96-system panel.
+
+## E44 -- Exact state-feedback versus nonadaptive separation (2026-07-30)
+
+This is a registered synthetic necessity audit, defined before implementation
+in `docs/EXACT_JOINT_DECOUPLED_SEPARATION_PROTOCOL.md`. It does not access a
+materials task, oracle vault, or opened empirical panel. The construction is a
+three-world delayed-full-pool POMDP with query budget `B=3` and policy-memory
+capacity `K=1`. A protocol-compatible non-hull calibration witness reveals
+which of three omitted competitors determines the eventual hull. The witness
+is retained in the policy state; all outcomes remain conceptually present in
+the immutable archive.
+
+The comparison class is deliberately formal and is now named **nonadaptive**:
+future acquisition cannot read the witness outcome or post-retention state and
+is therefore a fixed action sequence. It may optimize that sequence globally.
+This is not a claim about every colloquial use of “decoupled”; a policy with
+state feedback can implement the same state-conditioned map and reaches `2`.
+The construction has only one useful witness, so it does not establish a
+benefit from optimizing competition among multiple retained outcomes.
+`src/matmem/exact_joint_separation.py` solves the state-feedback Bellman
+recursion exactly and exhaustively enumerates all 336 ordered three-query
+nonadaptive sequences.
+
+The exact terminal-confirmation value is `2.0` for the state-feedback policy
+versus `5/3` for both the best nonadaptive sequence and the terminal-myopic
+policy, a strict gap of `1/3`. The state-feedback trace queries the witness then the two
+world-matched candidates, retaining the witness at every later decision. The
+best nonadaptive path instead queries the always-stable candidate plus two
+candidates from one fixed world class. Its selected-history final-causal count
+is `3.0`, but its expected terminal count is only `5/3` and its false-stable
+count is `4/3`; the joint policy has terminal and final-causal counts `2.0`
+and zero false-stable calls. This demonstrates why delayed complete-pool
+adjudication is a distinct objective, not a relabeling of selected-history
+confirmation.
+
+All registered null and safety checks are exact unit tests:
+
+- `K=0` gives `5/3`, equal to the best nonadaptive value;
+- `K>=B` gives `2.0`, equal to the full-history policy;
+- zero archive/state access cost makes capacity non-binding and gives `2.0`;
+- an uninformative witness gives `5/3`; and
+- an unsupported witness is excluded from legal actions and reverts to `5/3`.
+
+The implementation is covered by `tests/test_exact_joint_separation.py`,
+which passed locally together with Ruff lint and formatting. This establishes
+an existential state-feedback separation for the declared nonadaptive class.
+It does not validate DBBM on a real binding resource, establish a
+materials deployment benefit, alter any frozen IC-SARR/MAD result, or
+authorize tuning on an opened panel.
+
+## E45 -- MAD-1.5 frozen mechanism ladder, budget-one checkpoint (2026-07-30)
+
+The secondary mechanism audit was locked in
+`docs/MAD_1_5_FROZEN_MECHANISM_AUDIT_LOCK.md` before execution. It uses the
+already opened E43 96-system MAD panel and is therefore not a primary,
+confirmatory, or new external result. The `B=1` complete five-policy output is
+outside Git at
+`E:\DATA\MAD-1.5-v1\mad15_mechanism_ladder_B1_20260730.json`, SHA-256
+`e2ab1821babdcbb495a2f415f74b1b8bb7786e5b857933e9a67de8ec69115cf1`.
+It records the E42 task, vault and manifest hashes, exact budget one, MC64,
+fixed-composition backend, seed `20270720`, 1,788 disjoint transport-fit
+systems and all five frozen canonical policy names. All 96 systems and all
+five policy traces completed (480 legal action/reveal traces); no evaluation
+split was accessed.
+
+At budget one, the system-macro oracle-final confirmation means are `0.9375`
+for both `source_margin` and `ridge_margin`, and `0.9896` for
+`delta_hull_active_search`, `source_rollout_delta_hull`, and frozen IC-SARR.
+Every policy has final-causal confirmation `1.0000`. The corresponding
+oracle-pool invalidation counts are `0.0625`, `0.0625`, `0.0104`, `0.0104`
+and `0.0104`; wall seconds/system are `1.6566`, `1.6471`, `1.7625`, `1.7657`
+and `2.0685`, respectively. The one-step, SARR and IC policies therefore tie
+at this budget; the point is compatible with a full-pool targeting mechanism,
+but it does not distinguish finite-horizon continuation from one-step action
+selection and does not provide a final-causal or cost-aware superiority claim.
+
+The complete `B=2..6` secondary ladder was **not started and is now stopped**.
+The finished budget-one batch required approximately thirteen minutes under the
+current serialized five-policy execution. It is retained only as a
+horizon-one-collapse sanity check: the three full-pool/rollout policies tie
+when no continuation horizon remains. No higher-budget point is selected,
+inferred or reported. The registered E43 source--IC curve and cost utility
+remain the only primary MAD curve; this checkpoint must stay ledger/appendix
+scope and cannot be extended, tuned, pruned or reframed as a positive claim.
+
+## E46 -- exact controlled delayed-label mechanism check (2026-07-30)
+
+`docs/CONTROLLED_DELAYED_LABEL_BENCHMARK_PROTOCOL.md` freezes a synthetic,
+five-candidate, four-world finite-pool benchmark that is disjoint from all
+materials runners, manifests, outcomes, and oracle vaults. A query reveals a
+discrete target energy, while durable reward is terminal complete-pool lower-
+hull membership. The complete registered grid is budget `1,2,3`, source signal
+`0.0,0.5,1.0`, and coupling `0.0,0.5,1.0`, for 27 exact cells.
+
+The exact tests show gated source-policy rollout is never worse than source
+margin, exact belief-state DP is never worse than rollout, budget-one rollout
+collapses to greedy current-final action selection, and at least one grid cell
+has strict DP headroom. This is a mechanism and objective check only: it adds
+no material, external-generalization, final-causal, cost-aware, deployment, or
+bounded-memory claim, and supplies no authorization to tune IC-SARR or any
+opened MatPES/MAD panel.
