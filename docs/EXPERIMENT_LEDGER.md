@@ -100,6 +100,13 @@ positive state-compression result or independent MatPES holdout.
 
 ## Current research decision (not an experiment)
 
+The later registered P0-v3 campaign (E31 below) supersedes the earlier
+development headline numerically for the frozen MatPES mechanism story: its
+complete B=1..6 core curve gives B=6 $\Delta T=+0.1696$ per system with 95\%
+CI $[+0.0870,+0.2565]$ and 51/160/19 wins/ties/losses.  It does not alter the
+scientific decision boundary: this remains opened development evidence, not
+final-causal, cost-aware, deployment, or universal superiority.
+
 The stopping chain does not authorize another outcome-selected posterior
 approximation. CHIC tested a real optimizer-input constraint without deleting
 outcomes, but its JARVIS task did not show an advantage. The active development
@@ -161,7 +168,7 @@ paths and hashes appear in the numbered entries below.
 | LeMat PBE/SCAN pair audit | Authoritative data-quality NO-GO | The downloaded Unique configs are intact but have zero ID/fingerprint overlap | Same-structure multi-protocol pairs | Do not pair by formula; use MatPES PBE--r2SCAN instead |
 | MatPES pair/task and stoichiometry audit | Authoritative infrastructure plus historical invalidation | Exact PBE--r2SCAN pairs exist at scale; action-driven reveal works after preserving cell stoichiometry | Any result from the old normalized-composition/total-energy path | Never cite pre-repair MatPES closed-loop traces |
 | Hierarchical MatPES posterior + Delta-Hull Active Search | Development mechanism followed by repartitioned NO-GO | Composition/reference correction and a local Matern posterior are non-degenerate; the 24-system signal is real on that panel | Superiority over source margin or a paper-level method claim | The 48-system repartition gives `+0.0625`, CI crossing zero and `p=0.6291`; do not tune Delta-Hull on the opened systems |
-| Source-Rollout / IC-SARR | Authoritative development replication; no external confirmation | Full-budget posterior rollout, exact simulated causal-hull updates and source continuation pass independent pymatgen and reveal-boundary tests; IC-SARR improves full-pool terminal confirmations by `+0.161/system` over 230 development systems | External holdout superiority, final-causal confirmation gain, general discovery superiority, or memory/state-compression benefit | Keep the 324-system corpus closed; acquire/build a new same-configuration protocol pool, freeze a development/holdout split, then evaluate the frozen policy once |
+| Source-Rollout / IC-SARR | Authoritative v3 development mechanism evidence; no external confirmation | Full-budget posterior rollout, exact simulated causal-hull updates and source continuation pass independent pymatgen and reveal-boundary tests; the complete v3 curve gives `+0.170/system` at B=6 over 230 development systems | External holdout superiority, final-causal confirmation gain, cost-aware/deployment superiority, or memory/state-compression benefit | Keep the 324-system corpus closed; acquire/build a new same-configuration protocol pool, freeze a development/holdout split, then evaluate the frozen policy once |
 
 ## Cross-iteration cause judgments
 
@@ -1077,6 +1084,40 @@ fixture has the identical six immutable action IDs and identical
 `(D,F,T)=(2,1,0)` against its frozen output. Its single shared-server wall
 time is 4.024 seconds versus 4.972 seconds in the older record; this confirms
 action/reveal parity but is not used to claim an IC-SARR end-to-end speedup.
+
+### E31. P0-v3 complete budget curve and targeted mechanism amendment (2026-08-02 to 2026-08-03)
+
+**Authoritative development mechanism evidence; no external confirmation.**
+The frozen P0-v3 core suite completed 5 outcome-independent folds at every
+budget $B=1,\ldots,6$ (30/30 outputs, 230 exact systems per budget). The
+reduced amendment completed its predeclared 5-fold B=6 roster (5/5 outputs)
+for the targeted mechanism comparison. Both remote roots have zero failure
+markers and remain outside Git under the paths recorded in
+`docs/RAW_RESULTS_MANIFEST.md`.
+
+At B=6, IC-SARR versus source margin gives $\Delta T=+0.1696$ per system,
+95\% paired system-bootstrap CI $[+0.0870,+0.2565]$, deterministic sign-flip
+$p=0.00012$, and 51/160/19 wins/ties/losses. Source and IC-SARR macro means
+are respectively $(D,F,T)=(4.361,4.091,3.657)$ and
+$(4.691,4.100,3.826)$, giving $\Delta D=+0.330$, $\Delta F=+0.009$,
+$\Delta(D-F)=+0.322$, and $\Delta(F-T)=-0.161$. The complete core budget
+curve has positive $\Delta T$ at all six budgets, from $+0.0957$ at B=1 to
+$+0.1696$ at B=6; the B=6 core wall-time difference is $+11.28$ seconds per
+system.
+
+The reduced mechanism audit gives $\Delta T=+0.165$ for Delta-Hull, $+0.143$
+for source rollout, $+0.109$ for diagonal-covariance IC-SARR, $+0.183$ for
+ungated rollout, and $+0.170$ for IC-SARR. The post-hoc calibration audit
+contains 4,620 decision states and 1,944 accepted deviations; predicted versus
+realized Spearman correlations are 0.2469 for $T$ and 0.0406 for $F$, with an
+83.02\% complete-pool false-positive rate among accepted deviations. These
+calibration numbers are diagnostics opened after the traces and are not policy
+feedback.
+
+The result strengthens the delayed full-pool mechanism signal and the role of
+joint posterior worlds, but it does not establish final-causal, cost-aware,
+deployment, runtime, or universal superiority. The numerical gate remains an
+integration-error safeguard, not a posterior-calibration theorem.
 
 ## Superseded, invalid and incomplete evidence
 

@@ -39,7 +39,7 @@ METRICS = {
     "F": "final_causal_confirmed_discoveries",
     "T": "oracle_pool_confirmed_discoveries",
     "D_minus_F": "within_campaign_revocations",
-    "F_minus_T": "invalidated_causal_discoveries_by_oracle_pool_hull",
+    "F_minus_T": "unqueried_competitor_invalidations",
     "wall_seconds": "wall_seconds",
 }
 

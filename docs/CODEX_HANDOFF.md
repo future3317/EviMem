@@ -1,6 +1,6 @@
 # Codex handoff: matmem
 
-Status date: 2026-07-29. This is the operational starting point for a new
+Status date: 2026-08-03. This is the operational starting point for a new
 coding agent. Read this document, `AGENTS.md`,
 `docs/EXPERIMENT_LEDGER.md`, and
 `docs/DECISION_SUFFICIENT_SCIENTIFIC_STATE.md` before changing a method,
@@ -23,9 +23,10 @@ MatPES holdout**.
 
 | Topic | Current evidence | Required interpretation |
 |---|---|---|
-| IC-SARR vs source margin | Five cross-fit development folds, 230 exact systems: terminal full-pool confirmations `+0.161/system`, 95% system-bootstrap CI `[+0.083,+0.239]`, 50/162/18 win/tie/loss | A real but development-only terminal-confirmation signal; not external confirmation or universal discovery superiority |
-| Causal metrics | Final causal confirmations `+0.013/system` (interval crosses zero); causal announcements `+0.322/system` | Do not call the terminal effect a causal-time discovery or final-causal confirmation gain |
-| Cost | IC-SARR costs about `+22.35 s/system` on a shared server | A phase-diagram propagation bottleneck, not a training/GPU bottleneck; shared-server time is not a stable speed claim |
+| IC-SARR vs source margin | P0-v3 complete B=1..6 core curve on five cross-fit folds, 230 exact systems: B=6 terminal full-pool confirmations `+0.170/system`, 95% CI `[+0.087,+0.257]`, sign-flip `p=0.00012`, 51/160/19 win/tie/loss | A real but development-only terminal-confirmation signal; not external confirmation or universal discovery superiority |
+| Causal metrics | B=6 final causal confirmations `+0.009/system`; causal announcements `+0.330/system`; unqueried-pool invalidation changes by `-0.161/system` | Do not call the terminal effect a causal-time discovery or final-causal confirmation gain |
+| Cost | P0-v3 core B=6 IC-SARR costs about `+11.28 s/system` on the shared server; targeted amendment reports `+11.02 s/system` | A phase-diagram propagation bottleneck, not a training/GPU bottleneck; shared-server time is not a stable speed claim |
+| Mechanism audit | Delta-Hull `+0.165`, source rollout `+0.143`, diagonal covariance `+0.109`, ungated rollout `+0.183`, IC-SARR `+0.170` paired `T` differences at B=6 | Joint worlds matter; the numerical gate is an integration safeguard, not a superiority or calibration guarantee |
 | Local Dual-Horizon | Correct implementation, but local double gate has poor oracle alignment and is stopped | Do not tune its thresholds, increase MC, add chemistry rules, or resurrect it on opened systems |
 | Campaign-Gated IC-SARR | Implemented, fixture-tested two-policy campaign-level API | Its only real-data smoke was interrupted before an atomic result; it is not evidence and must not be resumed under the old output identity |
 | WBM / DACC / P3C / AKSC / CHIC / JARVIS certificates | Stopped or negative lines | Preserve their audit history; do not restore retired runners or use old results as a new claim |

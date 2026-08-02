@@ -3,6 +3,43 @@
 **Status:** completed development replication, not an external confirmatory
 evaluation (2026-07-22).
 
+## P0-v3 complete budget curve and targeted mechanism amendment
+
+The later registered P0-v3 campaign reran the frozen core comparison at
+$B=1,\ldots,6$ on the same five outcome-independent folds and added a reduced
+B=6 mechanism roster.  The authoritative raw roots remain external to Git:
+
+```text
+core:    /home/workspace/lrh/DATA/EviMem-RL/analysis/matpes_ic_sarr_mechanism_v3_20260802
+reduced: /home/workspace/lrh/DATA/EviMem-RL/analysis/matpes_ic_sarr_mechanism_reduced_v1_20260802
+```
+
+At B=6, IC-SARR versus source margin gives $\Delta T=+0.1696$ per system,
+paired system-bootstrap 95\% CI $[+0.0870,+0.2565]$, deterministic sign-flip
+$p=0.00012$, and 51/160/19 wins/ties/losses.  The exact-system macro means
+are source $(D,F,T)=(4.361,4.091,3.657)$ and IC-SARR
+$(4.691,4.100,3.826)$, giving $\Delta D=+0.330$, $\Delta F=+0.009$,
+$\Delta(D-F)=+0.322$, and $\Delta(F-T)=-0.161$.  The core B=6 wall-time
+difference is $+11.28$ seconds/system; the reduced amendment reports
+$+11.02$ seconds/system for the same IC-SARR comparison.
+
+The reduced B=6 audit gives $\Delta T=+0.165$ for Delta-Hull, $+0.143$ for
+source rollout, $+0.109$ for diagonal-covariance IC-SARR, $+0.183$ for
+ungated rollout, and $+0.170$ for IC-SARR.  A post-hoc audit of 4,620
+decision states reports predicted-versus-realized Spearman correlations
+$0.2469$ for $T$ and $0.0406$ for $F$, with an $83.02\%$ complete-pool
+false-positive rate among accepted deviations.  These are development
+mechanism and calibration diagnostics; they do not establish final-causal,
+cost-aware, deployment, or universal superiority.
+
+The corrected external summary used for manuscript post-processing is
+`E:\DATA\EviMem-RL\analysis\matpes_ic_sarr_mechanism_reduced_v1_20260802\derived_summary_reduced_v2_corrected.json`
+(SHA-256
+`4923624a86d00be55d422960f48263b3fdf06123f78cf92ce1398af2050e2c87`).
+Its `F-T` field uses the runner's `unqueried_competitor_invalidations`; the
+older summary artifact had mislabeled the broader `D-T` field and is retained
+only as an external audit artifact.
+
 ## Frozen comparison
 
 This report summarizes five previously unused, outcome-independently assigned

@@ -5,11 +5,11 @@ outputs remain outside Git by design. The manifest is the versioned pointer that
 allows a later audit to identify the exact external result roots without making
 the code repository a data archive.
 
-Inventory time: 2026-08-02 (Asia/Shanghai)
+Inventory time: 2026-08-03 (Asia/Shanghai)
 
 ## Provenance
 
-- Code commit: `65b015b` (`E:\CODE\EviMem-RL`)
+- Code commit: `635b59f` (`E:\CODE\EviMem-RL`)
 - Paper commit: `eb0d7ed` (`E:\PAPER`)
 - Local data root: `E:\DATA\EviMem-RL`
 - Remote data root: `/home/workspace/lrh/DATA/EviMem-RL`
@@ -20,8 +20,8 @@ Inventory time: 2026-08-02 (Asia/Shanghai)
 
 | Campaign | External root | State at inventory | Registered outputs | Files | Bytes | Failures |
 |---|---|---:|---:|---:|---:|---:|
-| MatPES mechanism v3 core | `/home/workspace/lrh/DATA/EviMem-RL/analysis/matpes_ic_sarr_mechanism_v3_20260802` | complete | 5 folds × B=1..6 = 30/30 | 4,273 | 77,316,335 | 0 |
-| Reduced targeted ablation v1 | `/home/workspace/lrh/DATA/EviMem-RL/analysis/matpes_ic_sarr_mechanism_reduced_v1_20260802` | complete | 5 folds × B=6 = 5/5 | 1,390 | 58,505,163 | 0 |
+| MatPES mechanism v3 core | `/home/workspace/lrh/DATA/EviMem-RL/analysis/matpes_ic_sarr_mechanism_v3_20260802` | complete | 5 folds × B=1..6 = 30/30 | 4,274 | 79,084,883 | 0 |
+| Reduced targeted ablation v1 | `/home/workspace/lrh/DATA/EviMem-RL/analysis/matpes_ic_sarr_mechanism_reduced_v1_20260802` | complete | 5 folds × B=6 = 5/5 | 1,391 | 58,737,975 | 0 |
 | Exact-DP random suite v3 | `E:\DATA\EviMem-RL\analysis\matpes_ic_sarr_mechanism_v3_20260802\random_exact_dp_suite_v3.json` | complete | 1,000 instances | 1 file | 2,335,785 | 0 |
 
 The two remote campaigns were checked read-only. No active P0 launcher or
@@ -36,13 +36,35 @@ same frozen inputs and registered code:
 
 | Artifact | Bytes | SHA-256 | Status |
 |---|---:|---|---|
-| `/home/workspace/lrh/DATA/EviMem-RL/analysis/matpes_ic_sarr_mechanism_reduced_v1_20260802/derived_summary_reduced_v1.json` | 232,812 | `d9607180cb769896a68c7544d60ac97a50e5b3ad420ebb8e98cb8056fbc9d6ab` | complete |
-| `/home/workspace/lrh/DATA/EviMem-RL/analysis/matpes_ic_sarr_mechanism_v3_20260802/derived_ic_sarr_calibration_v3.json` | — | — | audit process active; output not yet written |
+| `/home/workspace/lrh/DATA/EviMem-RL/analysis/matpes_ic_sarr_mechanism_reduced_v1_20260802/derived_summary_reduced_v1.json` | 232,812 | `d9607180cb769896a68c7544d60ac97a50e5b3ad420ebb8e98cb8056fbc9d6ab` | complete; superseded for manuscript mechanism mapping |
+| `E:\DATA\EviMem-RL\analysis\matpes_ic_sarr_mechanism_reduced_v1_20260802\derived_summary_reduced_v2_corrected.json` | 241,692 | `4923624a86d00be55d422960f48263b3fdf06123f78cf92ce1398af2050e2c87` | complete; corrected post-processing mapping |
+| `/home/workspace/lrh/DATA/EviMem-RL/analysis/matpes_ic_sarr_mechanism_v3_20260802/derived_ic_sarr_calibration_v3.json` | 1,768,548 | `a21b41b4912f35cf82043ceda7bbf8961f8e7ead3f938a5b4d78d41f60cdec0b` | complete |
 
 The calibration audit initially exposed and then fixed a task-schema adapter
 bug: initial reference phases store corrected total energy and composition,
 so the audit now converts total energy by atom count, matching the frozen
 closed-loop implementation. This does not alter any experiment or estimand.
+
+## Corrected v3 verification (2026-08-03)
+
+The remote roots were rechecked after the post-processing jobs completed. The
+core root contains 4,274 files totaling 79,084,883 bytes, including all
+30/30 core outputs, and the reduced root contains 1,391 files totaling
+58,737,975 bytes, including all 5/5 reduced outputs. Neither root contains a
+failure marker, and no launcher, worker, summary, or calibration process is
+active.
+
+The completed calibration artifact is 1,768,548 bytes with SHA-256
+`a21b41b4912f35cf82043ceda7bbf8961f8e7ead3f938a5b4d78d41f60cdec0b`.
+The complete core budget curve and reduced B=6 mechanism audit are contained
+in the completed reduced-summary artifact listed above. The legacy full-suite
+summarizer was also run read-only against the v3 core root; it failed closed on
+the first absent legacy v2 ablation path and wrote no output. This is a
+post-processing roster mismatch, not an experiment failure.
+
+For manuscript mechanism decomposition, the corrected post-processing artifact
+maps `F-T` to the runner's `unqueried_competitor_invalidations` field. It is
+not raw data and remains outside Git.
 
 ## Local checksums
 

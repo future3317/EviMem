@@ -405,12 +405,15 @@ means are respectively `+0.0833`, `+0.2105` and `+0.2000`. The first
 46-system cross-fit fold at MC512/MC1024 is a pre-SARR numerical diagnostic:
 system-level effects agree in 45/46, but complete traces agree in only 31/46.
 It is not a result for the corrected IC-SARR gate. The subsequent unchanged
-IC-SARR policy completed five outcome-independent development folds (230
-systems) and improved full-pool terminal confirmations by `+0.161/system`,
-with system-bootstrap 95% CI `[+0.083,+0.239]`. This is development-only
-acquisition evidence; final-causal confirmation is `+0.013/system` with an
-interval crossing zero, and no external holdout exists. The 324-system corpus
-remains closed to confirmatory relabeling.
+IC-SARR policy then completed the registered P0-v3 five-fold budget curve
+(230 systems at each B=1..6) and improved full-pool terminal confirmations at
+B=6 by `+0.1696/system`, with system-bootstrap 95% CI `[+0.0870,+0.2565]`,
+sign-flip `p=0.00012`, and 51/160/19 wins/ties/losses. The corresponding
+final-causal confirmation change is only `+0.009/system`, while the core
+B=6 wall-time change is `+11.28 seconds/system`. This is development-only
+acquisition evidence; the reduced mechanism amendment and post-hoc calibration
+audit remain diagnostics, and no external holdout exists. The 324-system
+corpus remains closed to confirmatory relabeling.
 
 The report-motivated continuation is implemented separately as
 `conformal_source_rollout_delta_hull`. It calibrates an exact-system
