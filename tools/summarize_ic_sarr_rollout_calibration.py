@@ -39,6 +39,24 @@ def _row_lookup(task: dict[str, Any], vault: dict[str, Any]) -> tuple[dict[str, 
     return candidates, outcomes
 
 
+def _reference_energy_per_atom(entry: dict[str, Any]) -> float:
+    """Convert a task reference total energy to the per-atom hull energy.
+
+    MatPES task files store initial reference phases as
+    ``corrected_total_energy_ev`` plus composition. They do not expose a
+    ``formation_energy_ev_per_atom`` field for these references; the frozen
+    closed-loop and hull implementations use the total-energy/atom-count
+    conversion below. Candidate target outcomes remain formation-energy-per-
+    atom values.
+    """
+
+    composition = entry["composition"]
+    atom_count = float(sum(float(value) for value in composition.values()))
+    if atom_count <= 0.0:
+        raise ValueError("reference composition must contain a positive atom count")
+    return float(entry["corrected_total_energy_ev"]) / atom_count
+
+
 def _record_state(
     *,
     system: str,
@@ -80,7 +98,7 @@ def _record_state(
     query_compositions = tuple(dict(row["composition"]) for row in query_rows)
     references = tuple(dict(row["composition"]) for row in initial_rows)
     reference_energies = np.asarray(
-        [float(row["formation_energy_ev_per_atom"]) for row in initial_rows], dtype=float
+        [_reference_energy_per_atom(row) for row in initial_rows], dtype=float
     )
     template = FixedCompositionHullTemplate.from_compositions(
         query_compositions=query_compositions, reference_compositions=references
