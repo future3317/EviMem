@@ -1204,6 +1204,13 @@ positive result can support only objective attribution or a predeclared
 coupling interaction; it cannot establish an external holdout, deployment
 superiority, cost-aware superiority or universal generalization.
 
+The first E32-A execution later stopped at fold 1 / budget 2 after a
+persistent policy-worker timeout. Its failure artifact remains preserved. An
+action-preserving parallel recovery is registered in
+`docs/DELAYED_LABEL_FOLLOWUP_E32A_PARALLEL_RECOVERY.md`; it changes only unit
+scheduling, BLAS thread pinning and the worker liveness timeout. No recovery
+result is paper-facing until the complete 30-output audit passes.
+
 ## Superseded, invalid and incomplete evidence
 
 | Evidence | Required treatment |
