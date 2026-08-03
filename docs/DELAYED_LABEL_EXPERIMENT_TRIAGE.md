@@ -16,6 +16,15 @@ experiment must change a paper claim to justify additional compute.
    ungated rollout, and IC-SARR against one another across `B=1..6`, rather than
    inferring attribution from source-relative bars.
 
+Both registered suites are now complete and summarized. The E32-A follow-up
+shows that target-margin and Delta-Hull targeting explain most of the
+source-relative gain; a Delta-Hull-anchored two-step rollout adds a modest
+development-level terminal-$T$ increment at the largest budget, while the
+posterior-only coupling/rank strata do not yet identify a monotone interaction.
+The MAD direct curve leaves all three solver contrasts small with paired
+intervals crossing zero. These results close the current experimental stage;
+they do not authorize another full campaign.
+
 Both are development/mechanism evidence. MAD remains an atomization-energy
 hull proxy and cannot be called a formation-energy holdout or deployment test.
 

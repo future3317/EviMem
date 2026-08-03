@@ -1211,6 +1211,48 @@ action-preserving parallel recovery is registered in
 scheduling, BLAS thread pinning and the worker liveness timeout. No recovery
 result is paper-facing until the complete 30-output audit passes.
 
+The action-preserving recovery completed with 30/30 outputs, 230 exact
+systems, seven registered non-gated policies, budgets $B=1,\ldots,6$, and zero
+failure artifacts. The audited summary is external to Git at
+`E:\DATA\E32-A_parallel_20260803_e32_summary.json`, SHA-256
+`AE5B16F4AD7BC2FFA890A28EA3685BD8078602049B1C74DEA7CD7BF4DD9165CC`.
+The separate MAD-1.5 direct-mechanism summary is at
+`E:\DATA\MAD-1.5-v1\mad15_direct_mechanism_20260803\mad15_direct_summary_20260804.json`,
+SHA-256
+`61848689325400E8C76A1D0DA28DC6EB9DF46C868F57CD8966F6C431ECC77F81`.
+Derived figures are rendered from these summaries under the external analysis
+directory: E32 mechanism figure SHA-256
+`081EEDFC5A966AC21D8A0B0F53E1616DA16F243553D650F516C7A5445E1F38A2` and MAD
+direct-mechanism figure SHA-256
+`A0B3787CDD8568AC76118816201655E0CA79FEF9943C939527191576FE21F33F`.
+The paper repository contains copies of these derived figures only; raw
+outputs remain outside Git.
+
+The E32-A result changes the mechanism interpretation in a bounded way. At
+$B=6$, posterior-mean target margin, Delta-Hull, and source-rollout/Delta-Hull
+each improve complete-pool $T$ by about $+0.161$ per system over source,
+whereas the current-hull probability proxy is $-0.678$. The new
+Delta-Hull-anchored rollout reaches $+0.196$ versus source and is
+$+0.0391$ above Delta-Hull (paired bootstrap CI $[+0.0043,+0.0783]$,
+sign-flip $p=0.0642$, 14/211/5 wins/ties/losses). This is a modest,
+development-level lookahead signal, not a universal solver claim. Posterior-
+only coupling and rank-margin strata do not show a monotone
+action-disagreement gradient, so the proposed high-coupling interaction
+remains unresolved rather than confirmed. MAD direct contrasts likewise
+remain small: at $B=6$, Delta-Hull minus source is $+0.0104$, ungated rollout
+minus Delta-Hull is $+0.0208$, and IC-SARR minus Delta-Hull is $+0.0104$, with
+all registered paired intervals crossing zero.
+
+The registered IC-SARR calibration audit was also rerun read-only on the
+complete v3 core inputs under `equivcompiler`. Its external artifact is
+`E:\DATA\EviMem-RL\analysis\matpes_ic_sarr_mechanism_v3_20260802\derived_ic_sarr_calibration_v3_reaudit_20260804.json`,
+SHA-256
+`A21B41B4912F35CF82043CEDA7BBF8961F8E7EAD3F938A5B4D78D41F60CDEC0B`.
+It reproduces 4,620 decision states, 1,944 accepted deviations, Spearman
+$0.2469$ for predicted versus realized $T$ advantage, and an $83.02\%$
+nonpositive realized-advantage rate among accepted deviations. This is a
+post-hoc calibration diagnostic and does not feed back into any policy.
+
 ## Superseded, invalid and incomplete evidence
 
 | Evidence | Required treatment |

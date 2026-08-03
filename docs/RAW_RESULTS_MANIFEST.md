@@ -5,7 +5,7 @@ outputs remain outside Git by design. The manifest is the versioned pointer that
 allows a later audit to identify the exact external result roots without making
 the code repository a data archive.
 
-Inventory time: 2026-08-03 (Asia/Shanghai)
+Inventory time: 2026-08-04 (Asia/Shanghai)
 
 ## Provenance
 
@@ -23,6 +23,8 @@ Inventory time: 2026-08-03 (Asia/Shanghai)
 | MatPES mechanism v3 core | `/home/workspace/lrh/DATA/EviMem-RL/analysis/matpes_ic_sarr_mechanism_v3_20260802` | complete | 5 folds × B=1..6 = 30/30 | 4,274 | 79,084,883 | 0 |
 | Reduced targeted ablation v1 | `/home/workspace/lrh/DATA/EviMem-RL/analysis/matpes_ic_sarr_mechanism_reduced_v1_20260802` | complete | 5 folds × B=6 = 5/5 | 1,391 | 58,737,975 | 0 |
 | Exact-DP random suite v3 | `E:\DATA\EviMem-RL\analysis\matpes_ic_sarr_mechanism_v3_20260802\random_exact_dp_suite_v3.json` | complete | 1,000 instances | 1 file | 2,335,785 | 0 |
+| E32-A delayed-label parallel recovery | `/home/workspace/lrh/DATA/EviMem-RL/analysis/delayed_label_followup_e32_amendment_a_parallel_20260803` | complete | 5 folds x B=1..6 = 30/30 (25 new outputs + 5 read-only B1 reuse) | 30 root files | 360,052,352 | 0 |
+| MAD-1.5 direct mechanism curve | `E:\DATA\MAD-1.5-v1\mad15_direct_mechanism_20260803` | complete | 4 policies x B=1..6 = 24/24 | 2,322 | 34,405,598 | 0 |
 
 The two remote campaigns were checked read-only. No active P0 launcher or
 closed-loop worker process was present at inventory time. The remote raw roots
@@ -43,6 +45,11 @@ same frozen inputs and registered code:
 | `E:\DATA\EviMem-RL\analysis\matpes_ic_sarr_mechanism_v3_20260802\random_exact_gate_audit_v3.json` | 733,351 | `1CD3A1FC973EECFDB0A81333EA6245B995A200B32B351708019B5CBD9C421456` | complete; exact-world numerical-gate audit |
 | `E:\DATA\EviMem-RL\analysis\matpes_ic_sarr_mechanism_v3_20260802\derived_budget_direct_comparisons_v1.json` | 22,560 | `95a73859177f57474b25203773729d4b9c70dc3ee94c4d6943f11793573a5a6d` | complete; B=1..6 direct paired policy contrasts |
 | `E:\DATA\EviMem-RL\analysis\matpes_ic_sarr_mechanism_v3_20260802\derived_prequential_calibration_v1.json` | 22,710 | `0e7693d477a415c5ff228790c4511fe1edf1854545e946f6b9026d4a7d362d21` | complete; B=6 prequential energy diagnostics |
+| `E:\DATA\EviMem-RL\analysis\matpes_ic_sarr_mechanism_v3_20260802\derived_ic_sarr_calibration_v3_reaudit_20260804.json` | 1,768,548 | `A21B41B4912F35CF82043CEDA7BBF8961F8E7EAD3F938A5B4D78D41F60CDEC0B` | complete; registered post-hoc IC-SARR calibration re-audit |
+| `E:\DATA\E32-A_parallel_20260803_e32_summary.json` | 2,832,932 | `AE5B16F4AD7BC2FFA890A28EA3685BD8078602049B1C74DEA7CD7BF4DD9165CC` | complete; E32-A objective/lookahead summary |
+| `E:\DATA\MAD-1.5-v1\mad15_direct_mechanism_20260803\mad15_direct_summary_20260804.json` | 72,848 | `61848689325400E8C76A1D0DA28DC6EB9DF46C868F57CD8966F6C431ECC77F81` | complete; MAD direct paired curve summary |
+| `E:\DATA\delayed_label_followup_figures_20260804\e32_delayed_label_mechanism.pdf` | 24,453 | `081EEDFC5A966AC21D8A0B0F53E1616DA16F243553D650F516C7A5445E1F38A2` | complete; manuscript-derived figure |
+| `E:\DATA\delayed_label_followup_figures_20260804\mad15_direct_mechanism_curve.pdf` | 24,354 | `A0B3787CDD8568AC76118816201655E0CA79FEF9943C939527191576FE21F33F` | complete; manuscript-derived figure |
 
 The calibration audit initially exposed and then fixed a task-schema adapter
 bug: initial reference phases store corrected total energy and composition,

@@ -122,18 +122,26 @@ def render_mad(summary_path: Path, output_dir: Path) -> None:
             "IC-SARR $-$ Delta-Hull",
         ),
     )
+    # The MAD curve includes B=0 as the no-query reference, but direct
+    # paired contrasts are registered only for B=1..6.  Keep B=0 on the
+    # absolute curve and restrict the contrast panel to budgets with an
+    # audited paired comparison.
+    contrast_budgets = np.asarray(
+        [budget for budget in budgets if str(int(budget)) in summary["direct_pairwise_by_budget"]],
+        dtype=int,
+    )
     for key, label in contrasts:
         means = []
         lows = []
         highs = []
-        for budget in budgets:
+        for budget in contrast_budgets:
             entry = summary["direct_pairwise_by_budget"][str(budget)][key]["T"]
             means.append(entry["mean"])
             low, high = _ci(entry)
             lows.append(low)
             highs.append(high)
-        axes[1].plot(budgets, means, marker="o", label=label)
-        axes[1].fill_between(budgets, lows, highs, alpha=0.10)
+        axes[1].plot(contrast_budgets, means, marker="o", label=label)
+        axes[1].fill_between(contrast_budgets, lows, highs, alpha=0.10)
     axes[1].axhline(0.0, color="black", lw=0.8)
     axes[1].set(xlabel="Query budget $B$", ylabel="Paired $\\Delta T$ / system")
     axes[1].set_title("Direct paired mechanism contrasts")
