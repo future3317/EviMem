@@ -564,6 +564,7 @@ def delta_hull_active_search(
     posterior_sample_count: int = 16,
     seed: int = 0,
     fixed_template: FixedCompositionHullTemplate | None = None,
+    fixed_runtime_plan: FixedHullRuntimePlan | None = None,
 ) -> DeltaHullActiveSearchResult:
     """Return the exact one-step active-search objective under the posterior.
 
@@ -586,8 +587,16 @@ def delta_hull_active_search(
     if posterior_sample_count < 4:
         raise ValueError("delta-hull active search needs at least four posterior samples")
 
+    if fixed_runtime_plan is not None and fixed_template is None:
+        raise ValueError("fixed hull runtime plan requires its template")
     runtime_plan = (
-        None if fixed_template is None else FixedHullRuntimePlan.from_template(fixed_template)
+        None
+        if fixed_template is None
+        else (
+            FixedHullRuntimePlan.from_template(fixed_template)
+            if fixed_runtime_plan is None
+            else fixed_runtime_plan
+        )
     )
     labels = _final_hull_membership(
         query_compositions=query_compositions,
@@ -978,6 +987,9 @@ def delta_hull_anchored_rollout(
         fixed_template=fixed_template,
     )
     rewards = np.empty((posterior_sample_count, size), dtype=np.float64)
+    continuation_geometry_cache: dict[
+        tuple[int, ...], tuple[FixedCompositionHullTemplate, FixedHullRuntimePlan]
+    ] = {}
     for sample_index in range(posterior_sample_count):
         for first_action in range(size):
             selected = [first_action]
@@ -1001,6 +1013,21 @@ def delta_hull_anchored_rollout(
                         samples[sample_index, np.asarray(selected, dtype=np.int64)],
                     )
                 )
+                selected_key = tuple(selected)
+                geometry = continuation_geometry_cache.get(selected_key)
+                if geometry is None:
+                    continuation_template = FixedCompositionHullTemplate.from_compositions(
+                        query_compositions=tuple(
+                            query_compositions[index] for index in remaining
+                        ),
+                        reference_compositions=dynamic_reference_compositions,
+                    )
+                    geometry = (
+                        continuation_template,
+                        FixedHullRuntimePlan.from_template(continuation_template),
+                    )
+                    continuation_geometry_cache[selected_key] = geometry
+                continuation_template, continuation_runtime_plan = geometry
                 continuation = delta_hull_active_search(
                     conditioned,
                     query_compositions=tuple(query_compositions[index] for index in remaining),
@@ -1009,7 +1036,8 @@ def delta_hull_anchored_rollout(
                     costs=item_costs[np.asarray(remaining, dtype=np.int64)],
                     posterior_sample_count=continuation_sample_count,
                     seed=seed + 1009 * (sample_index + 1) + 15485863 * len(selected),
-                    fixed_template=None,
+                    fixed_template=continuation_template,
+                    fixed_runtime_plan=continuation_runtime_plan,
                 )
                 local_index = min(
                     range(len(remaining)),
