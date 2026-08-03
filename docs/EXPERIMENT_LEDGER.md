@@ -1105,19 +1105,35 @@ curve has positive $\Delta T$ at all six budgets, from $+0.0957$ at B=1 to
 $+0.1696$ at B=6; the B=6 core wall-time difference is $+11.28$ seconds per
 system.
 
-The reduced mechanism audit gives $\Delta T=+0.165$ for Delta-Hull, $+0.143$
-for source rollout, $+0.109$ for diagonal-covariance IC-SARR, $+0.183$ for
-ungated rollout, and $+0.170$ for IC-SARR. The post-hoc calibration audit
-contains 4,620 decision states and 1,944 accepted deviations; predicted versus
-realized Spearman correlations are 0.2469 for $T$ and 0.0406 for $F$, with an
-83.02\% complete-pool false-positive rate among accepted deviations. These
-calibration numbers are diagnostics opened after the traces and are not policy
-feedback.
+The source-relative reduced mechanism values are descriptive: $\Delta T=+0.165$
+for Delta-Hull, $+0.143$ for source rollout, $+0.109$ for diagonal-covariance
+IC-SARR, $+0.183$ for ungated rollout, and $+0.170$ for IC-SARR. A direct
+paired re-analysis of the same 230 systems gives IC-SARR minus Delta-Hull
+$\Delta T=+0.0043$ (95\% CI $[-0.0609,+0.0696]$, sign-flip $p=1.0000$,
+22/187/21), IC-SARR minus ungated rollout $-0.0130$ (CI
+$[-0.0565,+0.0304]$, $p=0.6930$, 10/208/12), and IC-SARR minus diagonal
+covariance $+0.0609$ (CI $[+0.0043,+0.1217]$, $p=0.0601$, 29/185/16).
+The corresponding $(\Delta F,\Delta D,\Delta t)$ values are
+$(+0.0174,+0.2391,+8.698\,s)$, $(0.0000,-0.1522,+3.768\,s)$, and
+$(+0.0609,+0.1870,-1.042\,s)$, respectively. Incremental $T$/second is
+$+0.000500$ versus Delta-Hull and $-0.003462$ versus ungated rollout; it is
+undefined for the diagonal contrast because IC-SARR is faster.
 
-The result strengthens the delayed full-pool mechanism signal and the role of
-joint posterior worlds, but it does not establish final-causal, cost-aware,
-deployment, runtime, or universal superiority. The numerical gate remains an
-integration-error safeguard, not a posterior-calibration theorem.
+Thus terminal $T$ is indistinguishable between IC-SARR and Delta-Hull or
+ungated rollout on this roster. The joint-versus-diagonal contrast is
+suggestive but not confirmatory evidence for a covariance contribution, and
+the numerical gate does not improve terminal $T$ here. The post-hoc calibration
+audit contains 4,620 decision states and 1,944 accepted deviations; predicted
+versus realized Spearman correlations are 0.2469 for $T$ and 0.0406 for $F$,
+with an 83.02\% complete-pool false-positive rate among accepted deviations.
+These calibration numbers are diagnostics opened after the traces and are not
+policy feedback. None of these results establishes final-causal, cost-aware,
+deployment, runtime, or universal superiority.
+
+The direct paired artifact is external to Git at
+`E:\DATA\EviMem-RL\analysis\matpes_ic_sarr_mechanism_reduced_v1_20260802\derived_direct_mechanism_comparisons_v1.json`,
+SHA-256
+`54a86971d849002537db2e25335b1f7c799dcf956144b5a25657b13f62eec9d2`.
 
 ## Superseded, invalid and incomplete evidence
 

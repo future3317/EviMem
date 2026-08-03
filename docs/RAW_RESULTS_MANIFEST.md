@@ -39,6 +39,7 @@ same frozen inputs and registered code:
 | `/home/workspace/lrh/DATA/EviMem-RL/analysis/matpes_ic_sarr_mechanism_reduced_v1_20260802/derived_summary_reduced_v1.json` | 232,812 | `d9607180cb769896a68c7544d60ac97a50e5b3ad420ebb8e98cb8056fbc9d6ab` | complete; superseded for manuscript mechanism mapping |
 | `E:\DATA\EviMem-RL\analysis\matpes_ic_sarr_mechanism_reduced_v1_20260802\derived_summary_reduced_v2_corrected.json` | 241,692 | `4923624a86d00be55d422960f48263b3fdf06123f78cf92ce1398af2050e2c87` | complete; corrected post-processing mapping |
 | `/home/workspace/lrh/DATA/EviMem-RL/analysis/matpes_ic_sarr_mechanism_v3_20260802/derived_ic_sarr_calibration_v3.json` | 1,768,548 | `a21b41b4912f35cf82043ceda7bbf8961f8e7ead3f938a5b4d78d41f60cdec0b` | complete |
+| `E:\DATA\EviMem-RL\analysis\matpes_ic_sarr_mechanism_reduced_v1_20260802\derived_direct_mechanism_comparisons_v1.json` | 111,515 | `54a86971d849002537db2e25335b1f7c799dcf956144b5a25657b13f62eec9d2` | complete; direct same-system mechanism contrasts |
 
 The calibration audit initially exposed and then fixed a task-schema adapter
 bug: initial reference phases store corrected total energy and composition,

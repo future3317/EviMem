@@ -23,14 +23,35 @@ $\Delta(D-F)=+0.322$, and $\Delta(F-T)=-0.161$.  The core B=6 wall-time
 difference is $+11.28$ seconds/system; the reduced amendment reports
 $+11.02$ seconds/system for the same IC-SARR comparison.
 
-The reduced B=6 audit gives $\Delta T=+0.165$ for Delta-Hull, $+0.143$ for
-source rollout, $+0.109$ for diagonal-covariance IC-SARR, $+0.183$ for
-ungated rollout, and $+0.170$ for IC-SARR.  A post-hoc audit of 4,620
-decision states reports predicted-versus-realized Spearman correlations
-$0.2469$ for $T$ and $0.0406$ for $F$, with an $83.02\%$ complete-pool
-false-positive rate among accepted deviations.  These are development
-mechanism and calibration diagnostics; they do not establish final-causal,
-cost-aware, deployment, or universal superiority.
+The source-relative B=6 audit gives $\Delta T=+0.165$ for Delta-Hull,
+$+0.143$ for source rollout, $+0.109$ for diagonal-covariance IC-SARR,
+$+0.183$ for ungated rollout, and $+0.170$ for IC-SARR.  These separate
+source-relative values are descriptive and are not used to attribute component
+importance.  A direct paired re-analysis on the same 230 systems gives:
+
+| Direct contrast (IC-SARR minus comparator) | $\Delta T$ | 95\% CI | sign-flip $p$ | W/T/L | $\Delta F$ | $\Delta D$ | $\Delta t$ (s/system) |
+|---|---:|---|---:|---:|---:|---:|---:|
+| Delta-Hull | +0.0043 | [-0.0609,+0.0696] | 1.0000 | 22/187/21 | +0.0174 | +0.2391 | +8.698 |
+| Ungated SARR | -0.0130 | [-0.0565,+0.0304] | 0.6930 | 10/208/12 | +0.0000 | -0.1522 | +3.768 |
+| Diagonal covariance | +0.0609 | [+0.0043,+0.1217] | 0.0601 | 29/185/16 | +0.0609 | +0.1870 | -1.042 |
+
+The corresponding paired 95\% intervals are $[-0.0261,+0.0652]$ and
+$[+0.1348,+0.3478]$ for $(\Delta F,\Delta D)$ versus Delta-Hull,
+$[-0.0261,+0.0261]$ and $[-0.2304,-0.0783]$ versus ungated SARR, and
+$[+0.0217,+0.1043]$ and $[+0.0826,+0.2870]$ versus diagonal covariance.
+Incremental efficiency $\Delta T/\Delta t$ is $+0.000500$ for Delta-Hull and
+$-0.003462$ for ungated SARR; it is not defined for the diagonal contrast
+because IC-SARR is faster.  Thus IC-SARR is indistinguishable from Delta-Hull
+and ungated rollout on terminal $T$ in this roster.  The joint-versus-diagonal
+contrast is positive and has a bootstrap interval above zero, but its
+sign-flip test is $p=0.0601$; it is suggestive, not confirmatory, evidence for
+a joint-covariance contribution.  The gate does not improve terminal $T$ here.
+
+A post-hoc audit of 4,620 decision states reports predicted-versus-realized
+Spearman correlations $0.2469$ for $T$ and $0.0406$ for $F$, with an $83.02\%$
+complete-pool false-positive rate among accepted deviations.  These are
+development mechanism and calibration diagnostics; they do not establish
+final-causal, cost-aware, deployment, or universal superiority.
 
 The corrected external summary used for manuscript post-processing is
 `E:\DATA\EviMem-RL\analysis\matpes_ic_sarr_mechanism_reduced_v1_20260802\derived_summary_reduced_v2_corrected.json`
@@ -39,6 +60,11 @@ The corrected external summary used for manuscript post-processing is
 Its `F-T` field uses the runner's `unqueried_competitor_invalidations`; the
 older summary artifact had mislabeled the broader `D-T` field and is retained
 only as an external audit artifact.
+
+The direct paired comparison artifact is
+`E:\DATA\EviMem-RL\analysis\matpes_ic_sarr_mechanism_reduced_v1_20260802\derived_direct_mechanism_comparisons_v1.json`
+(SHA-256
+`54a86971d849002537db2e25335b1f7c799dcf956144b5a25657b13f62eec9d2`).
 
 ## Frozen comparison
 

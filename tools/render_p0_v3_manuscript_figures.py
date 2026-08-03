@@ -294,6 +294,51 @@ def render_ablation(summary: dict[str, Any], output: Path) -> None:
     _save(figure, output)
 
 
+def render_direct_mechanism_comparisons(direct_summary: dict[str, Any], output: Path) -> None:
+    order = [
+        ("ic_sarr_vs_delta_hull", "IC-SARR\nvs Delta-Hull"),
+        ("ic_sarr_vs_ungated_sarr", "IC-SARR\nvs Ungated SARR"),
+        ("ic_sarr_vs_diagonal_covariance", "IC-SARR\nvs Diagonal covariance"),
+    ]
+    means: list[float] = []
+    lower: list[float] = []
+    upper: list[float] = []
+    p_values: list[float] = []
+    for key, _ in order:
+        paired = direct_summary["comparisons"][key]["metrics"]["T"]["direct_paired"]
+        means.append(float(paired["paired_mean_difference"]))
+        lower.append(means[-1] - float(paired["paired_bootstrap_95ci"][0]))
+        upper.append(float(paired["paired_bootstrap_95ci"][1]) - means[-1])
+        p_values.append(float(paired["two_sided_sign_flip_p"]))
+    figure, axis = plt.subplots(figsize=(7.0, 2.8), constrained_layout=True)
+    positions = np.arange(len(order))
+    colors = [POSITIVE, NEGATIVE, IC]
+    axis.axhline(0, color=SOURCE, lw=0.8)
+    axis.errorbar(
+        positions,
+        means,
+        yerr=[lower, upper],
+        fmt="none",
+        color=INK,
+        capsize=3,
+        lw=1.0,
+    )
+    axis.scatter(positions, means, color=colors, s=40, zorder=3)
+    for position, mean, p_value in zip(positions, means, p_values, strict=True):
+        label = f"{mean:+.3f}\np={p_value:.3f}"
+        offset = 0.012 if mean >= 0.0 else -0.016
+        axis.text(position, mean + offset, label, ha="center", va="bottom" if mean >= 0.0 else "top", fontsize=6.7)
+    axis.set(
+        xticks=positions,
+        xticklabels=[label for _, label in order],
+        ylabel=r"Direct paired $\,\Delta T$ / system",
+        title="Direct MatPES mechanism contrasts (B=6; 230 systems)",
+        ylim=(-0.10, 0.15),
+    )
+    axis.grid(axis="y", alpha=0.22)
+    _save(figure, output)
+
+
 def render_calibration(calibration_path: Path, output: Path) -> None:
     payload = json.loads(calibration_path.read_text(encoding="utf-8"))
     summary = payload["summary"]
@@ -333,15 +378,18 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--core-root", type=Path, required=True)
     parser.add_argument("--summary", type=Path, required=True)
+    parser.add_argument("--direct-summary", type=Path, required=True)
     parser.add_argument("--calibration", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
     args = parser.parse_args()
     summary = json.loads(args.summary.read_text(encoding="utf-8"))
+    direct_summary = json.loads(args.direct_summary.read_text(encoding="utf-8"))
     rows = load_core_b6_rows(args.core_root)
     render_effects(rows, summary, args.output_dir / "matpes_b6_effects.pdf")
     render_waterfall(summary, args.output_dir / "matpes_dft_waterfall.pdf")
     render_budget_curve(summary, args.output_dir / "matpes_budget_curve.pdf")
     render_ablation(summary, args.output_dir / "matpes_mechanism_ablation.pdf")
+    render_direct_mechanism_comparisons(direct_summary, args.output_dir / "matpes_direct_mechanism_comparisons.pdf")
     render_calibration(args.calibration, args.output_dir / "matpes_rollout_calibration.pdf")
 
 
