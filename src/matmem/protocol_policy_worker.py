@@ -9,6 +9,7 @@ import sys
 from pathlib import Path
 
 import numpy as np
+from scipy.special import ndtr
 
 # Allow this standalone script to import the matmem package when it is invoked
 # directly by the secure runner.  The parent of this file's directory is the
@@ -23,6 +24,7 @@ from matmem.protocol_acquisition import (
     conformal_one_deviation_source_rollout,
     constrained_dual_horizon_source_rollout,
     delta_hull_active_search,
+    delta_hull_anchored_rollout,
     diagonal_independent_confirmation_source_rollout,
     independent_confirmation_source_rollout,
     independent_world_confirmation_source_rollout,
@@ -109,9 +111,11 @@ def select(
         "ridge_uncertainty",
         "ridge_predicted_final_margin",
         "posterior_mean_target_margin",
+        "posterior_current_hull_probability",
         "delta_hull_active_search",
         "ungated_source_rollout",
         "source_rollout_delta_hull",
+        "delta_hull_anchored_rollout",
         "diagonal_ic_sarr",
         "independent_mc_ic_sarr",
         "constrained_dual_horizon_source_rollout",
@@ -149,8 +153,10 @@ def select(
         if policy in {
             "delta_hull_active_search",
             "posterior_mean_target_margin",
+            "posterior_current_hull_probability",
             "ungated_source_rollout",
             "source_rollout_delta_hull",
+            "delta_hull_anchored_rollout",
             "diagonal_ic_sarr",
             "independent_mc_ic_sarr",
             "constrained_dual_horizon_source_rollout",
@@ -236,12 +242,16 @@ def select(
                     )
                     return str(queries[source_index]["pair_id"])
                 if policy == "posterior_mean_target_margin":
-                    posterior_margins = np.asarray(posterior.mean, dtype=np.float64) - arguments[
-                        "current_competing_hull_energies"
-                    ]
+                    posterior_margins = (
+                        np.asarray(posterior.mean, dtype=np.float64)
+                        - arguments["current_competing_hull_energies"]
+                    )
                     selected_index = min(
                         range(len(queries)),
-                        key=lambda index: (posterior_margins[index], str(queries[index]["pair_id"])),
+                        key=lambda index: (
+                            posterior_margins[index],
+                            str(queries[index]["pair_id"]),
+                        ),
                     )
                     if diagnostics is not None:
                         diagnostics.update(
@@ -251,6 +261,38 @@ def select(
                                 "candidate_pair_ids": tuple(str(row["pair_id"]) for row in queries),
                                 "posterior_mean_target_margins": {
                                     str(row["pair_id"]): float(posterior_margins[index])
+                                    for index, row in enumerate(queries)
+                                },
+                                "selected_pair_id": str(queries[selected_index]["pair_id"]),
+                            }
+                        )
+                    return str(queries[selected_index]["pair_id"])
+                if policy == "posterior_current_hull_probability":
+                    posterior_variance = np.maximum(
+                        np.diag(np.asarray(posterior.covariance)), 1e-12
+                    )
+                    current_hull_probability = ndtr(
+                        (
+                            arguments["current_competing_hull_energies"]
+                            - np.asarray(posterior.mean, dtype=np.float64)
+                        )
+                        / np.sqrt(posterior_variance)
+                    )
+                    selected_index = min(
+                        range(len(queries)),
+                        key=lambda index: (
+                            -float(current_hull_probability[index]),
+                            str(queries[index]["pair_id"]),
+                        ),
+                    )
+                    if diagnostics is not None:
+                        diagnostics.update(
+                            {
+                                "diagnostic_schema_version": 1,
+                                "kind": "posterior_current_hull_probability",
+                                "candidate_pair_ids": tuple(str(row["pair_id"]) for row in queries),
+                                "current_hull_probabilities": {
+                                    str(row["pair_id"]): float(current_hull_probability[index])
                                     for index, row in enumerate(queries)
                                 },
                                 "selected_pair_id": str(queries[selected_index]["pair_id"]),
@@ -277,7 +319,9 @@ def select(
                         query_ids=tuple(str(row["pair_id"]) for row in queries),
                         reference_compositions=hull_arguments["reference_compositions"],
                         reference_energies=hull_arguments["reference_energies"],
-                        current_competing_hull_energies=arguments["current_competing_hull_energies"],
+                        current_competing_hull_energies=arguments[
+                            "current_competing_hull_energies"
+                        ],
                         costs=hull_arguments["costs"],
                         remaining_budget=float(payload["remaining_budget"]),
                         posterior_sample_count=hull_arguments["posterior_sample_count"],
@@ -495,6 +539,45 @@ def select(
                             }
                         )
                     return str(queries[result.selected_action_index]["pair_id"])
+                elif policy == "delta_hull_anchored_rollout":
+                    result = delta_hull_anchored_rollout(
+                        posterior,
+                        query_compositions=hull_arguments["query_compositions"],
+                        query_ids=tuple(str(row["pair_id"]) for row in queries),
+                        reference_compositions=hull_arguments["reference_compositions"],
+                        reference_energies=hull_arguments["reference_energies"],
+                        costs=hull_arguments["costs"],
+                        remaining_budget=float(payload["remaining_budget"]),
+                        posterior_sample_count=hull_arguments["posterior_sample_count"],
+                        continuation_sample_count=max(
+                            16, hull_arguments["posterior_sample_count"] // 16
+                        ),
+                        seed=hull_arguments["seed"],
+                        fixed_template=fixed_template,
+                    )
+                    if diagnostics is not None:
+                        query_ids = tuple(str(row["pair_id"]) for row in queries)
+                        diagnostics.update(
+                            {
+                                "diagnostic_schema_version": 1,
+                                "kind": "delta_hull_anchored_rollout",
+                                "candidate_pair_ids": query_ids,
+                                "selected_pair_id": query_ids[result.selected_action_index],
+                                "delta_hull_action_id": query_ids[result.delta_hull_action_index],
+                                "rollout_scores": result.scores,
+                                "delta_hull_scores": result.delta_hull_scores,
+                                "rank_margin": result.rank_margin,
+                                "rank_switch_probability": result.rank_switch_probability,
+                                "rank_switch_by_candidate": result.rank_switch_by_candidate,
+                                "coupling_score": result.coupling_score,
+                                "coupling_score_normalized": result.coupling_score_normalized,
+                                "cross_candidate_influence": result.cross_candidate_influence,
+                                "horizon": result.horizon,
+                                "posterior_sample_count": result.posterior_sample_count,
+                                "continuation_sample_count": result.continuation_sample_count,
+                            }
+                        )
+                    return str(queries[result.selected_action_index]["pair_id"])
                 elif policy in {"diagonal_ic_sarr", "independent_mc_ic_sarr"}:
                     function = (
                         diagonal_independent_confirmation_source_rollout
@@ -508,7 +591,9 @@ def select(
                         query_ids=tuple(str(row["pair_id"]) for row in queries),
                         reference_compositions=hull_arguments["reference_compositions"],
                         reference_energies=hull_arguments["reference_energies"],
-                        current_competing_hull_energies=arguments["current_competing_hull_energies"],
+                        current_competing_hull_energies=arguments[
+                            "current_competing_hull_energies"
+                        ],
                         costs=hull_arguments["costs"],
                         remaining_budget=float(payload["remaining_budget"]),
                         stage_one_posterior_sample_count=1024,
@@ -651,9 +736,11 @@ def main() -> None:
             "ridge_uncertainty",
             "ridge_predicted_final_margin",
             "posterior_mean_target_margin",
+            "posterior_current_hull_probability",
             "delta_hull_active_search",
             "ungated_source_rollout",
             "source_rollout_delta_hull",
+            "delta_hull_anchored_rollout",
             "diagonal_ic_sarr",
             "independent_mc_ic_sarr",
             "constrained_dual_horizon_source_rollout",

@@ -495,6 +495,7 @@ class ProtocolPolicySubprocess(PersistentWorkerSubprocess):
         if self.policy in {
             ProtocolPolicy.UNGATED_SOURCE_ROLLOUT,
             ProtocolPolicy.SOURCE_ROLLOUT_DELTA_HULL,
+            ProtocolPolicy.DELTA_HULL_ANCHORED_ROLLOUT,
             ProtocolPolicy.DIAGONAL_IC_SARR,
             ProtocolPolicy.INDEPENDENT_MC_IC_SARR,
             ProtocolPolicy.CONSTRAINED_DUAL_HORIZON_SOURCE_ROLLOUT,

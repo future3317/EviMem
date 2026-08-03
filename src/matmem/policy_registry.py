@@ -15,9 +15,11 @@ class ProtocolPolicy(StrEnum):
     RANDOM = "random"
     SOURCE_MARGIN = "source_margin"
     POSTERIOR_MEAN_TARGET_MARGIN = "posterior_mean_target_margin"
+    POSTERIOR_CURRENT_HULL_PROBABILITY = "posterior_current_hull_probability"
     DELTA_HULL_ACTIVE_SEARCH = "delta_hull_active_search"
     UNGATED_SOURCE_ROLLOUT = "ungated_source_rollout"
     SOURCE_ROLLOUT_DELTA_HULL = "source_rollout_delta_hull"
+    DELTA_HULL_ANCHORED_ROLLOUT = "delta_hull_anchored_rollout"
     DIAGONAL_IC_SARR = "diagonal_ic_sarr"
     INDEPENDENT_MC_IC_SARR = "independent_mc_ic_sarr"
     CONSTRAINED_DUAL_HORIZON_SOURCE_ROLLOUT = "constrained_dual_horizon_source_rollout"
@@ -38,8 +40,10 @@ class ProtocolPolicy(StrEnum):
         return {
             cls.DELTA_HULL_ACTIVE_SEARCH,
             cls.POSTERIOR_MEAN_TARGET_MARGIN,
+            cls.POSTERIOR_CURRENT_HULL_PROBABILITY,
             cls.UNGATED_SOURCE_ROLLOUT,
             cls.SOURCE_ROLLOUT_DELTA_HULL,
+            cls.DELTA_HULL_ANCHORED_ROLLOUT,
             cls.DIAGONAL_IC_SARR,
             cls.INDEPENDENT_MC_IC_SARR,
             cls.CONSTRAINED_DUAL_HORIZON_SOURCE_ROLLOUT,

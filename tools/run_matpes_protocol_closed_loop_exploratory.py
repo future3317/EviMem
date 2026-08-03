@@ -628,6 +628,7 @@ def run(
                     in {
                         ProtocolPolicy.UNGATED_SOURCE_ROLLOUT.value,
                         ProtocolPolicy.SOURCE_ROLLOUT_DELTA_HULL.value,
+                        ProtocolPolicy.DELTA_HULL_ANCHORED_ROLLOUT.value,
                         ProtocolPolicy.DIAGONAL_IC_SARR.value,
                         ProtocolPolicy.INDEPENDENT_MC_IC_SARR.value,
                         ProtocolPolicy.CONSTRAINED_DUAL_HORIZON_SOURCE_ROLLOUT.value,

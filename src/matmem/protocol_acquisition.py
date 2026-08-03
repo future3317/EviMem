@@ -98,6 +98,27 @@ class SourceRolloutDeltaHullResult(BaseModel):
     fallback_reason: str | None = None
 
 
+class DeltaHullAnchoredRolloutResult(BaseModel):
+    """Full-budget rollout using repeated Delta-Hull continuation."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    scores: tuple[float, ...]
+    final_stability_probabilities: tuple[float, ...]
+    delta_hull_scores: tuple[float, ...]
+    selected_action_index: int = Field(ge=0)
+    delta_hull_action_index: int = Field(ge=0)
+    posterior_sample_count: int = Field(gt=0)
+    continuation_sample_count: int = Field(gt=0)
+    horizon: int = Field(gt=0)
+    rank_margin: float = Field(ge=0)
+    rank_switch_probability: float = Field(ge=0, le=1)
+    coupling_score: float = Field(ge=0)
+    coupling_score_normalized: float = Field(ge=0)
+    cross_candidate_influence: tuple[tuple[float, ...], ...]
+    rank_switch_by_candidate: tuple[float, ...]
+
+
 class DualHorizonSourceRolloutResult(BaseModel):
     """Source-rollout action values under terminal and causal horizons.
 
@@ -317,7 +338,9 @@ def _source_rollout_rewards(
     else:
         causal_values = None
     geometry_cache: dict[tuple[int, ...], _CausalHullEnvelope] = {}
-    causal_geometry_cache: dict[tuple[int, ...], tuple[FixedCompositionHullTemplate, FixedHullRuntimePlan]] = {}
+    causal_geometry_cache: dict[
+        tuple[int, ...], tuple[FixedCompositionHullTemplate, FixedHullRuntimePlan]
+    ] = {}
 
     def geometry(selected: tuple[int, ...]) -> _CausalHullEnvelope:
         cached = geometry_cache.get(selected)
@@ -738,8 +761,289 @@ def ungated_source_rollout_delta_hull(
     return gated.model_copy(
         update={
             "selected_action_index": selected,
-            "fallback_reason": None if selected != gated.source_action_index else "ungated_score_tie_to_source",
+            "fallback_reason": None
+            if selected != gated.source_action_index
+            else "ungated_score_tie_to_source",
         }
+    )
+
+
+def _conditioned_posterior_subset(
+    posterior: ProtocolTargetEnergyPosterior,
+    *,
+    observed_indices: Sequence[int],
+    observed_values: Sequence[float],
+    remaining_indices: Sequence[int],
+) -> ProtocolTargetEnergyPosterior:
+    """Condition a Gaussian pool posterior on simulated legal reveals."""
+
+    mean = np.asarray(posterior.mean, dtype=np.float64)
+    covariance = np.asarray(posterior.covariance, dtype=np.float64)
+    observed = np.asarray(tuple(observed_indices), dtype=np.int64)
+    values = np.asarray(tuple(observed_values), dtype=np.float64)
+    remaining = np.asarray(tuple(remaining_indices), dtype=np.int64)
+    if len(observed) != len(values) or len(set(observed.tolist())) != len(observed):
+        raise ValueError("conditional posterior observations are invalid")
+    if len(remaining) == 0 or np.any(remaining < 0) or np.any(remaining >= len(mean)):
+        raise ValueError("conditional posterior remaining indices are invalid")
+    if len(observed) == 0:
+        conditional_mean = mean[remaining]
+        conditional_covariance = covariance[np.ix_(remaining, remaining)]
+    else:
+        observed_covariance = covariance[np.ix_(observed, observed)]
+        observed_covariance = observed_covariance + 1e-12 * np.eye(len(observed))
+        cross = covariance[np.ix_(remaining, observed)]
+        innovation = values - mean[observed]
+        solved = np.linalg.solve(observed_covariance, innovation)
+        conditional_mean = mean[remaining] + cross @ solved
+        conditional_covariance = covariance[np.ix_(remaining, remaining)] - cross @ np.linalg.solve(
+            observed_covariance, cross.T
+        )
+    conditional_covariance = 0.5 * (conditional_covariance + conditional_covariance.T)
+    return ProtocolTargetEnergyPosterior(
+        mean=tuple(float(value) for value in conditional_mean),
+        covariance=tuple(tuple(float(value) for value in row) for row in conditional_covariance),
+        system_offset_mean=posterior.system_offset_mean,
+        system_offset_variance=posterior.system_offset_variance,
+        history_count=posterior.history_count + len(observed),
+    )
+
+
+def posterior_rank_diagnostics(
+    posterior: ProtocolTargetEnergyPosterior,
+    *,
+    query_compositions: Sequence[dict[str, float]],
+    query_ids: Sequence[str],
+    reference_compositions: Sequence[dict[str, float]],
+    reference_energies: np.ndarray,
+    posterior_sample_count: int = 64,
+    conditional_sample_count: int = 8,
+    observation_count: int = 2,
+    seed: int = 0,
+    fixed_template: FixedCompositionHullTemplate | None = None,
+) -> dict[str, object]:
+    """Measure posterior rank instability and cross-candidate influence.
+
+    The influence estimate averages the absolute change in each candidate's
+    hull-membership probability after conditioning on a small, registered set
+    of posterior observations of another candidate.  It is a posterior-only
+    diagnostic: no oracle outcome is read.
+    """
+
+    if len(query_compositions) != len(query_ids) or len(query_ids) < 2:
+        raise ValueError("rank diagnostics require at least two unique candidates")
+    if len(set(query_ids)) != len(query_ids):
+        raise ValueError("rank diagnostic candidate IDs must be unique")
+    if posterior_sample_count < 4 or conditional_sample_count < 2 or observation_count < 1:
+        raise ValueError("rank diagnostic sample counts are too small")
+    mean = np.asarray(posterior.mean, dtype=np.float64)
+    covariance = np.asarray(posterior.covariance, dtype=np.float64)
+    samples = _sample_gaussian(mean, covariance, sample_count=posterior_sample_count, seed=seed)
+    labels = _final_hull_membership(
+        query_compositions=query_compositions,
+        sampled_query_energies=samples,
+        reference_compositions=reference_compositions,
+        reference_energies=np.asarray(reference_energies, dtype=np.float64),
+        fixed_template=fixed_template,
+    )
+    probabilities = labels.mean(axis=0)
+    ranking = sorted(
+        range(len(query_ids)), key=lambda index: (-probabilities[index], str(query_ids[index]))
+    )
+    top_index = ranking[0]
+    rank_margin = float(probabilities[ranking[0]] - probabilities[ranking[1]])
+    influence = np.zeros((len(query_ids), len(query_ids)), dtype=np.float64)
+    rank_switch_by_candidate = np.zeros(len(query_ids), dtype=np.float64)
+    for observed_index in range(len(query_ids)):
+        remaining = tuple(index for index in range(len(query_ids)) if index != observed_index)
+        observation_positions = np.linspace(0, len(samples) - 1, observation_count, dtype=int)
+        switches = 0
+        for position in observation_positions:
+            conditioned = _conditioned_posterior_subset(
+                posterior,
+                observed_indices=(observed_index,),
+                observed_values=(float(samples[position, observed_index]),),
+                remaining_indices=remaining,
+            )
+            conditional_samples = _sample_gaussian(
+                np.asarray(conditioned.mean),
+                np.asarray(conditioned.covariance),
+                sample_count=conditional_sample_count,
+                seed=seed + 15485863 * (observed_index + 1) + int(position),
+            )
+            full_samples = np.empty((conditional_sample_count, len(query_ids)), dtype=np.float64)
+            full_samples[:, observed_index] = samples[position, observed_index]
+            full_samples[:, np.asarray(remaining, dtype=np.int64)] = conditional_samples
+            conditional_labels = _final_hull_membership(
+                query_compositions=query_compositions,
+                sampled_query_energies=full_samples,
+                reference_compositions=reference_compositions,
+                reference_energies=np.asarray(reference_energies, dtype=np.float64),
+                fixed_template=fixed_template,
+            )
+            conditional_probabilities = conditional_labels.mean(axis=0)
+            influence[observed_index] += np.abs(conditional_probabilities - probabilities)
+            conditional_order = sorted(
+                remaining,
+                key=lambda index: (-conditional_probabilities[index], str(query_ids[index])),
+            )
+            baseline_order = sorted(
+                remaining,
+                key=lambda index: (-probabilities[index], str(query_ids[index])),
+            )
+            switches += int(conditional_order[0] != baseline_order[0])
+        influence[observed_index] /= float(len(observation_positions))
+        influence[observed_index, observed_index] = 0.0
+        rank_switch_by_candidate[observed_index] = switches / float(len(observation_positions))
+    coupling_scores = influence.sum(axis=1)
+    coupling_score = float(np.max(coupling_scores))
+    coupling_score_normalized = float(coupling_score / max(len(query_ids) - 1, 1))
+    return {
+        "posterior_final_hull_probabilities": tuple(float(value) for value in probabilities),
+        "posterior_rank_top_pair_id": str(query_ids[top_index]),
+        "posterior_rank_margin": rank_margin,
+        "posterior_rank_switch_probability": float(np.mean(rank_switch_by_candidate)),
+        "posterior_rank_switch_by_candidate": tuple(
+            float(value) for value in rank_switch_by_candidate
+        ),
+        "posterior_cross_candidate_influence": tuple(
+            tuple(float(value) for value in row) for row in influence
+        ),
+        "posterior_coupling_score": coupling_score,
+        "posterior_coupling_score_normalized": coupling_score_normalized,
+        "posterior_rank_diagnostic_sample_count": posterior_sample_count,
+        "posterior_conditional_sample_count": conditional_sample_count,
+        "posterior_observation_count": observation_count,
+    }
+
+
+def delta_hull_anchored_rollout(
+    posterior: ProtocolTargetEnergyPosterior,
+    *,
+    query_compositions: Sequence[dict[str, float]],
+    query_ids: Sequence[str],
+    reference_compositions: Sequence[dict[str, float]],
+    reference_energies: np.ndarray,
+    costs: np.ndarray,
+    remaining_budget: float,
+    posterior_sample_count: int = 128,
+    continuation_sample_count: int = 32,
+    seed: int = 0,
+    fixed_template: FixedCompositionHullTemplate | None = None,
+    diagnostic_sample_count: int = 32,
+) -> DeltaHullAnchoredRolloutResult:
+    """Roll out every first action with repeated conditional Delta-Hull.
+
+    Each fantasy branch reveals only the sampled energy of the actions it has
+    selected.  The next action is recomputed from the Gaussian posterior
+    conditioned on those simulated reveals; unrevealed world coordinates are
+    never used for policy selection.  The initial fantasy worlds are common
+    across first actions.
+    """
+
+    size = len(posterior.mean)
+    if len(query_compositions) != size or len(query_ids) != size:
+        raise ValueError("Delta-Hull anchored rollout inputs disagree")
+    item_costs = np.asarray(costs, dtype=np.float64).reshape(-1)
+    if len(item_costs) != size or not np.allclose(item_costs, item_costs[0], atol=1e-12):
+        raise ValueError("Delta-Hull anchored rollout requires equal costs")
+    if remaining_budget < item_costs[0]:
+        raise ValueError("rollout budget cannot pay for one query")
+    horizon = min(size, int(math.floor((remaining_budget + 1e-12) / item_costs[0])))
+    mean = np.asarray(posterior.mean, dtype=np.float64)
+    covariance = np.asarray(posterior.covariance, dtype=np.float64)
+    samples = _sample_gaussian(mean, covariance, sample_count=posterior_sample_count, seed=seed)
+    labels = _final_hull_membership(
+        query_compositions=query_compositions,
+        sampled_query_energies=samples,
+        reference_compositions=reference_compositions,
+        reference_energies=np.asarray(reference_energies, dtype=np.float64),
+        fixed_template=fixed_template,
+    )
+    delta_result = delta_hull_active_search(
+        posterior,
+        query_compositions=query_compositions,
+        reference_compositions=reference_compositions,
+        reference_energies=reference_energies,
+        costs=item_costs,
+        posterior_sample_count=continuation_sample_count,
+        seed=seed + 32452843,
+        fixed_template=fixed_template,
+    )
+    rewards = np.empty((posterior_sample_count, size), dtype=np.float64)
+    for sample_index in range(posterior_sample_count):
+        for first_action in range(size):
+            selected = [first_action]
+            observed_values = [float(samples[sample_index, first_action])]
+            for _ in range(1, horizon):
+                remaining = tuple(index for index in range(size) if index not in selected)
+                if not remaining:
+                    break
+                conditioned = _conditioned_posterior_subset(
+                    posterior,
+                    observed_indices=selected,
+                    observed_values=observed_values,
+                    remaining_indices=remaining,
+                )
+                dynamic_reference_compositions = tuple(reference_compositions) + tuple(
+                    query_compositions[index] for index in selected
+                )
+                dynamic_reference_energies = np.concatenate(
+                    (
+                        np.asarray(reference_energies, dtype=np.float64),
+                        samples[sample_index, np.asarray(selected, dtype=np.int64)],
+                    )
+                )
+                continuation = delta_hull_active_search(
+                    conditioned,
+                    query_compositions=tuple(query_compositions[index] for index in remaining),
+                    reference_compositions=dynamic_reference_compositions,
+                    reference_energies=dynamic_reference_energies,
+                    costs=item_costs[np.asarray(remaining, dtype=np.int64)],
+                    posterior_sample_count=continuation_sample_count,
+                    seed=seed + 1009 * (sample_index + 1) + 15485863 * len(selected),
+                    fixed_template=None,
+                )
+                local_index = min(
+                    range(len(remaining)),
+                    key=lambda local: (
+                        -continuation.scores[local],
+                        str(query_ids[remaining[local]]),
+                    ),
+                )
+                next_action = int(remaining[local_index])
+                selected.append(next_action)
+                observed_values.append(float(samples[sample_index, next_action]))
+            rewards[sample_index, first_action] = labels[sample_index, selected].sum()
+    scores = rewards.mean(axis=0)
+    selected_action = min(range(size), key=lambda index: (-scores[index], str(query_ids[index])))
+    diagnostics = posterior_rank_diagnostics(
+        posterior,
+        query_compositions=query_compositions,
+        query_ids=query_ids,
+        reference_compositions=reference_compositions,
+        reference_energies=reference_energies,
+        posterior_sample_count=max(diagnostic_sample_count, 4),
+        seed=seed + 7919,
+        fixed_template=fixed_template,
+    )
+    return DeltaHullAnchoredRolloutResult(
+        scores=tuple(float(value) for value in scores),
+        final_stability_probabilities=tuple(float(value) for value in labels.mean(axis=0)),
+        delta_hull_scores=tuple(float(value) for value in delta_result.scores),
+        selected_action_index=int(selected_action),
+        delta_hull_action_index=int(
+            min(range(size), key=lambda index: (-delta_result.scores[index], str(query_ids[index])))
+        ),
+        posterior_sample_count=posterior_sample_count,
+        continuation_sample_count=continuation_sample_count,
+        horizon=horizon,
+        rank_margin=float(diagnostics["posterior_rank_margin"]),
+        rank_switch_probability=float(diagnostics["posterior_rank_switch_probability"]),
+        coupling_score=float(diagnostics["posterior_coupling_score"]),
+        coupling_score_normalized=float(diagnostics["posterior_coupling_score_normalized"]),
+        cross_candidate_influence=diagnostics["posterior_cross_candidate_influence"],
+        rank_switch_by_candidate=diagnostics["posterior_rank_switch_by_candidate"],
     )
 
 
@@ -757,7 +1061,11 @@ def diagonal_independent_confirmation_source_rollout(
 
     covariance = np.asarray(posterior.covariance, dtype=np.float64)
     diagonal = posterior.model_copy(
-        update={"covariance": tuple(tuple(float(value) for value in row) for row in np.diag(np.diag(covariance)))}
+        update={
+            "covariance": tuple(
+                tuple(float(value) for value in row) for row in np.diag(np.diag(covariance))
+            )
+        }
     )
     return independent_confirmation_source_rollout(diagonal, **kwargs)  # type: ignore[arg-type]
 
@@ -807,9 +1115,9 @@ def _independent_world_stage_one(
     for action in range(size):
         samples = np.concatenate(
             tuple(
-                np.random.default_rng(seed + 104729 * block + 15485863 * (action + 1)).multivariate_normal(
-                    mean, covariance, size=block_size, check_valid="raise"
-                )
+                np.random.default_rng(
+                    seed + 104729 * block + 15485863 * (action + 1)
+                ).multivariate_normal(mean, covariance, size=block_size, check_valid="raise")
                 for block in range(sobol_scramble_count)
             ),
             axis=0,
@@ -854,7 +1162,9 @@ def _independent_world_stage_one(
             "paired_advantages_over_source": tuple(float(value) for value in advantages),
             "paired_advantage_lower_bounds": tuple(float(value) for value in lower_bounds),
             "selected_action_index": int(selected),
-            "fallback_reason": None if selected != checked.source_action_index else "no_positive_independent_world_lower_bound",
+            "fallback_reason": None
+            if selected != checked.source_action_index
+            else "no_positive_independent_world_lower_bound",
         }
     )
 
@@ -983,7 +1293,9 @@ def independent_world_confirmation_source_rollout(
         stage_one_posterior_sample_count=stage_one_posterior_sample_count,
         stage_two_posterior_sample_count=stage_two_posterior_sample_count,
         sobol_scramble_count=sobol_scramble_count,
-        fallback_reason=None if selected != source else "stage_two_independent_world_lower_bound_not_positive",
+        fallback_reason=None
+        if selected != source
+        else "stage_two_independent_world_lower_bound_not_positive",
     )
 
 
@@ -1248,8 +1560,7 @@ def independent_confirmation_source_rollout(
             np.asarray(posterior.covariance, dtype=np.float64),
             sample_count=block_size,
             seeds=tuple(
-                stage_two_seed + 104729 * block_index
-                for block_index in range(sobol_scramble_count)
+                stage_two_seed + 104729 * block_index for block_index in range(sobol_scramble_count)
             ),
         ),
         axis=0,

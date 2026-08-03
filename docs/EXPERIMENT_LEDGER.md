@@ -1168,6 +1168,32 @@ The direct paired artifact is external to Git at
 SHA-256
 `54a86971d849002537db2e25335b1f7c799dcf956144b5a25657b13f62eec9d2`.
 
+### E32. Delayed-label objective and lookahead follow-up (registered 2026-08-03)
+
+**Authorized new development/mechanism experiment; not external validation.**
+The user-authorized follow-up changes the failed attribution assumption from
+E31: a source-relative gain cannot identify whether the target objective,
+posterior transport, or rollout continuation caused the difference. The
+protocol is frozen in `docs/DELAYED_LABEL_FOLLOWUP_PROTOCOL_E32.md`.
+
+E32 adds one same-posterior current-hull probability comparator and one new
+`delta_hull_anchored_rollout` policy. The latter conditions only on simulated
+fantasy reveals and recomputes repeated myopic Delta-Hull continuation; it is
+not a modification of source-anchored SARR or IC-SARR. It also records
+posterior-only rank margin, rank-switch probability and cross-candidate
+influence before opening the next oracle outcome. The registered full suite
+uses the E31 task, vault, five-fold manifest, fixed-composition backend,
+hierarchical frozen-structure transport, seed `20270720`, posterior count
+1024, budgets `B=1..6`, and all eight predeclared policies.
+
+The E32 output root is external to Git under
+`E:\DATA\EviMem-RL\analysis\delayed_label_followup_e32_20260803\` (or the
+corresponding remote DATA root). No manuscript claim may change until every
+registered fold/budget output or explicit failure artifact is audited. A
+positive result can support only objective attribution or a predeclared
+coupling interaction; it cannot establish an external holdout, deployment
+superiority, cost-aware superiority or universal generalization.
+
 ## Superseded, invalid and incomplete evidence
 
 | Evidence | Required treatment |

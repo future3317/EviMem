@@ -32,7 +32,10 @@ evidence for this theory, not as a new state-compression result. IC-SARR has a
 source-relative development signal but no direct terminal-$T$ superiority over
 Delta-Hull or ungated SARR. See
 `docs/DELAYED_STRUCTURED_LABEL_THEORY.md` for the canonical theorem and claim
-matrix. No new experiment is authorized by this manuscript integration.
+matrix. The manuscript integration itself is closed; the separately
+registered, user-authorized E32 objective/lookahead follow-up is the only live
+new experiment and cannot change the claim matrix until its complete outputs
+are audited.
 
 The organizing principle is **Decision--Inference--Systems Alignment**. A
 bounded scientific-state claim must simultaneously preserve the registered

@@ -19,10 +19,12 @@ from matmem.protocol_acquisition import (
     conformal_one_deviation_source_rollout,
     constrained_dual_horizon_source_rollout,
     delta_hull_active_search,
+    delta_hull_anchored_rollout,
     diagonal_independent_confirmation_source_rollout,
     fit_conformal_source_rollout_calibration,
     independent_confirmation_source_rollout,
     independent_world_confirmation_source_rollout,
+    posterior_rank_diagnostics,
     protocol_hull_knowledge_gradient,
     protocol_hull_risk_reduction,
     source_rollout_delta_hull,
@@ -690,6 +692,46 @@ def test_delta_hull_active_search_prefers_final_support_phase() -> None:
     )
     assert result.final_stability_probabilities == pytest.approx((1.0, 0.0))
     assert np.argmax(result.scores) == 0
+
+
+def test_delta_hull_anchored_rollout_records_rank_and_coupling_diagnostics() -> None:
+    kwargs = _ic_kwargs()
+    result = delta_hull_anchored_rollout(
+        kwargs["posterior"],
+        query_compositions=kwargs["query_compositions"],
+        query_ids=kwargs["query_ids"],
+        reference_compositions=kwargs["reference_compositions"],
+        reference_energies=kwargs["reference_energies"],
+        costs=kwargs["costs"],
+        remaining_budget=kwargs["remaining_budget"],
+        posterior_sample_count=16,
+        continuation_sample_count=8,
+        diagnostic_sample_count=8,
+        seed=kwargs["seed"],
+    )
+    assert result.horizon == 2
+    assert len(result.scores) == 3
+    assert len(result.cross_candidate_influence) == 3
+    assert 0.0 <= result.rank_switch_probability <= 1.0
+    assert result.coupling_score >= result.coupling_score_normalized
+
+
+def test_posterior_rank_diagnostics_are_posterior_only_and_bounded() -> None:
+    kwargs = _ic_kwargs()
+    diagnostics = posterior_rank_diagnostics(
+        kwargs["posterior"],
+        query_compositions=kwargs["query_compositions"],
+        query_ids=kwargs["query_ids"],
+        reference_compositions=kwargs["reference_compositions"],
+        reference_energies=kwargs["reference_energies"],
+        posterior_sample_count=8,
+        conditional_sample_count=4,
+        observation_count=1,
+        seed=kwargs["seed"],
+    )
+    assert 0.0 <= diagnostics["posterior_rank_switch_probability"] <= 1.0
+    assert diagnostics["posterior_rank_margin"] >= 0.0
+    assert diagnostics["posterior_coupling_score"] >= 0.0
 
 
 def test_delta_hull_active_search_rejects_ratio_heuristic_costs() -> None:
