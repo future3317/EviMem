@@ -15,7 +15,7 @@ and IC-SARR is an optional numerical screen documented in the appendix.
 ## Manuscript integration checkpoint
 
 The evidence-integrated manuscript is committed in the paper repository as
-`94431aa`. Its main text keeps the delayed-label motivation, the exact Bellman
+`5c2b8ca`. Its main text keeps the delayed-label motivation, the exact Bellman
 objective, the greedy failure/sufficiency theory, the MatPES budget curve and
 D/F/T waterfall, and the MAD protocol-shift curve. The rollout schematic,
 controlled stress heatmaps, policy ablations, posterior/hull implementation
@@ -133,7 +133,7 @@ or gate superiority claim is supported.
 - Do not treat the theoretical counterexamples as material experiments.
 - Do not retune opened MatPES/MAD systems to estimate the theoretical terms.
 
-The manuscript implementation is recorded at paper commit `94431aa`; raw and
+The manuscript implementation is recorded at paper commit `5c2b8ca`; raw and
 derived experiment artifacts remain outside Git under `E:\DATA` and the
 registered remote roots. The code repository's result manifest points to this
 paper commit.

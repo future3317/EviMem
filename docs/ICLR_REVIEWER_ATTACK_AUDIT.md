@@ -18,7 +18,7 @@ value, and an exact information-structure separation. The real-data evidence
 is a development-level mechanism study; it is not a claim that one solver or
 gate is universally superior.
 
-The manuscript packaging checkpoint is paper commit `94431aa`: the main text
+The manuscript packaging checkpoint is paper commit `5c2b8ca`: the main text
 is nine pages before references, references precede the appendix, and the
 rollout schematic, controlled heatmaps, policy ablations, posterior/hull
 implementation details, and numerical-gate audit are appendix material. This

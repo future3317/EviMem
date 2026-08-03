@@ -10,7 +10,7 @@ Inventory time: 2026-08-03 (Asia/Shanghai)
 ## Provenance
 
 - Code commit: `47c0891` (`E:\CODE\EviMem-RL`)
-- Paper commit: `94431aa` (`E:\PAPER`)
+- Paper commit: `5c2b8ca` (`E:\PAPER`)
 - Local data root: `E:\DATA\EviMem-RL`
 - Remote data root: `/home/workspace/lrh/DATA/EviMem-RL`
 - Remote host: `lrh@100.110.148.20`
