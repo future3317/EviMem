@@ -1739,3 +1739,26 @@ has strict DP headroom. This is a mechanism and objective check only: it adds
 no material, external-generalization, final-causal, cost-aware, deployment, or
 bounded-memory claim, and supplies no authorization to tune IC-SARR or any
 opened MatPES/MAD panel.
+
+## E47 -- MAD-1.5 direct objective and lookahead comparison (registered 2026-08-03)
+
+This registered amendment is frozen in
+`docs/MAD_1_5_DIRECT_MECHANISM_COMPARISON_PROTOCOL.md`. It reuses the already
+opened 96-system MAD-1.5 protocol-shift manifest and therefore is not a new
+holdout, external validation, or formation-energy evaluation. The task, vault,
+query manifest, seed, posterior count `64`, fantasy count `3`,
+`fixed_composition` hull backend, `ridge_random_intercept` transport family,
+minimum candidate count `8`, and budgets `B=1..6` are fixed before reading any
+new output.
+
+The frozen roster is `source_margin`, `delta_hull_active_search`,
+`ungated_source_rollout`, and
+`independent_confirmation_source_rollout`. The new outputs are external to
+Git under
+`E:\DATA\MAD-1.5-v1\mad15_direct_mechanism_20260803\`. The required summary
+reports D/F/T, wall time, direct paired bootstrap intervals, sign-flip tests,
+win/tie/loss counts, and the predeclared contrasts Delta-Hull minus source,
+ungated rollout minus Delta-Hull, IC-SARR minus ungated rollout, and IC-SARR
+minus Delta-Hull. No result from this amendment may be described as
+final-causal, cost-aware, deployment, universal, or formation-energy
+superiority.
