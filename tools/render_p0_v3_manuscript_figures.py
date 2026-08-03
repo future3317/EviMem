@@ -71,6 +71,45 @@ def _metric(summary: dict[str, Any], budget: int, policy: str, metric: str) -> d
     return summary["core_curve"][str(budget)][policy]["metrics"][metric]
 
 
+def load_core_curve_rows(core_root: Path) -> dict[int, list[dict[str, Any]]]:
+    """Load the frozen per-system rows needed for budget-level contrasts."""
+    rows_by_budget: dict[int, list[dict[str, Any]]] = {}
+    expected_policies = {
+        "source_margin",
+        "delta_hull_active_search",
+        "independent_confirmation_source_rollout",
+    }
+    for budget in range(1, 7):
+        paths = sorted(core_root.glob(f"matpes-p0v2-core-fold*-b{budget}-main.json"))
+        if len(paths) != 5:
+            raise ValueError(f"expected five complete core files for B={budget}, found {len(paths)}")
+        rows: list[dict[str, Any]] = []
+        seen: set[str] = set()
+        for path in paths:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            if set(payload.get("active_policies", ())) != expected_policies:
+                raise ValueError(f"unexpected policy roster in {path.name}")
+            for system, result in payload["systems"].items():
+                if system in seen:
+                    raise ValueError(f"duplicate exact system at B={budget}: {system}")
+                seen.add(system)
+                rows.append(
+                    {
+                        "system": system,
+                        "source": result["strategies"]["source_margin"],
+                        "delta": result["strategies"]["delta_hull_active_search"],
+                        "ic": result["strategies"]["independent_confirmation_source_rollout"],
+                    }
+                )
+        if len(rows) != 230:
+            raise ValueError(f"expected 230 exact systems at B={budget}, found {len(rows)}")
+        rows_by_budget[budget] = rows
+    roster = {row["system"] for row in rows_by_budget[1]}
+    if any({row["system"] for row in rows} != roster for rows in rows_by_budget.values()):
+        raise ValueError("budget curve system rosters are not identical")
+    return rows_by_budget
+
+
 def load_core_b6_rows(core_root: Path) -> list[dict[str, Any]]:
     paths = sorted(core_root.glob("matpes-p0v2-core-fold*-b6-main.json"))
     if len(paths) != 5:
@@ -236,7 +275,7 @@ def render_waterfall(summary: dict[str, Any], output: Path) -> None:
     _save(figure, output)
 
 
-def render_budget_curve(summary: dict[str, Any], output: Path) -> None:
+def render_budget_curve(summary: dict[str, Any], core_root: Path, output: Path) -> None:
     budgets = np.arange(1, 7)
     policies = {
         "source_margin": ("Source margin", SOURCE, "-"),
@@ -268,7 +307,44 @@ def render_budget_curve(summary: dict[str, Any], output: Path) -> None:
     axis.set(xticks=budgets, xlabel="Query budget $B$", ylabel="IC-SARR minus source", title="Paired differences (95% CI)")
     axis.legend(frameon=False, ncol=1, loc="upper left")
     _finish(axis)
+    curve_rows = load_core_curve_rows(core_root)
     axis = axes.flat[4]
+    means = []
+    lower = []
+    upper = []
+    for budget in budgets:
+        values = np.asarray(
+            [
+                row["ic"]["oracle_pool_confirmed_discoveries"]
+                - row["delta"]["oracle_pool_confirmed_discoveries"]
+                for row in curve_rows[int(budget)]
+            ],
+            dtype=float,
+        )
+        mean = float(values.mean())
+        interval = _paired_interval(values, 20260820 + int(budget))
+        means.append(mean)
+        lower.append(mean - interval[0])
+        upper.append(interval[1] - mean)
+    axis.errorbar(
+        budgets,
+        means,
+        yerr=[lower, upper],
+        color=DELTA,
+        marker="o",
+        ms=3.2,
+        lw=1.2,
+        capsize=2.2,
+    )
+    axis.axhline(0, color=SOURCE, lw=0.8)
+    axis.set(
+        xticks=budgets,
+        xlabel="Query budget $B$",
+        ylabel="IC-SARR minus Delta-Hull",
+        title="Direct $T$ contrast (95% CI)",
+    )
+    _finish(axis)
+    axis = axes.flat[5]
     means = []
     lower = []
     upper = []
@@ -283,7 +359,6 @@ def render_budget_curve(summary: dict[str, Any], output: Path) -> None:
     axis.axhline(0, color=SOURCE, lw=0.8)
     axis.set(xticks=budgets, xlabel="Query budget $B$", ylabel="Seconds/system", title="Additional wall time (95% CI)")
     _finish(axis)
-    axes.flat[5].axis("off")
     figure.suptitle("MatPES cross-fitted budget curve (230 development systems)", fontsize=10)
     _save(figure, output)
 
@@ -413,7 +488,7 @@ def main() -> None:
     rows = load_core_b6_rows(args.core_root)
     render_effects(rows, summary, args.output_dir / "matpes_b6_effects.pdf")
     render_waterfall(summary, args.output_dir / "matpes_dft_waterfall.pdf")
-    render_budget_curve(summary, args.output_dir / "matpes_budget_curve.pdf")
+    render_budget_curve(summary, args.core_root, args.output_dir / "matpes_budget_curve.pdf")
     render_ablation(summary, args.output_dir / "matpes_mechanism_ablation.pdf")
     render_direct_mechanism_comparisons(direct_summary, args.output_dir / "matpes_direct_mechanism_comparisons.pdf")
     render_calibration(args.calibration, args.output_dir / "matpes_rollout_calibration.pdf")

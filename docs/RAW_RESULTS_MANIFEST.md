@@ -41,6 +41,8 @@ same frozen inputs and registered code:
 | `/home/workspace/lrh/DATA/EviMem-RL/analysis/matpes_ic_sarr_mechanism_v3_20260802/derived_ic_sarr_calibration_v3.json` | 1,768,548 | `a21b41b4912f35cf82043ceda7bbf8961f8e7ead3f938a5b4d78d41f60cdec0b` | complete |
 | `E:\DATA\EviMem-RL\analysis\matpes_ic_sarr_mechanism_reduced_v1_20260802\derived_direct_mechanism_comparisons_v1.json` | 111,515 | `54a86971d849002537db2e25335b1f7c799dcf956144b5a25657b13f62eec9d2` | complete; direct same-system mechanism contrasts |
 | `E:\DATA\EviMem-RL\analysis\matpes_ic_sarr_mechanism_v3_20260802\random_exact_gate_audit_v3.json` | 733,351 | `1CD3A1FC973EECFDB0A81333EA6245B995A200B32B351708019B5CBD9C421456` | complete; exact-world numerical-gate audit |
+| `E:\DATA\EviMem-RL\analysis\matpes_ic_sarr_mechanism_v3_20260802\derived_budget_direct_comparisons_v1.json` | 22,560 | `95a73859177f57474b25203773729d4b9c70dc3ee94c4d6943f11793573a5a6d` | complete; B=1..6 direct paired policy contrasts |
+| `E:\DATA\EviMem-RL\analysis\matpes_ic_sarr_mechanism_v3_20260802\derived_prequential_calibration_v1.json` | 22,710 | `0e7693d477a415c5ff228790c4511fe1edf1854545e946f6b9026d4a7d362d21` | complete; B=6 prequential energy diagnostics |
 
 The calibration audit initially exposed and then fixed a task-schema adapter
 bug: initial reference phases store corrected total energy and composition,

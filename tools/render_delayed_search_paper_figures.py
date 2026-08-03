@@ -80,13 +80,13 @@ def rollout_method(path: Path) -> None:
     box(0.73, 0.52, "paired $\\Delta Q$\nvs. source", color=GREEN, fill="#E9F5EE", size=5.7)
     for y in branch_y:
         axis.annotate("", xy=(0.685, 0.52), xytext=(0.64, y), arrowprops={"arrowstyle": "->", "color": GRAY, "lw": 0.75})
-    box(0.87, 0.52, "independent\nlower bound", color=GREEN, fill="#E9F5EE", size=5.7)
+    box(0.87, 0.52, "two-stage\nlower bound", color=GREEN, fill="#E9F5EE", size=5.7)
     axis.annotate("", xy=(0.815, 0.52), xytext=(0.785, 0.52), arrowprops={"arrowstyle": "->", "color": GRAY, "lw": 0.85})
     axis.annotate("", xy=(0.95, 0.74), xytext=(0.925, 0.59), arrowprops={"arrowstyle": "->", "color": GREEN, "lw": 0.9})
     axis.annotate("", xy=(0.95, 0.30), xytext=(0.925, 0.45), arrowprops={"arrowstyle": "->", "color": RED, "lw": 0.9})
     axis.text(0.97, 0.75, "$L>0$:\nrollout", ha="left", va="center", fontsize=5.9, color=GREEN)
     axis.text(0.97, 0.29, "$L\\leq0$:\nsource", ha="left", va="center", fontsize=5.9, color=RED)
-    axis.text(0.50, 0.06, "Causal sampled reveal + fixed source continuation + terminal complete-pool reward", ha="center", fontsize=6.0, color=INK)
+    axis.text(0.50, 0.06, "Sampled reveal + fixed source continuation + terminal complete-pool reward; independent stream only for unresolved stage-two candidates", ha="center", fontsize=5.2, color=INK)
     _save(fig, path)
 
 
