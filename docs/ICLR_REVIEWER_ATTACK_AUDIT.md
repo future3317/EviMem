@@ -1,49 +1,60 @@
 # ICLR reviewer attack audit
 
-Status: post-E44 exact separation, P0-v3 direct mechanism audit, and the
-2026-08-03 exact-world numerical-gate audit.
-This is a claim and submission-readiness audit, not an experiment plan or a
-license to tune any opened task.
+Status: current manuscript integration after the E44 exact separation, the
+P0-v3 direct mechanism audit, and the 2026-08-03 exact-world numerical-gate
+audit. This is a claim and submission-readiness audit, not an experiment plan
+or a license to tune any opened task.
 
 ## Single paper position
 
-The paper is a falsification-and-mechanism study of decision-sufficient
-scientific state, protocol transport, and delayed full-pool acquisition under
-materials-discovery constraints.  Its formal centerpiece is an exact
-information-structure separation; its real-data result is a narrow,
-cost-limited acquisition mechanism, not empirical bounded-memory deployment
-superiority.
+The paper is **Active Search with Delayed Structured Labels: Theory and
+Mechanisms for Durable Convex-Hull Discovery**. Its central contribution is a
+general active-search problem in which observations arrive immediately but
+labels are structured functions of a latent candidate pool and are adjudicated
+only after the campaign. Materials convex-hull discovery is the motivating
+instance. The formal core combines a greedy counterexample, failure of
+adaptive submodularity, greedy-sufficiency conditions, delayed-information
+value, and an exact information-structure separation. The real-data evidence
+is a development-level mechanism study; it is not a claim that one solver or
+gate is universally superior.
 
 ## Attacks and evidence-based response
 
 | Likely reviewer attack | Evidence already in the paper | Honest residual limitation | Required response |
 | --- | --- | --- | --- |
-| “The title promises joint memory, but experiments are acquisition-only.” | Section 2.5 gives an exact `B=3,K=1` state-feedback separation, formal proof, nulls and Figure 1. | The separation is synthetic and does not test retention competition. | State “exact state-feedback separation,” never “empirical memory superiority.” |
-| “The comparator is straw-man.” | The comparator is explicitly nonadaptive: later acquisition cannot use a witness reveal or retained state; all 336 deterministic sequences are bounded algebraically and randomization is covered by convexity. | An adaptive policy that reads retained state reaches `2`; no theorem about all decoupled policies is possible here. | Name the class “nonadaptive,” show the timing, and never broaden it to “any decoupled policy.” |
-| “The toy witness is not a material memory constraint.” | The construction is labeled synthetic, protocol-compatible and non-hull; its purpose is information necessity. | No real task has yet measured an actually binding second resource. | Present this as the main empirical gate remaining, not as a solved deployment problem. |
-| “IC-SARR only improves oracle labels.” | MatPES reports `+0.170/system` oracle-final development gain; MAD reports AUC `+0.2500`, final-causal `+0.0260` with CI crossing zero. | Final-causal superiority is unsupported. | Always pair any oracle claim with the final-causal limitation. |
-| “The method is too expensive.” | MAD primary utility is `-0.6074`; wall-time AUC rises `+8.5739`. | No cost-aware superiority or runtime advantage. | Keep cost co-primary; do not use the E45 secondary timings to soften E43. |
-| “MAD is a relabeled holdout or a real stability task.” | Manuscript identifies it as a frozen external protocol-shift panel, public paired data and atomization-energy hull proxy. | It is opened and not formation-energy thermodynamics. | Retain the exact scope language and no pristine/sealed/confirmatory wording. |
-| “The baseline ladder was selected after the outcome.” | E45 has a pre-run policy and parameter lock; `B=1` is complete with all five canonical policies. | `B=2..6` are not run, so there is no ladder-wide curve or ranking. | Keep E45 out of primary claims and label it a single-budget secondary checkpoint if cited at all. |
-| “Numerical integration creates the effect.” | The registered 1,000-instance exact-world audit reproduced all IC actions, observed zero exact false acceptances, and measured mean rollout regret `0.0005494`. | This is a finite-suite audit under the world model; it does not validate the material posterior. | Call the gate a numerical screen/safeguard and keep posterior misspecification separate. |
+| Is delayed structured labeling genuinely different from ordinary active search? | The formulation separates immediate reveal `O_x` from terminal structured label `Y_x=g_x(Z_C)`; the Bellman boundary integrates the unrevealed complete pool, and the controlled benchmark verifies the information order. | The material label is evaluated retrospectively; it is not online feedback. | Explain full-pool utility as campaign-level discovery durability, not delayed communication latency. |
+| Is the theory only a collection of toy examples? | The paper gives a no-uniform-ratio repeated-greedy construction, an adaptive-submodularity counterexample, rank-stability/weak-coupling conditions, strict delayed-information value, and an exact separation. | These are structural results under declared assumptions, not universal claims about materials. | State every theorem with its assumptions and use real data only as mechanism evidence. |
+| If greedy is often enough, why study rollout? | The exact suite and MatPES direct contrasts quantify the greedy-sufficiency boundary; SARR equals DP on 84.8% of the registered synthetic instances and does not beat Delta-Hull on the MatPES roster. | The current data do not establish a broad rollout advantage. | Present nonmyopic value as coupling-regime dependent and treat Delta-Hull strength as a positive boundary result. |
+| Is the exact state-feedback separation a memory/deployment result? | E44 exhaustively separates a declared nonadaptive class in a finite synthetic information structure. | It does not measure a binding materials memory or access budget. | Call it an exact information-structure result, never empirical bounded-memory superiority. |
+| Is the positive result only an oracle metric? | MatPES has a source-relative `+0.170/system` complete-pool `T` signal; MAD has oracle-final AUC `+0.2500`, final-causal AUC `+0.0260` with CI crossing zero, and cost utility `-0.6074`. | The terminal utility is retrospective and no final-causal or cost-aware gain is established. | Explain why durability is the declared campaign objective and pair every oracle result with `F`, cost, and scope. |
+| Is the method too expensive? | MAD wall-time AUC increases by `+8.5739 s*budget/system`, and the fixed cost utility is negative. | No cost-aware or runtime advantage is supported. | Keep cost co-primary and do not use secondary timings to soften this result. |
+| Is MAD a relabeled holdout or a formation-energy stability task? | It is documented as a public protocol-shift panel with an atomization-energy hull proxy. | It is opened task-level evidence and is not formation-energy thermodynamics. | Never use pristine, sealed, confirmatory, or formation-energy wording for MAD. |
+| Does the source-relative gain prove that the proposed solver wins? | P0-v3 directly compares source margin, Delta-Hull, ungated SARR, diagonal covariance and IC-SARR. IC-SARR minus Delta-Hull is `+0.0043` (CI `[-0.0609,+0.0696]`, `p=1.0000`) and minus ungated SARR is `-0.0130` (CI `[-0.0565,+0.0304]`, `p=0.6930`). | The evidence supports the delayed objective and a greedy-sufficiency boundary, not solver superiority. | Make direct paired contrasts primary and keep IC-SARR as an appendix numerical screen. |
+| Does numerical integration create the effect? | The registered 1,000-instance exact-world audit reproduced all IC actions, found zero exact false acceptances, and measured mean rollout regret `0.0005494`. | This is a finite-suite audit under the registered world model; it does not validate the material posterior. | Call the gate a randomized-QMC numerical screen/safeguard and separate posterior misspecification from integration error. |
 
 ## Submission-safe claims
 
-1. State feedback from a retained witness can be strictly necessary against a
-   declared nonadaptive acquisition class in the finite-pool information structure.
-2. The homogeneous full-history null and fail-closed unsupported-protocol
-   behavior are required, tested boundaries of the formulation.
-3. IC-SARR has a small, reproducible oracle-final delayed-full-pool mechanism
-   signal across MatPES development folds and the MAD protocol-shift panel.
-4. Neither final-causal, cost-aware, bounded-memory, runtime, deployment nor
-   universal-generalization superiority is established.
+1. Delayed structured labels define a distinct active-search objective, with
+   complete-pool adjudication measuring retrospective discovery durability.
+2. Repeated greedy can fail in general, while rank stability and weak coupling
+   explain regimes in which greedy is optimal or nearly optimal; delayed
+   observations can have positive information value.
+3. The exact controlled benchmark, cross-fitted MatPES suite and MAD
+   protocol-shift task provide mechanism evidence, including the boundary where
+   Delta-Hull is sufficient and rollout/gating gains do not separate directly.
+4. Neither IC-SARR/SARR solver superiority, final-causal, cost-aware,
+   bounded-memory, runtime, deployment nor universal-generalization
+   superiority is established.
 
 ## Pre-submission stop conditions
 
-- Do not add a new empirical DBBM superiority claim without a real measurable
-  state/access constraint and a separately frozen evaluation.
+- Do not turn the exact synthetic state-feedback separation into an empirical
+  DBBM or bounded-memory superiority claim.
 - Do not rerun or retune MatPES/MAD to improve the primary result.
 - Do not report the E45 budget-one checkpoint as a curve, a significance test,
   or a new main table.
 - The exact-world numerical-gate audit is complete; do not use it to claim
   posterior calibration or material-discovery safety.
+- Do not call MAD a formation-energy hull or an untouched/sealed holdout.
+- Keep IC-SARR in the optional numerical-safeguard role unless a separately
+  frozen future study changes that decision.

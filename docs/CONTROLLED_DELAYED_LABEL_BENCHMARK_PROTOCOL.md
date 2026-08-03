@@ -23,21 +23,26 @@ The registered grid is the complete Cartesian product:
 - source signal: `0.0, 0.5, 1.0`; and
 - delayed-label coupling: `0.0, 0.5, 1.0`.
 
-The four fixed comparators are source margin, greedy current-final membership,
-gated source-policy rollout, and exact belief-state dynamic programming. The
-rollout uses the source policy as its continuation and only replaces the source
-action on a strictly positive terminal-value advantage. The exact DP is an
-upper reference under the same finite pool and reveal model; it is not a
-deployable policy claim.
+The four fixed comparators are source margin, greedy current-final membership
+(the controlled analogue of Delta-Hull), source-anchored rollout, and exact
+belief-state dynamic programming. The implementation name
+`gated_source_rollout` reflects an exact positive-advantage fallback in this
+small benchmark; it is not the randomized-QMC IC-SARR gate used in the
+materials runner. The rollout uses the source policy as its continuation and
+only replaces the source action on a strictly positive terminal-value
+advantage. The exact DP is an upper reference under the same finite pool and
+reveal model; it is not a deployable policy claim.
 
 ## Checks and permitted interpretation
 
-The exhaustive grid has 27 cells. The exact checks verify that gated rollout is
-never worse than source margin, exact DP is never worse than gated rollout,
-budget-one rollout agrees with greedy current-final action selection, and at
-least one grid cell has strict DP headroom. This supports the information and
-objective mechanism only. It cannot support a material-discovery, external
-generalization, final-causal, cost-aware, bounded-memory, or deployment claim.
+The exhaustive grid has 27 cells. The exact checks verify that the
+source-anchored rollout is never worse than source margin, exact DP is never
+worse than rollout, budget-one rollout agrees with greedy current-final action
+selection, and at least one grid cell has strict DP headroom. This supports the
+delayed-objective and information mechanism only. It cannot support a
+material-discovery, external-generalization, final-causal, cost-aware,
+bounded-memory, or deployment claim. In particular, it does not establish that
+rollout or IC-SARR beats Delta-Hull on real materials systems.
 
 Run:
 

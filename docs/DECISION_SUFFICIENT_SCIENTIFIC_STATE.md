@@ -1,8 +1,8 @@
 # Decision-Sufficient Scientific State
 
-**Status (2026-07-21): v4, CHIC and myopic Delta-Hull are negative; a
-source-relative full-budget MatPES rollout is under development with no
-paper-level positive result yet.** The all-outcome state, fail-closed protocol activation,
+**Status (2026-08-03): v4, CHIC and myopic Delta-Hull are negative; the
+source-relative MatPES rollout evidence is complete and the paper is in
+manuscript integration.** The all-outcome state, fail-closed protocol activation,
 source-environment transport and robust hull-decision certificate are
 implemented and pass replay, no-deletion, self-removal and interval-soundness
 tests. The real JARVIS--MP v1, v3 and fresh v4 gates are all NO-GO. V4's
@@ -12,6 +12,27 @@ baselines. P3C remains stopped and AKSC remains unauthorized for WBM. CHIC did
 not delete archive contributions, but its JARVIS development task did not show
 a training-state or acquisition advantage. The active MatPES continuation
 changes the posterior and protocol task, not archive retention.
+
+## Current manuscript-facing decision (2026-08-03)
+
+This document remains the authority for the older decision-sufficient-state and
+state-compression line; that line is not the current paper's empirical claim.
+The current manuscript is centered on the general problem of **Active Search
+with Delayed Structured Labels**. Its theory establishes a no-uniform-ratio
+greedy counterexample, a failure of adaptive submodularity in general,
+weak-coupling/rank-stability conditions for greedy optimality or near
+optimality, a strict delayed-information value criterion, and an
+order-specific joint-covariance/adaptivity/continuation decomposition. The
+materials convex-hull task instantiates this problem. Delta-Hull is the
+materials greedy baseline, ungated SARR is the primary rollout solver, and
+IC-SARR is an optional numerical screen documented in the appendix.
+
+The existing exact-DP suite and MatPES/MAD results are interpreted as mechanism
+evidence for this theory, not as a new state-compression result. IC-SARR has a
+source-relative development signal but no direct terminal-$T$ superiority over
+Delta-Hull or ungated SARR. See
+`docs/DELAYED_STRUCTURED_LABEL_THEORY.md` for the canonical theorem and claim
+matrix. No new experiment is authorized by this manuscript integration.
 
 The organizing principle is **Decision--Inference--Systems Alignment**. A
 bounded scientific-state claim must simultaneously preserve the registered
@@ -295,8 +316,9 @@ observable representation contains PBE quantities and normalized element
 fractions; it contains no r2SCAN outcome. Every revealed target outcome in the
 current system conditions the joint posterior.
 
-The live method is **Delta-Hull Active Search**. For one remaining equal-cost
-query and utility equal to oracle-final phase confirmation, its Bayes action is
+The materials **greedy structured-label baseline** is Delta-Hull Active Search.
+For one remaining equal-cost query and utility equal to oracle-final phase
+confirmation, its Bayes action is
 
 \[
 a_t\in\arg\max_{x\in U_t}
@@ -325,9 +347,12 @@ R(S,E_T)=\sum_{x\in S}\mathbf 1\{x\in H_T^\star(E_T)\}.
 \]
 
 The exact finite-horizon Bellman recursion is well-defined but not claimed
-tractable. The implemented acquisition is its `b=1` specialization; repeated
-greedy use at budget six is an empirical policy, not a horizon-optimality
-theorem.
+tractable. Delta-Hull is its `b=1` specialization; repeated greedy use at
+budget six is an empirical policy, not a horizon-optimality theorem. The
+current manuscript also studies ungated source-anchored rollout (SARR) as a
+nonmyopic solver and treats IC-SARR only as an optional numerical screen. The
+general theory and its counterexamples are recorded in
+`docs/DELAYED_STRUCTURED_LABEL_THEORY.md`.
 
 The expanded 24-system development panel at budget six shows a clearer but
 still non-confirmatory signal. With 1024 nested scrambled-Sobol draws,
@@ -387,8 +412,9 @@ model-relative rollout inequality
 =V_b^{\pi_{\rm src}}(O_t).
 \]
 
-This is not a guarantee under posterior misspecification. The implementation
-uses sixteen common-random-number scrambled-Sobol blocks and falls back to the
+This is an implementation feasibility identity, not a substantive theorem and
+not a guarantee under posterior misspecification. The implementation uses
+sixteen common-random-number scrambled-Sobol blocks and falls back to the
 source action unless the Bonferroni-simultaneous one-sided
 numerical-integration lower bound is positive for a candidate. The correction
 controls the family of non-source comparisons, while the bound itself controls

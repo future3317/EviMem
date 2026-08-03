@@ -1,8 +1,8 @@
 # IC-SARR numerical-gate plan
 
-**Status:** five-fold development replication complete; no external evaluation
-has run. Authorized by the completed SARR MC8192 numerical opportunity-cost
-audit, this file does not authorize a general performance claim,
+**Status:** complete historical development record; IC-SARR is an optional
+appendix numerical safeguard, not the paper's primary solver. No external
+evaluation has run. This file does not authorize a general performance claim,
 evaluation-system access, or a change to `source_rollout_delta_hull`.
 
 ## Question
@@ -94,10 +94,12 @@ it is not a per-system effect result and does not authorize a method change.
 ## Decision boundary for the 2026-07-22 replication
 
 The numeric result in this section is the earlier five-fold replication and is
-retained as historical provenance.  The later P0-v3 budget curve and direct
+retained as historical provenance. The later P0-v3 budget curve and direct
 mechanism audit are the manuscript-authoritative results; they report
-$+0.1696$ terminal-$T$ gain at $B=6$ and explicitly compare Delta-Hull,
-ungated rollout, and diagonal covariance.
+$+0.1696$ source-relative terminal-$T$ signal at $B=6$ and explicitly compare
+Delta-Hull, ungated rollout, and diagonal covariance. The direct contrasts do
+not establish IC-SARR superiority, so the gate is retained as an optional
+numerical screen rather than a headline method component.
 
 IC-SARR preserves the existing source/reveal invariants and has now replicated
 the registered terminal oracle-final metric over five unused development folds:
@@ -108,10 +110,12 @@ artifact inventory, secondary metrics and scope boundary are in
 
 This clears the method's **development replication** gate. It is not an
 external evaluation or a general deployment guarantee: final causal
-confirmation is not improved reliably, and the implementation is slower. Any
-future method change must reserve a new disjoint evaluation partition; an
-action-parity-preserving phase-diagram performance optimization is allowed as
-an engineering task but cannot be reported as a changed policy.
+confirmation is not improved reliably, and the implementation is slower. The
+current manuscript integration is closed to new IC-SARR tuning or physical
+runs. Any future method change belongs to a separately frozen study with a
+new disjoint evaluation partition; an action-parity-preserving
+phase-diagram optimization would remain an engineering audit, not a changed
+policy claim.
 
 ## Exact-world numerical-gate audit (2026-08-03)
 

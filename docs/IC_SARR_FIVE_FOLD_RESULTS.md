@@ -3,6 +3,16 @@
 **Status:** completed development replication, not an external confirmatory
 evaluation (2026-07-22).
 
+**Current manuscript role (2026-08-03):** this file is the authoritative
+source-relative development result record for a theory-and-mechanism paper on
+Delayed Structured Labels. It is not evidence that IC-SARR is the primary
+algorithm. The direct same-system contrasts establish that IC-SARR is
+indistinguishable from Delta-Hull and ungated SARR on terminal $T$; therefore
+the paper's positive interpretation belongs to the delayed full-pool objective,
+the greedy-sufficiency boundary, and the solver mechanism rather than to gate
+superiority. The theorem and claim boundary are in
+`docs/DELAYED_STRUCTURED_LABEL_THEORY.md`.
+
 ## P0-v3 complete budget curve and targeted mechanism amendment
 
 The later registered P0-v3 campaign reran the frozen core comparison at
@@ -49,9 +59,10 @@ a joint-covariance contribution.  The gate does not improve terminal $T$ here.
 
 A post-hoc audit of 4,620 decision states reports predicted-versus-realized
 Spearman correlations $0.2469$ for $T$ and $0.0406$ for $F$, with an $83.02\%$
-complete-pool false-positive rate among accepted deviations.  These are
-development mechanism and calibration diagnostics; they do not establish
-final-causal, cost-aware, deployment, or universal superiority.
+nonpositive realized complete-pool advantage rate among accepted deviations.
+This is a posterior-model calibration diagnostic, not a numerical-gate error
+rate. These development diagnostics do not establish final-causal, cost-aware,
+deployment, or universal superiority.
 
 The corrected external summary used for manuscript post-processing is
 `E:\DATA\EviMem-RL\analysis\matpes_ic_sarr_mechanism_reduced_v1_20260802\derived_summary_reduced_v2_corrected.json`

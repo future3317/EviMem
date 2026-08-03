@@ -16,15 +16,32 @@ oracle vault owns target energies and final-hull labels. Every legal reveal is
 append-only and conditions the next posterior. This is not a training project:
 CHGNet is frozen and the transport model is a small frozen ridge/kernel fit.
 
+## Current manuscript position
+
+The paper is now centered on **Active Search with Delayed Structured Labels**.
+The general contribution is the delayed structured-label objective and its
+mechanism theory: repeated greedy can fail without a uniform approximation
+ratio, adaptive submodularity can fail, while rank stability/weak coupling make
+greedy optimal or near-optimal and delayed observations can have positive value.
+Convex-hull discovery is the materials instance. Delta-Hull is the materials
+greedy structured-label baseline, ungated SARR is the primary nonmyopic solver,
+and IC-SARR is an optional numerical screen documented in the appendix.
+The formal statements and exact counterexamples are recorded in
+`docs/DELAYED_STRUCTURED_LABEL_THEORY.md` and the manuscript at paper commit
+`87d40e8`.
+
 ## Scientific status
 
-There is **no paper-level positive state-compression result and no unopened
-MatPES holdout**.
+There is **no paper-level solver-superiority or state-compression result and no
+untouched MatPES holdout**. The current paper claim is a theory-and-mechanism
+claim about delayed full-pool acquisition, not an IC-SARR deployment claim.
 
 | Topic | Current evidence | Required interpretation |
 |---|---|---|
-| IC-SARR vs source margin | P0-v3 complete B=1..6 core curve on five cross-fit folds, 230 exact systems: B=6 terminal full-pool confirmations `+0.170/system`, 95% CI `[+0.087,+0.257]`, sign-flip `p=0.00012`, 51/160/19 win/tie/loss | A real but development-only terminal-confirmation signal; not external confirmation or universal discovery superiority |
-| Causal metrics | B=6 final causal confirmations `+0.009/system`; causal announcements `+0.330/system`; unqueried-pool invalidation changes by `-0.161/system` | Do not call the terminal effect a causal-time discovery or final-causal confirmation gain |
+| IC-SARR vs source margin | P0-v3 complete B=1..6 core curve on five cross-fit folds, 230 exact systems: B=6 terminal full-pool confirmations `+0.170/system`, 95% CI `[+0.087,+0.257]`, sign-flip `p=0.00012`, 51/160/19 win/tie/loss | Source-relative development mechanism signal; direct paired contrasts do not show IC-SARR superiority over Delta-Hull or ungated SARR |
+| Direct solver comparison | B=6 IC-SARR minus Delta-Hull `+0.004` (`[-0.061,+0.070]`, `p=1.0000`); minus ungated SARR `-0.013` (`[-0.057,+0.030]`, `p=0.6930`) | The measured question is objective value and greedy sufficiency, not gate or rollout superiority |
+| Delayed-label theory | Manuscript gives a no-approximation-ratio greedy construction, an adaptive-submodularity counterexample, weak-coupling/rank-stability conditions, strict information value, and an order-specific mechanism decomposition | Formal theory is general; its counterexamples are not material experiments and the three-axis terms were not newly estimated |
+| D/F/T metrics | B=6 source-relative changes: `ΔD=+0.330`, `ΔF=+0.009`, `ΔT=+0.170`, `Δ(F-T)=-0.161` | Keep provisional, selected-history, and complete-pool confirmations separate |
 | Cost | P0-v3 core B=6 IC-SARR costs about `+11.28 s/system` on the shared server; targeted amendment reports `+11.02 s/system` | A phase-diagram propagation bottleneck, not a training/GPU bottleneck; shared-server time is not a stable speed claim |
 | Mechanism audit | Source-relative values are descriptive. Direct same-system B=6 contrasts: IC-SARR minus Delta-Hull `+0.004` (`[-0.061,+0.070]`, `p=1.0000`), minus ungated SARR `-0.013` (`[-0.057,+0.030]`, `p=0.6930`), minus diagonal covariance `+0.061` (`[+0.004,+0.122]`, `p=0.0601`) | Joint covariance has suggestive but non-confirmatory direct evidence; the numerical gate does not improve terminal `T` on this roster |
 | Local Dual-Horizon | Correct implementation, but local double gate has poor oracle alignment and is stopped | Do not tune its thresholds, increase MC, add chemistry rules, or resurrect it on opened systems |
@@ -83,9 +100,11 @@ with paths and SHA-256 values in the remote
 ship these artifacts. Superseded data are recoverable under
 `DATA/EviMem-RL/archive/superseded-20260722/` and are not active inputs.
 
-Last verified baseline at commit `99e1311`: local `llm` and remote
-`equivcompiler` each had 207 passing tests. Both passed Ruff lint and format
-checks. The remote pre-sync work remains recoverable in
+Last verified code baseline at commit `47c0891`: local `llm` passed 225 tests
+and Ruff. Current code HEAD is `86a3cd2`; commits after the baseline record
+provenance/manuscript integration and do not change the frozen scientific
+policy. The paper-facing theory is in the separate paper repository. The remote
+pre-sync work remains recoverable in
 `stash@{0}: codex-remote-presync-20260729`; inspect it with `git stash show`
 and do not pop it into the live tree.
 
@@ -101,8 +120,9 @@ New code must use focused modules, not the legacy compatibility shim.
   oriented-facet ternary lower-hull specializations. Any speed change requires
   action, sampled-membership, hull, and reveal parity against the existing
   implementation.
-- `protocol_acquisition.py`: source margin, Delta-Hull, source rollout,
-  IC-SARR, and development diagnostics.
+- `protocol_acquisition.py`: source margin, greedy structured-label
+  acquisition (Delta-Hull), ungated source rollout (SARR), optional IC-SARR
+  screen, and development diagnostics.
 - `campaign_gate.py`: restricted campaign-level source-vs-IC-SARR gate. It is
   an API, not yet a live policy-worker option.
 - `tools/build_mad15_protocol_task.py`: builds the external MAD-1.5
@@ -195,13 +215,15 @@ not add functionality to it. Import from the focused modules above.
    tuning an opened MatPES task.
 
 The current engineering freeze is complete at the ternary specialization:
-local and remote `equivcompiler` both pass 207 tests and Ruff, and the remote
+the local `llm` regression has 225 passing tests and Ruff, and the remote
 four-system fixed-backend audit passed action and sampled-membership parity.
 The provisioned DATA roots still contain no second MatPES release or new
 same-configuration protocol pool. The public `v2025.3.10` MatPES tag is a
 software release, not evidence of a second paired data release, and the
 expected `MatPES_2025_2` PBE/r2SCAN objects were unavailable. The next
-scientific action is therefore to obtain or independently construct and audit a
-genuinely new same-configuration pool, freeze its development/holdout split
-before fitting or opening outcomes, and evaluate frozen IC-SARR once; the
-existing 324 systems and JARVIS v4-natural remain closed to that purpose.
+scientific action for a follow-on study would be to obtain or independently
+construct and audit a genuinely new same-configuration pool, freeze its
+development/holdout split before fitting or opening outcomes, and evaluate a
+frozen theory-motivated solver once; the existing 324 systems and JARVIS
+v4-natural remain closed to that purpose. No new experiment is required to
+close the current theory-and-mechanism manuscript.

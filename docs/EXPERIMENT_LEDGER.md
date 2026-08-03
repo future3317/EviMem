@@ -1,8 +1,9 @@
 # Authoritative experiment and decision ledger
 
-**Status: active source-relative full-budget MatPES rollout development after
-the completed v4, CHIC and myopic Delta-Hull NO-GOs (2026-07-21).** There is still no paper-level
-positive method. This is the first file
+**Status: authoritative audit trail; the current experiment program is closed
+for manuscript integration (2026-08-03).** The active paper is a theory-and-
+mechanism study of delayed structured labels, not a new solver-development
+campaign. This is the first file
 a future maintainer or coding agent should read before changing the method or
 launching another experiment. It records why the research moved from CAW-Joint to DACC,
 from DACC to P3C, why P3C exposed outcome-contribution deletion and reference
@@ -48,7 +49,7 @@ diagnostic, interrupted run or opened evaluation set into confirmatory
 evidence. A new implementation must receive a new identifier rather than
 relabel an old result.
 
-## Current decision in one paragraph
+## Historical decision chain in one paragraph
 
 CAW-Joint failed after correcting self-removal information gain, memory
 semantics, fixed boundary weights and exact retention. DACC then replaced the
@@ -109,17 +110,49 @@ final-causal, cost-aware, deployment, or universal superiority.
 
 The stopping chain does not authorize another outcome-selected posterior
 approximation. CHIC tested a real optimizer-input constraint without deleting
-outcomes, but its JARVIS task did not show an advantage. The active development
-hypothesis is now a scientifically different object: nonmyopic active search
-with delayed convex-hull labels and source margin as a strong continuation
-policy. It retains the composition-referenced hierarchical PBE--r2SCAN
-posterior on exact same-configuration MatPES pairs. Every paid target
-outcome remains in the archive and conditions the posterior. WBM remains the
-homogeneous low-compute null, and opened JARVIS evaluation systems remain
-closed to development. The decision-sufficient-state definition still governs
-archive, protocol and null behavior. IC-SARR provides a narrow acquisition-side
-development signal, but no external, paper-level, final-causal, or general
-MatPES superiority claim is currently supported.
+outcomes, but its JARVIS task did not show an advantage. The current paper
+therefore studies the general problem of active search with delayed structured
+labels: a query reveals an immediate observation, while the evaluated label is
+a function of the complete latent pool. Convex-hull discovery is the materials
+instance. Delta-Hull is the one-step greedy structured-label baseline, ungated
+SARR is the primary source-anchored rollout solver, and IC-SARR is an optional
+randomized-QMC numerical screen.
+
+The exact separation and controlled benchmark support the mechanism theory;
+the MatPES and MAD results are development/task-level evidence for the
+delayed-full-pool objective. They do not establish a solver, gate, final-causal,
+cost-aware, deployment, runtime, bounded-memory or universal-generalization
+superiority claim. Every paid target outcome remains in the immutable archive
+and conditions the posterior. WBM remains the homogeneous low-compute null,
+and opened JARVIS evaluation systems remain closed to development. No new
+experiment is authorized by the manuscript integration.
+
+## Current manuscript integration record (2026-08-03)
+
+The single paper position is **Active Search with Delayed Structured Labels:
+Theory and Mechanisms for Durable Convex-Hull Discovery**. The manuscript's
+primary contribution is the general delayed structured-label formulation and
+its mechanism theory: repeated greedy can be arbitrarily poor in general,
+adaptive submodularity can fail, rank stability/weak coupling can make greedy
+optimal or near-optimal, and delayed observations can have positive value.
+
+The materials evidence is intentionally interpreted as a boundary study. The
+source-relative MatPES signal shows headroom under complete-pool adjudication,
+but the direct B=6 contrasts are IC-SARR minus Delta-Hull `+0.0043` (95% CI
+`[-0.0609,+0.0696]`, `p=1.0000`) and IC-SARR minus ungated SARR `-0.0130`
+(95% CI `[-0.0565,+0.0304]`, `p=0.6930`). IC-SARR and Delta-Hull tie on
+terminal `T` for 187/230 systems. MAD contributes a protocol-shift mechanism
+check with oracle-final AUC `+0.2500`, final-causal AUC `+0.0260`, wall-time
+AUC `+8.5739 s*budget/system`, and frozen cost utility `-0.6074`; its label is
+an atomization-energy hull proxy, not a formation-energy hull.
+
+Accordingly, the manuscript may claim a distinct delayed full-pool objective,
+an exact theoretical necessity/mechanism analysis, and development-level
+mechanism evidence. It must not claim IC-SARR or SARR superiority, final-causal
+or cost-aware superiority, deployment advantage, runtime advantage, external
+universal generalization, or an untouched MatPES holdout. This section is the
+current interpretation layer; the numbered experiment entries below preserve
+the complete historical audit.
 
 ## Terminology that must not be blurred
 
