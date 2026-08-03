@@ -87,12 +87,16 @@ policy-safety guarantee.
 The first 46-system cross-fit fold at MC512/MC1024 is a pre-SARR numerical
 diagnostic: system-level effects agree in 45/46, but complete traces agree in
 only 31/46. It is not a result for the corrected IC-SARR gate. The subsequent
-unchanged IC-SARR policy completed five outcome-independent development folds
-(230 systems) and improved full-pool terminal confirmations by
-`+0.161/system`, with system-bootstrap 95% CI `[+0.083,+0.239]`. This is
-development-only acquisition evidence; final-causal confirmation is
-`+0.013/system` with an interval crossing zero, and no external holdout
-exists. The 324-system corpus remains closed to confirmatory relabeling.
+unchanged IC-SARR policy subsequently completed the registered P0-v3
+five-fold development curve (230 systems) and improved full-pool terminal
+confirmations by `+0.1696/system` at $B=6$, with system-bootstrap 95% CI
+`[+0.0870,+0.2565]`. The final-causal change is only `+0.009/system` and the
+core runtime increment is `+11.28 s/system`. Direct same-system contrasts find
+no terminal-$T$ advantage over Delta-Hull (`+0.0043`, $p=1.0000$) or ungated
+rollout (`-0.0130`, $p=0.6930$); the joint-versus-diagonal contrast is
+suggestive but not decisive (`+0.0609`, $p=0.0601$). This is development-only
+acquisition evidence; no external holdout exists and the 324-system corpus
+remains closed to confirmatory relabeling.
 
 ## Conformal One-Deviation Source-Rollout (development implementation)
 

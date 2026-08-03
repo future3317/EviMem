@@ -1541,28 +1541,34 @@ evidence and cannot become a MatPES holdout or universal superiority claim.
 The protocol-locked 96-system curve completed at exact budgets `B=0..6`.
 Outputs remain outside Git under
 `E:\DATA\MAD-1.5-v1\mad15_curve_B1_20260730.json` through
-`mad15_curve_B6_20260730.json`; the curve summary is
-`E:\DATA\MAD-1.5-v1\mad15_curve_summary_20260730.json`. Every budget used
+`mad15_curve_B6_20260730.json`; the corrected curve summary is
+`E:\DATA\MAD-1.5-v1\mad15_curve_summary_20260803_recomputed.json`. Every budget used
 the same manifest SHA-256
 `d713ecd2f442ac0bdf2b2fb6acfbc233be32c637c23385a1539acebc99c7f7ae`, exact
 96-system query set, 1,788 disjoint fit systems, fixed-composition hull
 backend, MC64, and the frozen policy settings.
 
 The oracle-final AUC was `13.9479` for IC-SARR versus `13.6979` for source
-margin, paired difference `+0.2240`, system-bootstrap 95% interval
-`[+0.0365,+0.4167]`, Monte Carlo sign-flip `p=0.0230`, and 18 wins, 73 ties
+margin, paired difference `+0.2500`, system-bootstrap 95% interval
+`[+0.0521,+0.4583]`, Monte Carlo sign-flip `p=0.0193`, and 18 wins, 73 ties
 and 5 losses. Final-causal AUC differed by `+0.0260`, interval
 `[-0.0313,+0.0833]`, `p=0.5320`, with 4 wins, 90 ties and 2 losses. Wall-time
 AUC increased by `+8.5739 s*budget/system`.
 
 The pre-registered cost utility was
 `U_AUC = delta oracle AUC - 0.10 confirmations/(second*system) * delta wall-time AUC`.
-It evaluates to `-0.6334`. The curve therefore gives a nonzero oracle-final
+It evaluates to `-0.6074`. The curve therefore gives a nonzero oracle-final
 acquisition signal on this MAD protocol-shift task, but fails the cost-aware
 superiority criterion and does not show a final-causal gain. This result is
 development-only and cannot be promoted to a MatPES holdout, universal
 discovery superiority or state-compression evidence. No tuning is authorized
 on this opened 96-system panel.
+
+The superseded summary `E:\DATA\MAD-1.5-v1\mad15_curve_summary_20260730.json`
+is retained outside Git for provenance only. Its paired-AUC aggregation omitted
+the `B=0\rightarrow1` trapezoid; the runner inputs and per-budget outputs were
+not changed. The corrected summary SHA-256 is
+`96bc094c87e121b4509cc8523899f0cf115443a19f1540cbf0450a2729e187ca`.
 
 ## E44 -- Exact state-feedback versus nonadaptive separation (2026-07-30)
 

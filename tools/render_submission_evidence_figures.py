@@ -226,8 +226,19 @@ def render_mad_curve(summary_path: Path, output: Path) -> None:
     nonzero_budgets = budgets[budgets > 0]
     figure, axes = plt.subplots(1, 3, figsize=(7.0, 2.55), constrained_layout=True)
     paired = summary["paired_by_budget"]
+    oracle = summary["curve_level"]["oracle_auc_difference_ic_minus_source"]
+    oracle_mean = float(oracle["mean"])
+    oracle_ci = oracle["bootstrap_95pct"]
+    oracle_p = float(oracle["sign_flip_pvalue_mc"])
+    wall_auc = float(summary["curve_level"]["mean_wall_seconds_auc_difference_ic_minus_source"])
+    cost_utility = oracle_mean - 0.10 * wall_auc
     panels = (
-        ("oracle_difference_ic_minus_source", "IC-SARR minus source $T$ / system", "Complete-pool $\\Delta T$", "+0.2240 AUC\n95% CI [+0.0365, +0.4167]\np=0.0230"),
+        (
+            "oracle_difference_ic_minus_source",
+            "IC-SARR minus source $T$ / system",
+            "Complete-pool $\\Delta T$",
+            f"{oracle_mean:+.4f} AUC\n95% CI [{oracle_ci[0]:+.4f}, {oracle_ci[1]:+.4f}]\np={oracle_p:.4f}",
+        ),
         ("final_causal_difference_ic_minus_source", "IC-SARR minus source $F$ / system", "Selected-history $\\Delta F$", "+0.0260 AUC\n95% CI [−0.0313, +0.0833]\np=0.5320"),
     )
     for axis, (metric, ylabel, title, annotation) in zip(axes[:2], panels, strict=True):
@@ -246,7 +257,7 @@ def render_mad_curve(summary_path: Path, output: Path) -> None:
     axes[2].axhline(0, color=SOURCE, lw=0.85, zorder=0)
     axes[2].plot(nonzero_budgets, time_delta, marker="s", ms=3.8, lw=1.5, color=NEGATIVE)
     axes[2].set(xticks=nonzero_budgets, xlabel="Query budget B", ylabel="IC-SARR minus source\nseconds / system", title="Wall-time $\\Delta$")
-    axes[2].text(0.04, 0.95, "+8.5739 AUC\n$U_{\\mathrm{AUC}}=-0.6334$", transform=axes[2].transAxes, va="top", fontsize=7.0, color=INK)
+    axes[2].text(0.04, 0.95, f"{wall_auc:+.4f} AUC\n$U_{{\\mathrm{{AUC}}}}={cost_utility:+.4f}$", transform=axes[2].transAxes, va="top", fontsize=7.0, color=INK)
     _finish(axes[2])
     _save(figure, output)
 

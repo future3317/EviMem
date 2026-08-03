@@ -91,7 +91,13 @@ It contains no evaluator metrics and records
 `evaluation_systems_accessed=false`. This clears only the implementation gate;
 it is not a per-system effect result and does not authorize a method change.
 
-## Decision boundary
+## Decision boundary for the 2026-07-22 replication
+
+The numeric result in this section is the earlier five-fold replication and is
+retained as historical provenance.  The later P0-v3 budget curve and direct
+mechanism audit are the manuscript-authoritative results; they report
+$+0.1696$ terminal-$T$ gain at $B=6$ and explicitly compare Delta-Hull,
+ungated rollout, and diagonal covariance.
 
 IC-SARR preserves the existing source/reveal invariants and has now replicated
 the registered terminal oracle-final metric over five unused development folds:

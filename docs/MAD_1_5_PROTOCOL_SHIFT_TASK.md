@@ -167,9 +167,9 @@ exact budgets `B=0..6`, curve-level AUC estimands, system-bootstrap and
 sign-flip settings, and the cost-aware utility before any new curve output is
 read.
 
-The frozen curve has now completed. Oracle-final AUC is `+0.2240` in favor of
-IC-SARR with 95% CI `[+0.0365,+0.4167]` and sign-flip `p=0.0230`; final-causal
+The frozen curve has now completed. Oracle-final AUC is `+0.2500` in favor of
+IC-SARR with 95% CI `[+0.0521,+0.4583]` and sign-flip `p=0.0193`; final-causal
 AUC is `+0.0260` with CI `[-0.0313,+0.0833]` and `p=0.5320`. The wall-time
 AUC increment is `+8.5739 s*budget/system`, making the frozen cost utility
-`U_AUC=-0.6334`. Thus the new task shows a small oracle-acquisition signal,
+`U_AUC=-0.6074`. Thus the new task shows a small oracle-acquisition signal,
 but no final-causal or cost-aware superiority.

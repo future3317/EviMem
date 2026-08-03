@@ -117,10 +117,13 @@ conda run --no-capture-output -n llm python tools/summarize_mad15_curve.py `
   --input E:\DATA\MAD-1.5-v1\mad15_curve_B4_20260730.json `
   --input E:\DATA\MAD-1.5-v1\mad15_curve_B5_20260730.json `
   --input E:\DATA\MAD-1.5-v1\mad15_curve_B6_20260730.json `
-  --output E:\DATA\MAD-1.5-v1\mad15_curve_summary_20260730.json
+  --output E:\DATA\MAD-1.5-v1\mad15_curve_summary_20260803_recomputed.json
 ```
 
-The six runner outputs and the summary remain outside Git. A result from this
+The six runner outputs and the corrected summary remain outside Git. The
+original `mad15_curve_summary_20260730.json` is retained as a superseded
+artifact because its paired-AUC aggregation omitted the `B=0\rightarrow1`
+trapezoid; the runner inputs and all per-budget values are unchanged. A result from this
 protocol remains a MAD-1.5 task-level mechanism result. It cannot be called an
 independent MatPES holdout, a universal discovery claim, or evidence for
 decision-sufficient state compression.
@@ -129,17 +132,23 @@ decision-sufficient state compression.
 
 The frozen `B=0..6` curve completed on the 96-system manifest. The summary is
 outside Git at
-`E:\DATA\MAD-1.5-v1\mad15_curve_summary_20260730.json`; all six runner inputs
+`E:\DATA\MAD-1.5-v1\mad15_curve_summary_20260803_recomputed.json`; all six runner inputs
 passed the manifest, task, vault, transport and exact-budget checks.
 
+The prior summary at
+`E:\DATA\MAD-1.5-v1\mad15_curve_summary_20260730.json` is superseded solely
+because its paired-AUC aggregation omitted the `B=0\rightarrow1` trapezoid.
+The corrected summary SHA-256 is
+`96bc094c87e121b4509cc8523899f0cf115443a19f1540cbf0450a2729e187ca`.
+
 The oracle-final AUC was `13.9479` for IC-SARR and `13.6979` for source
-margin: paired difference `+0.2240`, system-bootstrap 95% interval
-`[+0.0365,+0.4167]`, sign-flip `p=0.0230`, with 18 wins, 73 ties and 5
+margin: paired difference `+0.2500`, system-bootstrap 95% interval
+`[+0.0521,+0.4583]`, sign-flip `p=0.0193`, with 18 wins, 73 ties and 5
 losses. The final-causal AUC difference was only `+0.0260`, interval
 `[-0.0313,+0.0833]`, sign-flip `p=0.5320`, with 4 wins, 90 ties and 2
 losses. Wall-time AUC increased by `+8.5739 s*budget/system`.
 
-Under the frozen cost utility, `U_AUC = +0.2240 - 0.10*8.5739`, the result
-is `-0.6334`. Therefore this curve supports a small oracle-acquisition
+Under the frozen cost utility, `U_AUC = +0.2500 - 0.10*8.5739`, the result
+is `-0.6074`. Therefore this curve supports a small oracle-acquisition
 mechanism signal, but fails the cost-aware superiority criterion and does not
 show a final-causal gain. It remains development-only MAD task evidence.

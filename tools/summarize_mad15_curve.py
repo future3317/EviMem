@@ -145,7 +145,8 @@ def run(
     }
     oracle_auc_diffs = np.asarray(
         [
-            sum(
+            differences["1"][index]["oracle_diff"] / 2
+            + sum(
                 (differences[str(budget)][index]["oracle_diff"] + differences[str(budget + 1)][index]["oracle_diff"])
                 / 2
                 for budget in range(1, 6)
@@ -156,7 +157,8 @@ def run(
     )
     final_auc_diffs = np.asarray(
         [
-            sum(
+            differences["1"][index]["final_causal_diff"] / 2
+            + sum(
                 (differences[str(budget)][index]["final_causal_diff"] + differences[str(budget + 1)][index]["final_causal_diff"])
                 / 2
                 for budget in range(1, 6)

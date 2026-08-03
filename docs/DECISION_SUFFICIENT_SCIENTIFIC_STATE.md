@@ -442,12 +442,12 @@ compression. The existing MatPES corpus remains closed, and the full
 interpretation boundary is registered in `docs/MAD_1_5_PROTOCOL_SHIFT_TASK.md`.
 
 The subsequent frozen MAD-1.5 curve over budgets `B=0..6` on 96 previously
-unopened systems produced an oracle-final AUC difference of `+0.2240` for
-IC-SARR versus source margin, with interval `[+0.0365,+0.4167]` and sign-flip
-`p=0.0230`. Final-causal AUC differed by only `+0.0260`, with interval
+unopened systems produced an oracle-final AUC difference of `+0.2500` for
+IC-SARR versus source margin, with interval `[+0.0521,+0.4583]` and sign-flip
+`p=0.0193`. Final-causal AUC differed by only `+0.0260`, with interval
 `[-0.0313,+0.0833]` and `p=0.5320`; wall-time AUC increased by
 `+8.5739 s*budget/system`. Under the pre-registered cost utility the net
-value was `-0.6334`. This is protocol-shift acquisition evidence, not
+value was `-0.6074`. This is protocol-shift acquisition evidence, not
 decision-sufficient state compression or cost-aware superiority.
 
 ## 9. Scope and literature boundary

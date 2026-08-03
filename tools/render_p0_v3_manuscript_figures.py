@@ -21,6 +21,7 @@ INK = "#172033"
 GRID = "#D9DEE5"
 SOURCE = "#62748A"
 IC = "#2D6F9F"
+DELTA = "#B57A19"
 POSITIVE = "#1D7A5B"
 NEGATIVE = "#A53A3A"
 CAUTION = "#B57A19"
@@ -239,6 +240,7 @@ def render_budget_curve(summary: dict[str, Any], output: Path) -> None:
     budgets = np.arange(1, 7)
     policies = {
         "source_margin": ("Source margin", SOURCE, "-"),
+        "delta_hull_active_search": ("Delta-Hull", DELTA, ":"),
         "independent_confirmation_source_rollout": ("IC-SARR", IC, "--"),
     }
     figure, axes = plt.subplots(2, 3, figsize=(7.0, 4.85), constrained_layout=True)
@@ -248,6 +250,7 @@ def render_budget_curve(summary: dict[str, Any], output: Path) -> None:
             axis.plot(budgets, values, label=label, color=color, linestyle=style, marker="o", ms=3.5, lw=1.3)
         axis.set(xticks=budgets, xlabel="Query budget $B$", ylabel="Mean confirmations/system", title=title)
         _finish(axis)
+    axes.flat[0].legend(frameon=False, loc="upper left", handlelength=2.4)
     axis = axes.flat[3]
     for metric, label, color in (("T", "$\\Delta T$", POSITIVE), ("F", "$\\Delta F$", CAUTION), ("D", "$\\Delta D$", IC)):
         means = []
