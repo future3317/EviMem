@@ -1181,10 +1181,20 @@ E32 adds one same-posterior current-hull probability comparator and one new
 fantasy reveals and recomputes repeated myopic Delta-Hull continuation; it is
 not a modification of source-anchored SARR or IC-SARR. It also records
 posterior-only rank margin, rank-switch probability and cross-candidate
-influence before opening the next oracle outcome. The registered full suite
-uses the E31 task, vault, five-fold manifest, fixed-composition backend,
-hierarchical frozen-structure transport, seed `20270720`, posterior count
-1024, budgets `B=1..6`, and all eight predeclared policies.
+influence before opening the next oracle outcome. Amendment A changes the
+new E32-A execution to a two-step, 128-world/16-continuation mechanism run
+after the stopped unrestricted six-step pilot proved computationally
+infeasible. Its roster contains seven non-gated policies; frozen IC-SARR and
+diagonal-covariance results remain separate E31/P0 comparators with their
+registered 1024/8192 settings. The E32-A run uses the E31 task, vault,
+five-fold manifest, fixed-composition backend, hierarchical frozen-structure
+transport, seed `20270720`, and budgets `B=1..6`.
+
+The unrestricted pilot root
+`E:\DATA\EviMem-RL\analysis\delayed_label_followup_e32_pilot_20260803\`
+is incomplete scratch: it has no policy result, is not pooled, is not cited
+as a runtime conclusion, and is not committed to Git. The amended output must
+use a new E32-A root and must be audited before any manuscript change.
 
 The E32 output root is external to Git under
 `E:\DATA\EviMem-RL\analysis\delayed_label_followup_e32_20260803\` (or the

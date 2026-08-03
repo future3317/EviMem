@@ -1,8 +1,10 @@
 # E32 delayed-label objective and lookahead follow-up
 
-**Status:** registered development/mechanism experiment, authorized 2026-08-03.
+**Status:** amended development/mechanism experiment, authorized 2026-08-03.
 This identity is separate from E31 and must not overwrite or pool with any
-previous MatPES or MAD output.
+previous MatPES or MAD output. Amendment A was recorded after the scratch
+pilot showed that unrestricted six-step nested rollout is computationally
+infeasible on the shared CPU server.
 
 ## Scientific question
 
@@ -17,11 +19,16 @@ attribution and mechanism questions:
 3. Are rollout--Delta-Hull action differences concentrated in posterior
    rank-unstable and cross-candidate-coupled states?
 
-The new policy identity is `delta_hull_anchored_rollout`. It conditions the
-joint Gaussian posterior only on the simulated reveals in a fantasy branch,
-then recomputes the myopic Delta-Hull action. It never reads an unrevealed
-oracle outcome. The existing `source_rollout_delta_hull` policy and IC-SARR
-remain unchanged comparators.
+The new policy identity is `delta_hull_anchored_rollout`. It is a repeated
+two-step rollout: it conditions the joint Gaussian posterior only on the
+simulated reveals in a fantasy branch, then recomputes the myopic Delta-Hull
+action for the next step. It never reads an unrevealed oracle outcome. The
+existing `source_rollout_delta_hull` policy remains an unchanged comparator.
+The frozen IC-SARR and diagonal-covariance comparators are taken from the
+separately registered E31/P0 outputs, because their 1024/8192 integration
+settings must not be silently changed by the E32 runtime amendment. The
+two-step truncation is explicit; it is not presented as an exact full-horizon
+solver.
 
 ## Frozen task and split
 
@@ -50,18 +57,15 @@ delta_hull_active_search
 ungated_source_rollout
 source_rollout_delta_hull
 delta_hull_anchored_rollout
-independent_confirmation_source_rollout
 ```
 
-The registered base settings are seed `20270720`, hierarchical
-Matern-5/2 frozen-structure transport, ridge penalty `1.0`, boundary
-temperature `0.05 eV/atom`, posterior world count `1024`, fantasy count `3`,
-and budgets `B=1,...,6`. The Delta-Hull-anchored policy uses 64 conditional
-posterior samples for each repeated-greedy continuation and a posterior-only
-rank diagnostic with 32 base samples, 8 conditional samples, and two
-registered observations per candidate. A reduced pilot may use a distinct
-output identity, but its result cannot be pooled with the registered full
-suite.
+The amended E32-A settings are seed `20270720`, hierarchical Matern-5/2
+frozen-structure transport, ridge penalty `1.0`, boundary temperature `0.05
+eV/atom`, common posterior world count `128`, conditional continuation count
+`16`, posterior-only rank diagnostic with 32 base samples, 8 conditional
+samples, and two registered observations per candidate, and budgets
+`B=1,...,6`. The stopped unrestricted pilot has a distinct output identity
+and cannot be pooled with E32-A.
 
 ## Posterior-only rank/coupling diagnostics
 

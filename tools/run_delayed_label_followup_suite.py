@@ -17,7 +17,6 @@ POLICIES = (
     "ungated_source_rollout",
     "source_rollout_delta_hull",
     "delta_hull_anchored_rollout",
-    "independent_confirmation_source_rollout",
 )
 
 

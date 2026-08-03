@@ -554,6 +554,7 @@ def select(
                         ),
                         seed=hull_arguments["seed"],
                         fixed_template=fixed_template,
+                        rollout_horizon=2,
                     )
                     if diagnostics is not None:
                         query_ids = tuple(str(row["pair_id"]) for row in queries)

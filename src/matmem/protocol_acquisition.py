@@ -931,6 +931,7 @@ def delta_hull_anchored_rollout(
     seed: int = 0,
     fixed_template: FixedCompositionHullTemplate | None = None,
     diagnostic_sample_count: int = 32,
+    rollout_horizon: int = 2,
 ) -> DeltaHullAnchoredRolloutResult:
     """Roll out every first action with repeated conditional Delta-Hull.
 
@@ -949,7 +950,13 @@ def delta_hull_anchored_rollout(
         raise ValueError("Delta-Hull anchored rollout requires equal costs")
     if remaining_budget < item_costs[0]:
         raise ValueError("rollout budget cannot pay for one query")
-    horizon = min(size, int(math.floor((remaining_budget + 1e-12) / item_costs[0])))
+    if rollout_horizon < 1:
+        raise ValueError("Delta-Hull anchored rollout horizon must be positive")
+    horizon = min(
+        size,
+        int(math.floor((remaining_budget + 1e-12) / item_costs[0])),
+        rollout_horizon,
+    )
     mean = np.asarray(posterior.mean, dtype=np.float64)
     covariance = np.asarray(posterior.covariance, dtype=np.float64)
     samples = _sample_gaussian(mean, covariance, sample_count=posterior_sample_count, seed=seed)
