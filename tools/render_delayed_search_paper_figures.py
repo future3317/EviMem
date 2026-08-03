@@ -94,7 +94,7 @@ def controlled_and_folds(path: Path) -> None:
     fig, (left, right) = plt.subplots(1, 2, figsize=(7.0, 2.9), constrained_layout=True)
     rows = [r for r in controlled_benchmark_grid() if r["source_signal"] == 0.5 and r["coupling"] == 1.0]
     budgets = [r["budget"] for r in rows]
-    for key, label, color, marker in (("source_margin", "Source margin", GRAY, "o"), ("greedy_final", "Greedy final", BLUE, "s"), ("gated_source_rollout", "Gated rollout", GREEN, "D"), ("optimal_dp", "Exact DP", RED, "^")):
+    for key, label, color, marker in (("source_margin", "Source margin", GRAY, "o"), ("greedy_final", "Greedy final", BLUE, "s"), ("gated_source_rollout", "Source-anchored rollout", GREEN, "D"), ("optimal_dp", "Exact DP", RED, "^")):
         left.plot(budgets, [r[key] for r in rows], label=label, color=color, marker=marker, lw=1.5, ms=4)
     left.set(title="Exact controlled benchmark", xlabel="Budget", ylabel="Expected durable discoveries", xticks=[1, 2, 3])
     left.legend(frameon=False, fontsize=6.8)
@@ -151,7 +151,7 @@ def controlled_grid_efficiency(path: Path) -> None:
     """Render the main exact regret heatmaps for three policy rows."""
     fig, axes = plt.subplots(3, 3, figsize=(6.8, 5.05), sharex=True, sharey=True, constrained_layout=True)
     rows = controlled_benchmark_grid()
-    policies = (("source_margin", "Source margin"), ("greedy_final", "Greedy final"), ("gated_source_rollout", "Gated rollout"))
+    policies = (("source_margin", "Source margin"), ("greedy_final", "Greedy final"), ("gated_source_rollout", "Source-anchored rollout"))
     source_signal = (0.0, 0.5, 1.0)
     matrices: list[np.ndarray] = []
     for policy, _ in policies:

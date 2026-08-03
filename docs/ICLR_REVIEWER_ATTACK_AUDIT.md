@@ -18,6 +18,13 @@ value, and an exact information-structure separation. The real-data evidence
 is a development-level mechanism study; it is not a claim that one solver or
 gate is universally superior.
 
+The manuscript packaging checkpoint is paper commit `94431aa`: the main text
+is nine pages before references, references precede the appendix, and the
+rollout schematic, controlled heatmaps, policy ablations, posterior/hull
+implementation details, and numerical-gate audit are appendix material. This
+was an exposition-only integration; no new experiment or scientific-method
+change was made.
+
 ## Attacks and evidence-based response
 
 | Likely reviewer attack | Evidence already in the paper | Honest residual limitation | Required response |

@@ -12,6 +12,24 @@ is the materials instance. The primary solver is ungated source-anchored
 rollout (SARR), Delta-Hull is the materials greedy structured-label baseline,
 and IC-SARR is an optional numerical screen documented in the appendix.
 
+## Manuscript integration checkpoint
+
+The evidence-integrated manuscript is committed in the paper repository as
+`94431aa`. Its main text keeps the delayed-label motivation, the exact Bellman
+objective, the greedy failure/sufficiency theory, the MatPES budget curve and
+D/F/T waterfall, and the MAD protocol-shift curve. The rollout schematic,
+controlled stress heatmaps, policy ablations, posterior/hull implementation
+specification, and numerical-gate audit are in the appendix; references precede
+the appendix and the main text occupies nine pages before references.
+
+This packaging pass changed exposition and provenance only. It ran no new
+scientific experiment and did not change any policy, posterior, gate, manifest,
+budget, hull backend, or frozen result. The paper now explicitly records the
+unperformed same-posterior objective sensitivity suite, hull tolerance and
+duplicate-rule sensitivity, candidate-pool perturbation, formation-energy
+holdout, and unrestricted-continuation comparison as limitations rather than
+implied evidence.
+
 ## General problem
 
 For a finite candidate pool (C), latent complete world (Z), query
@@ -115,7 +133,7 @@ or gate superiority claim is supported.
 - Do not treat the theoretical counterexamples as material experiments.
 - Do not retune opened MatPES/MAD systems to estimate the theoretical terms.
 
-The manuscript implementation is recorded at paper commit `87d40e8`; raw and
+The manuscript implementation is recorded at paper commit `94431aa`; raw and
 derived experiment artifacts remain outside Git under `E:\DATA` and the
 registered remote roots. The code repository's result manifest points to this
 paper commit.

@@ -28,7 +28,7 @@ greedy structured-label baseline, ungated SARR is the primary nonmyopic solver,
 and IC-SARR is an optional numerical screen documented in the appendix.
 The formal statements and exact counterexamples are recorded in
 `docs/DELAYED_STRUCTURED_LABEL_THEORY.md` and the manuscript at paper commit
-`87d40e8`.
+`94431aa`.
 
 ## Scientific status
 
