@@ -24,6 +24,7 @@ relabel the 96-system panel.
 - Backend: `fixed_composition`; transport family: `ridge_random_intercept`;
   ridge penalty `1.0`; prior standard deviation `0.1`; boundary temperature
   `0.05 eV/atom`; seed `20270720`; posterior count `64`; fantasy count `3`.
+- Minimum candidate count: `8`, matching the frozen MAD curve.
 - Budgets: `B=1,...,6`, with the existing `B=0` source baseline retained only
   for curve AUC construction.
 
