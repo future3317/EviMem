@@ -241,7 +241,7 @@ def render_budget_curve(summary: dict[str, Any], output: Path) -> None:
         "source_margin": ("Source margin", SOURCE, "-"),
         "independent_confirmation_source_rollout": ("IC-SARR", IC, "--"),
     }
-    figure, axes = plt.subplots(2, 2, figsize=(7.0, 4.9), constrained_layout=True)
+    figure, axes = plt.subplots(2, 3, figsize=(7.0, 4.85), constrained_layout=True)
     for axis, metric, title in zip(axes.flat[:3], ("T", "F", "D"), ("Complete-pool $T$", "Selected-history $F$", "Provisional $D$"), strict=True):
         for policy, (label, color, style) in policies.items():
             values = [_metric(summary, int(budget), policy, metric)["policy_mean"] if policy != "source_margin" else _metric(summary, int(budget), policy, metric)["source_mean"] for budget in budgets]
@@ -250,14 +250,37 @@ def render_budget_curve(summary: dict[str, Any], output: Path) -> None:
         _finish(axis)
     axis = axes.flat[3]
     for metric, label, color in (("T", "$\\Delta T$", POSITIVE), ("F", "$\\Delta F$", CAUTION), ("D", "$\\Delta D$", IC)):
-        values = [_metric(summary, int(budget), "independent_confirmation_source_rollout", metric)["paired_vs_source"]["paired_mean_difference"] for budget in budgets]
-        axis.plot(budgets, values, label=label, color=color, marker="o", ms=3.5, lw=1.3)
-    runtime = [_metric(summary, int(budget), "independent_confirmation_source_rollout", "wall_seconds")["paired_vs_source"]["paired_mean_difference"] for budget in budgets]
-    axis.plot(budgets, runtime, label="$\\Delta$ wall time", color=NEGATIVE, linestyle="--", marker="s", ms=3.2, lw=1.1)
+        means = []
+        lower = []
+        upper = []
+        for budget in budgets:
+            paired = _metric(summary, int(budget), "independent_confirmation_source_rollout", metric)["paired_vs_source"]
+            mean = float(paired["paired_mean_difference"])
+            ci = paired["paired_bootstrap_95ci"]
+            means.append(mean)
+            lower.append(mean - float(ci[0]))
+            upper.append(float(ci[1]) - mean)
+        axis.errorbar(budgets, means, yerr=[lower, upper], label=label, color=color, marker="o", ms=3.2, lw=1.1, capsize=2.2)
     axis.axhline(0, color=SOURCE, lw=0.8)
-    axis.set(xticks=budgets, xlabel="Query budget $B$", ylabel="IC-SARR minus source", title="Paired differences")
-    axis.legend(frameon=False, ncol=2, loc="upper left")
+    axis.set(xticks=budgets, xlabel="Query budget $B$", ylabel="IC-SARR minus source", title="Paired differences (95% CI)")
+    axis.legend(frameon=False, ncol=1, loc="upper left")
     _finish(axis)
+    axis = axes.flat[4]
+    means = []
+    lower = []
+    upper = []
+    for budget in budgets:
+        paired = _metric(summary, int(budget), "independent_confirmation_source_rollout", "wall_seconds")["paired_vs_source"]
+        mean = float(paired["paired_mean_difference"])
+        ci = paired["paired_bootstrap_95ci"]
+        means.append(mean)
+        lower.append(mean - float(ci[0]))
+        upper.append(float(ci[1]) - mean)
+    axis.errorbar(budgets, means, yerr=[lower, upper], color=NEGATIVE, marker="s", ms=3.2, lw=1.2, capsize=2.2)
+    axis.axhline(0, color=SOURCE, lw=0.8)
+    axis.set(xticks=budgets, xlabel="Query budget $B$", ylabel="Seconds/system", title="Additional wall time (95% CI)")
+    _finish(axis)
+    axes.flat[5].axis("off")
     figure.suptitle("MatPES cross-fitted budget curve (230 development systems)", fontsize=10)
     _save(figure, output)
 

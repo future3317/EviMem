@@ -10,7 +10,7 @@ Inventory time: 2026-08-03 (Asia/Shanghai)
 ## Provenance
 
 - Code commit: `acf3e07` (`E:\CODE\EviMem-RL`)
-- Paper commit: `fc8515d` (`E:\PAPER`)
+- Paper commit: `b61d630` (`E:\PAPER`)
 - Local data root: `E:\DATA\EviMem-RL`
 - Remote data root: `/home/workspace/lrh/DATA/EviMem-RL`
 - Remote host: `lrh@100.110.148.20`
@@ -40,6 +40,7 @@ same frozen inputs and registered code:
 | `E:\DATA\EviMem-RL\analysis\matpes_ic_sarr_mechanism_reduced_v1_20260802\derived_summary_reduced_v2_corrected.json` | 241,692 | `4923624a86d00be55d422960f48263b3fdf06123f78cf92ce1398af2050e2c87` | complete; corrected post-processing mapping |
 | `/home/workspace/lrh/DATA/EviMem-RL/analysis/matpes_ic_sarr_mechanism_v3_20260802/derived_ic_sarr_calibration_v3.json` | 1,768,548 | `a21b41b4912f35cf82043ceda7bbf8961f8e7ead3f938a5b4d78d41f60cdec0b` | complete |
 | `E:\DATA\EviMem-RL\analysis\matpes_ic_sarr_mechanism_reduced_v1_20260802\derived_direct_mechanism_comparisons_v1.json` | 111,515 | `54a86971d849002537db2e25335b1f7c799dcf956144b5a25657b13f62eec9d2` | complete; direct same-system mechanism contrasts |
+| `E:\DATA\EviMem-RL\analysis\matpes_ic_sarr_mechanism_v3_20260802\random_exact_gate_audit_v3.json` | 733,351 | `1CD3A1FC973EECFDB0A81333EA6245B995A200B32B351708019B5CBD9C421456` | complete; exact-world numerical-gate audit |
 
 The calibration audit initially exposed and then fixed a task-schema adapter
 bug: initial reference phases store corrected total energy and composition,

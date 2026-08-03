@@ -106,3 +106,21 @@ confirmation is not improved reliably, and the implementation is slower. Any
 future method change must reserve a new disjoint evaluation partition; an
 action-parity-preserving phase-diagram performance optimization is allowed as
 an engineering task but cannot be reported as a changed policy.
+
+## Exact-world numerical-gate audit (2026-08-03)
+
+The registered 1,000-instance finite-world suite was replayed at the initial
+decision state with the frozen synthetic comparator (stage one 128 samples in
+16 blocks of 8; independent stage two 512 samples in 16 blocks of 32). The
+replay reproduced the registered IC action on 1,000/1,000 instances. Stage one
+accepted 600 actions with 0 exact false acceptances; stage two was invoked 27
+times, accepted 20, and reverted 7 to source, again with 0 exact false
+acceptances. The final gate selected 620 non-source actions with 0 exact false
+acceptances, missed 13 of 633 instances with a positive exact best advantage,
+and had mean exact rollout regret `0.0005494` (median `0`).
+
+This is a finite-suite numerical-behavior audit under the registered world
+model. It supports the wording “randomized-QMC lower-confidence screen” and
+“numerical safeguard”; it is not a finite-sample coverage theorem, posterior
+calibration result, or material-discovery guarantee. The external derived
+artifact and checksum are recorded in `docs/RAW_RESULTS_MANIFEST.md`.

@@ -21,7 +21,10 @@ def _save(fig: plt.Figure, path: Path) -> None:
 
 
 def delayed_adjudication(path: Path) -> None:
-    fig, axes = plt.subplots(1, 4, figsize=(7.0, 2.05), constrained_layout=True)
+    fig = plt.figure(figsize=(7.0, 3.0), constrained_layout=True)
+    grid = fig.add_gridspec(2, 3, height_ratios=(1.0, 0.72))
+    axes = [fig.add_subplot(grid[0, index]) for index in range(3)]
+    timeline = fig.add_subplot(grid[1, :])
     xs = np.array([0.0, 0.34, 0.66, 1.0])
     for axis in axes:
         axis.set(xlim=(-0.04, 1.04), ylim=(-0.12, 0.16))
@@ -36,18 +39,22 @@ def delayed_adjudication(path: Path) -> None:
     axes[1].scatter([0, 1, xs[1]], [0, 0, -0.035], color=[INK, INK, BLUE], s=28)
     axes[1].plot([0, xs[1], 1], [0, -0.035, 0], color=BLUE, lw=1.4)
     axes[1].text(xs[1], -0.075, "provisional\ndiscovery", ha="center", fontsize=7.5, color=BLUE)
-    axes[2].set_title("3. Reveal $y$", fontsize=8)
+    axes[2].set_title("3. Expand pool and adjudicate", fontsize=8)
     axes[2].scatter([0, 1, xs[1], xs[2]], [0, 0, -0.035, -0.090], color=[INK, INK, GRAY, RED], s=28)
     axes[2].plot([0, xs[2], 1], [0, -0.090, 0], color=RED, lw=1.4)
-    axes[2].text(xs[1], -0.075, "x invalidated", ha="center", fontsize=7.5, color=RED)
-    axes[3].set_title("4. Final label", fontsize=8)
-    steps = ("query x", "observe $E_T(x)$", "resolve competitors", "final label $Y_x$")
+    axes[2].text(xs[1], -0.075, "$x$ invalidated", ha="center", fontsize=7.5, color=RED)
+    axes[2].text(xs[1], 0.105, "$E_T(x)$ observed", ha="center", fontsize=7.0, color=BLUE)
+    axes[2].text(xs[2], -0.115, "$Y_x$", ha="center", fontsize=8.2, color=RED)
+    timeline.axis("off")
+    timeline.set(xlim=(0.0, 1.0), ylim=(0.0, 1.0))
+    steps = ("query $x$", "observe $E_T(x)$", "reveal competitors", "adjudicate $Y_x$")
+    positions = np.linspace(0.08, 0.92, len(steps))
     for i, step in enumerate(steps):
-        axes[3].text(0.02 + i * 0.25, 0.055, step, ha="left", va="center", fontsize=6.7,
-                     bbox={"boxstyle": "round,pad=0.22", "fc": "#EEF3F8", "ec": BLUE, "lw": 0.7})
+        timeline.text(positions[i], 0.57, step, ha="center", va="center", fontsize=7.0,
+                      bbox={"boxstyle": "round,pad=0.25", "fc": "#EEF3F8", "ec": BLUE, "lw": 0.7})
         if i < 3:
-            axes[3].annotate("", xy=(0.02 + (i + 1) * 0.25 - 0.015, 0.055), xytext=(0.02 + i * 0.25 + 0.13, 0.055), arrowprops={"arrowstyle": "->", "lw": 0.8})
-    axes[3].text(0.5, -0.055, "Query outcome is immediate; discovery utility is not.", ha="center", fontsize=7.4, color=INK)
+            timeline.annotate("", xy=(positions[i + 1] - 0.08, 0.57), xytext=(positions[i] + 0.08, 0.57), arrowprops={"arrowstyle": "->", "lw": 0.8})
+    timeline.text(0.5, 0.13, "The query reveals $E_T(x)$ immediately; the discovery label $Y_x$ waits for pool expansion.", ha="center", fontsize=7.4, color=INK)
     _save(fig, path)
 
 
@@ -141,8 +148,8 @@ def dft_waterfall(path: Path) -> None:
 
 
 def controlled_grid_efficiency(path: Path) -> None:
-    """Render exact regret heatmaps, preserving absolute-value differences."""
-    fig, axes = plt.subplots(4, 3, figsize=(6.8, 6.45), sharex=True, sharey=True, constrained_layout=True)
+    """Render the main exact regret heatmaps for three policy rows."""
+    fig, axes = plt.subplots(3, 3, figsize=(6.8, 5.05), sharex=True, sharey=True, constrained_layout=True)
     rows = controlled_benchmark_grid()
     policies = (("source_margin", "Source margin"), ("greedy_final", "Greedy final"), ("gated_source_rollout", "Gated rollout"))
     source_signal = (0.0, 0.5, 1.0)
@@ -172,26 +179,46 @@ def controlled_grid_efficiency(path: Path) -> None:
                 axis.set_title(f"Source signal {signal:.1f}", fontsize=8)
             if column_index == 0:
                 axis.set_ylabel(f"{label}\nBudget $B$", fontsize=7.5)
-    gains = [matrices[signal_index] - matrices[6 + signal_index] for signal_index in range(3)]
-    gain_max = max(float(gain.max()) for gain in gains)
-    gain_image = None
+    assert image is not None
+    colorbar = fig.colorbar(image, ax=axes[:3, :], shrink=0.72, pad=0.015)
+    colorbar.set_label("Exact DP value - policy value", fontsize=7.5)
+    fig.suptitle("Exact regret from belief-state dynamic programming", fontsize=9, y=1.01)
+    _save(fig, path)
+
+
+def controlled_grid_rollout_source(path: Path) -> None:
+    """Render the rollout-minus-source companion heatmaps for the appendix."""
+    fig, axes = plt.subplots(1, 3, figsize=(6.8, 2.15), sharex=True, sharey=True, constrained_layout=True)
+    rows = controlled_benchmark_grid()
+    source_signal = (0.0, 0.5, 1.0)
+    gains = []
+    for signal in source_signal:
+        source = np.zeros((3, 3), dtype=float)
+        rollout = np.zeros((3, 3), dtype=float)
+        for item in rows:
+            if item["source_signal"] != signal:
+                continue
+            budget_index = int(item["budget"]) - 1
+            coupling_index = int(round(item["coupling"] * 2))
+            source[budget_index, coupling_index] = item["source_margin"]
+            rollout[budget_index, coupling_index] = item["gated_source_rollout"]
+        gains.append(rollout - source)
+    vmax = max(float(gain.max()) for gain in gains)
+    image = None
     for column_index, (signal, gain) in enumerate(zip(source_signal, gains, strict=True)):
-        axis = axes[3, column_index]
-        gain_image = axis.imshow(gain, cmap="Greens", vmin=0, vmax=gain_max, origin="lower", aspect="auto")
+        axis = axes[column_index]
+        image = axis.imshow(gain, cmap="Greens", vmin=0, vmax=vmax, origin="lower", aspect="auto")
         for budget_index in range(3):
             for coupling_index in range(3):
                 value = gain[budget_index, coupling_index]
-                axis.text(coupling_index, budget_index, f"{value:.2f}", ha="center", va="center", fontsize=6.9, color="white" if value > gain_max * 0.55 else INK)
-        axis.set(xticks=[0, 1, 2], xticklabels=["0", "0.5", "1"], yticks=[0, 1, 2], yticklabels=["1", "2", "3"], xlabel="Delayed-label coupling")
+                axis.text(coupling_index, budget_index, f"{value:.1f}", ha="center", va="center", fontsize=6.8, color="white" if value > vmax * 0.55 else INK)
+        axis.set(xticks=[0, 1, 2], xticklabels=["0", "0.5", "1"], yticks=[0, 1, 2], yticklabels=["1", "2", "3"], xlabel="Delayed-label coupling", title=f"Signal {signal:.1f}")
         if column_index == 0:
-            axis.set_ylabel("Rollout - source\nBudget $B$", fontsize=7.5)
+            axis.set_ylabel("Budget $B$")
     assert image is not None
-    assert gain_image is not None
-    colorbar = fig.colorbar(image, ax=axes[:3, :], shrink=0.72, pad=0.015)
-    colorbar.set_label("Exact DP value - policy value", fontsize=7.5)
-    gain_colorbar = fig.colorbar(gain_image, ax=axes[3, :], shrink=0.72, pad=0.015)
-    gain_colorbar.set_label("Rollout value - source value", fontsize=7.5)
-    fig.suptitle("Regret from exact belief-state dynamic programming", fontsize=9, y=1.01)
+    colorbar = fig.colorbar(image, ax=axes, shrink=0.82, pad=0.015)
+    colorbar.set_label("Rollout value - source value", fontsize=7.5)
+    fig.suptitle("Exact rollout gain over source margin", fontsize=9, y=1.03)
     _save(fig, path)
 
 
@@ -204,6 +231,7 @@ def main() -> None:
     controlled_and_folds(args.output_dir / "controlled_and_matpes_effects.pdf")
     dft_waterfall(args.output_dir / "matpes_dft_waterfall.pdf")
     controlled_grid_efficiency(args.output_dir / "controlled_grid_efficiency.pdf")
+    controlled_grid_rollout_source(args.output_dir / "controlled_grid_rollout_source.pdf")
 
 
 if __name__ == "__main__":
