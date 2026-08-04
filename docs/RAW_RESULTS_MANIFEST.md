@@ -9,7 +9,7 @@ Inventory time: 2026-08-04 (Asia/Shanghai)
 
 ## Provenance
 
-- Code commit: `840d8d7` (`E:\CODE\EviMem-RL`)
+- Code commit: `7a19107` (`E:\CODE\EviMem-RL`)
 - Paper commit: `74ddcc9` (`E:\PAPER`)
 - Local data root: `E:\DATA\EviMem-RL`
 - Remote data root: `/home/workspace/lrh/DATA/EviMem-RL`
