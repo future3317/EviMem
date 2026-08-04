@@ -74,9 +74,7 @@ def summarize(
         raise ValueError(f"missing executor identity: {identity_path}")
     identity = json.loads(identity_path.read_text(encoding="utf-8"))
     expected = {
-        f"hull-ens-fold{fold}-b{budget}-main.json"
-        for fold in range(1, 6)
-        for budget in range(1, 7)
+        f"hull-ens-fold{fold}-b{budget}-main.json" for fold in range(1, 6) for budget in range(1, 7)
     }
     paths = sorted(input_root.glob("hull-ens-fold*-b*-main.json"))
     if {path.name for path in paths} != expected:
@@ -118,9 +116,7 @@ def summarize(
         metrics: dict[str, Any] = {}
         for policy in POLICIES:
             metrics[policy] = {
-                name: float(
-                    np.mean([_metric(row, policy, name) for row in by_system.values()])
-                )
+                name: float(np.mean([_metric(row, policy, name) for row in by_system.values()]))
                 for name in (
                     "oracle_pool_confirmed_discoveries",
                     "final_causal_confirmed_discoveries",
@@ -170,7 +166,12 @@ def main() -> None:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--expected-system-count", type=int, default=230)
     args = parser.parse_args()
-    print(json.dumps(summarize(**vars(args)), indent=2, sort_keys=True))
+    summary = summarize(
+        input_root=args.input_root,
+        output_path=args.output,
+        expected_system_count=args.expected_system_count,
+    )
+    print(json.dumps(summary, indent=2, sort_keys=True))
 
 
 if __name__ == "__main__":

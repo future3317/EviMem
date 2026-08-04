@@ -11,7 +11,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from concurrent.futures import ThreadPoolExecutor
 
 import numpy as np
@@ -715,6 +715,7 @@ def _hull_ens_core(
     mean = np.asarray(posterior.mean, dtype=np.float64)
     covariance = np.asarray(posterior.covariance, dtype=np.float64)
     item_costs = np.asarray(costs, dtype=np.float64).reshape(-1)
+    reference_energy_array = np.asarray(reference_energies, dtype=np.float64).reshape(-1)
     size = len(mean)
     if (
         len(query_compositions) != size
@@ -735,14 +736,16 @@ def _hull_ens_core(
         raise ValueError("Hull-ENS sample counts are too small")
     if not isinstance(candidate_workers, int) or candidate_workers < 1:
         raise ValueError("Hull-ENS candidate workers must be a positive integer")
-    if len(reference_compositions) != len(np.asarray(reference_energies).reshape(-1)):
+    if len(reference_compositions) != len(reference_energy_array):
         raise ValueError("Hull-ENS reference arrays disagree")
     if candidate_indices is None:
         candidates = tuple(range(size))
     else:
         candidates = tuple(int(index) for index in candidate_indices)
-    if not candidates or len(set(candidates)) != len(candidates) or any(
-        index < 0 or index >= size for index in candidates
+    if (
+        not candidates
+        or len(set(candidates)) != len(candidates)
+        or any(index < 0 or index >= size for index in candidates)
     ):
         raise ValueError("Hull-ENS candidate set is invalid")
 
@@ -752,9 +755,7 @@ def _hull_ens_core(
             mean, covariance, sample_count=posterior_sample_count, seed=seed
         )
     else:
-        samples = _sample_gaussian(
-            mean, covariance, sample_count=posterior_sample_count, seed=seed
-        )
+        samples = _sample_gaussian(mean, covariance, sample_count=posterior_sample_count, seed=seed)
     runtime_plan = (
         None if fixed_template is None else FixedHullRuntimePlan.from_template(fixed_template)
     )
@@ -762,7 +763,7 @@ def _hull_ens_core(
         query_compositions=query_compositions,
         sampled_query_energies=samples,
         reference_compositions=reference_compositions,
-        reference_energies=np.asarray(reference_energies, dtype=np.float64),
+        reference_energies=reference_energy_array,
         fixed_template=fixed_template,
         fixed_runtime_plan=runtime_plan,
     )
@@ -772,6 +773,7 @@ def _hull_ens_core(
     q_worlds = np.full((posterior_sample_count, len(candidates)), np.nan, dtype=np.float64)
     if horizon > 1:
         posterior_variance = np.maximum(np.diag(covariance), 1e-14)
+
         def evaluate_candidate(
             item: tuple[int, int],
         ) -> tuple[int, int, float, float, np.ndarray]:
@@ -783,11 +785,11 @@ def _hull_ens_core(
             conditional_mean = mean[np.asarray(remaining, dtype=np.int64)] + np.outer(
                 observed - mean[candidate], cross / posterior_variance[candidate]
             )
-            conditional_covariance = covariance[
-                np.ix_(remaining, remaining)
-            ] - np.outer(cross, cross) / posterior_variance[candidate]
+            conditional_covariance = (
+                covariance[np.ix_(remaining, remaining)]
+                - np.outer(cross, cross) / posterior_variance[candidate]
+            )
             conditional_covariance = 0.5 * (conditional_covariance + conditional_covariance.T)
-            conditional_factor = _gaussian_factor(conditional_covariance)
             if independent_worlds:
                 noise = _sample_gaussian_iid(
                     np.zeros(len(remaining), dtype=np.float64),
@@ -796,6 +798,7 @@ def _hull_ens_core(
                     seed=seed + 15485863 * (candidate + 1),
                 ).reshape(posterior_sample_count, fantasy_sample_count, len(remaining))
             else:
+                conditional_factor = _gaussian_factor(conditional_covariance)
                 noise = _sample_gaussian_from_factor(
                     np.zeros(len(remaining), dtype=np.float64),
                     conditional_factor,
@@ -818,7 +821,7 @@ def _hull_ens_core(
                 query_compositions=query_compositions,
                 sampled_query_energies=full_samples,
                 reference_compositions=reference_compositions,
-                reference_energies=np.asarray(reference_energies, dtype=np.float64),
+                reference_energies=reference_energy_array,
                 fixed_template=fixed_template,
                 fixed_runtime_plan=runtime_plan,
             ).reshape(posterior_sample_count, fantasy_sample_count, size)
@@ -835,35 +838,29 @@ def _hull_ens_core(
             )
             return (
                 candidate_position,
-                candidate,
                 future_value,
                 information_value,
                 probabilities[candidate] + future_by_world,
             )
 
-        items = tuple(enumerate(candidates))
-        if candidate_workers == 1 or len(items) == 1:
-            evaluated = map(evaluate_candidate, items)
-            for candidate_position, candidate, future_value, information_value, q_values in evaluated:
+        def collect_candidate_results(
+            evaluated: Iterable[tuple[int, float, float, np.ndarray]],
+        ) -> None:
+            for candidate_position, future_value, information_value, q_values in evaluated:
+                candidate = candidates[candidate_position]
                 future_values[candidate] = future_value
                 information_values[candidate] = information_value
                 q_worlds[:, candidate_position] = q_values
+
+        items = tuple(enumerate(candidates))
+        if candidate_workers == 1 or len(items) == 1:
+            collect_candidate_results(map(evaluate_candidate, items))
         else:
             with ThreadPoolExecutor(
                 max_workers=min(candidate_workers, len(items)),
                 thread_name_prefix="hull-ens-candidate",
             ) as executor:
-                evaluated = executor.map(evaluate_candidate, items)
-                for (
-                    candidate_position,
-                    candidate,
-                    future_value,
-                    information_value,
-                    q_values,
-                ) in evaluated:
-                    future_values[candidate] = future_value
-                    information_values[candidate] = information_value
-                    q_worlds[:, candidate_position] = q_values
+                collect_candidate_results(executor.map(evaluate_candidate, items))
     else:
         for candidate_position, candidate in enumerate(candidates):
             q_worlds[:, candidate_position] = probabilities[candidate]
@@ -996,14 +993,14 @@ def safe_hull_ens(
     future_values = np.asarray(main["future_values"], dtype=np.float64)
     information_values = np.asarray(main["information_values"], dtype=np.float64)
     delta_index = int(main["delta_hull_action_index"])
-    candidate_indices = _top_k_union(
-        probabilities, information_values, query_ids, top_k=top_k
-    )
+    candidate_indices = _top_k_union(probabilities, information_values, query_ids, top_k=top_k)
     if delta_index not in candidate_indices:
         candidate_indices = (delta_index, *candidate_indices)
     candidate_indices = tuple(dict.fromkeys(candidate_indices))
-    certificate_count = posterior_sample_count if certificate_sample_count is None else int(
-        certificate_sample_count
+    certificate_count = (
+        posterior_sample_count
+        if certificate_sample_count is None
+        else int(certificate_sample_count)
     )
     if certificate_count < 4:
         raise ValueError("safe Hull-ENS certificate needs at least four worlds")
@@ -1029,9 +1026,7 @@ def safe_hull_ens(
     means = differences.mean(axis=0)
     horizon = int(main["horizon"])
     radius = horizon * math.sqrt(
-        2.0
-        * math.log(2.0 * len(candidate_indices) / gate_failure_probability)
-        / certificate_count
+        2.0 * math.log(2.0 * len(candidate_indices) / gate_failure_probability) / certificate_count
     )
     lower_bounds = means - radius
     lower_bounds[baseline_position] = 0.0
@@ -1473,9 +1468,7 @@ def delta_hull_anchored_rollout(
                 geometry = continuation_geometry_cache.get(selected_key)
                 if geometry is None:
                     continuation_template = FixedCompositionHullTemplate.from_compositions(
-                        query_compositions=tuple(
-                            query_compositions[index] for index in remaining
-                        ),
+                        query_compositions=tuple(query_compositions[index] for index in remaining),
                         reference_compositions=dynamic_reference_compositions,
                     )
                     geometry = (
