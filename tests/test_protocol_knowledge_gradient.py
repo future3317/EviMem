@@ -22,11 +22,13 @@ from matmem.protocol_acquisition import (
     delta_hull_anchored_rollout,
     diagonal_independent_confirmation_source_rollout,
     fit_conformal_source_rollout_calibration,
+    hull_ens,
     independent_confirmation_source_rollout,
     independent_world_confirmation_source_rollout,
     posterior_rank_diagnostics,
     protocol_hull_knowledge_gradient,
     protocol_hull_risk_reduction,
+    safe_hull_ens,
     source_rollout_delta_hull,
     source_rollout_system_score,
     ungated_source_rollout_delta_hull,
@@ -692,6 +694,93 @@ def test_delta_hull_active_search_prefers_final_support_phase() -> None:
     )
     assert result.final_stability_probabilities == pytest.approx((1.0, 0.0))
     assert np.argmax(result.scores) == 0
+
+
+def test_hull_ens_horizon_one_has_delta_hull_action_parity() -> None:
+    kwargs = _ic_kwargs()
+    delta = delta_hull_active_search(
+        kwargs["posterior"],
+        query_compositions=kwargs["query_compositions"],
+        reference_compositions=kwargs["reference_compositions"],
+        reference_energies=kwargs["reference_energies"],
+        costs=kwargs["costs"],
+        posterior_sample_count=16,
+        seed=kwargs["seed"],
+    )
+    result = hull_ens(
+        kwargs["posterior"],
+        query_compositions=kwargs["query_compositions"],
+        query_ids=kwargs["query_ids"],
+        reference_compositions=kwargs["reference_compositions"],
+        reference_energies=kwargs["reference_energies"],
+        costs=kwargs["costs"],
+        remaining_budget=1.0,
+        posterior_sample_count=16,
+        fantasy_sample_count=4,
+        seed=kwargs["seed"],
+    )
+    assert result.horizon == 1
+    assert result.selected_action_index == min(
+        range(3), key=lambda index: (-delta.scores[index], kwargs["query_ids"][index])
+    )
+    assert result.scores == pytest.approx(delta.scores)
+    assert result.expected_future_values == pytest.approx((0.0, 0.0, 0.0))
+
+
+def test_hull_ens_candidate_parallelism_preserves_scores() -> None:
+    kwargs = _ic_kwargs()
+    serial = hull_ens(
+        kwargs["posterior"],
+        query_compositions=kwargs["query_compositions"],
+        query_ids=kwargs["query_ids"],
+        reference_compositions=kwargs["reference_compositions"],
+        reference_energies=kwargs["reference_energies"],
+        costs=kwargs["costs"],
+        remaining_budget=2.0,
+        posterior_sample_count=16,
+        fantasy_sample_count=4,
+        seed=kwargs["seed"],
+        candidate_workers=1,
+    )
+    parallel = hull_ens(
+        kwargs["posterior"],
+        query_compositions=kwargs["query_compositions"],
+        query_ids=kwargs["query_ids"],
+        reference_compositions=kwargs["reference_compositions"],
+        reference_energies=kwargs["reference_energies"],
+        costs=kwargs["costs"],
+        remaining_budget=2.0,
+        posterior_sample_count=16,
+        fantasy_sample_count=4,
+        seed=kwargs["seed"],
+        candidate_workers=2,
+    )
+    assert parallel.selected_action_index == serial.selected_action_index
+    assert parallel.delta_hull_action_index == serial.delta_hull_action_index
+    assert parallel.scores == pytest.approx(serial.scores)
+    assert parallel.expected_future_values == pytest.approx(serial.expected_future_values)
+    assert parallel.information_values == pytest.approx(serial.information_values)
+
+
+def test_safe_hull_ens_falls_back_to_delta_hull_when_horizon_is_one() -> None:
+    kwargs = _ic_kwargs()
+    result = safe_hull_ens(
+        kwargs["posterior"],
+        query_compositions=kwargs["query_compositions"],
+        query_ids=kwargs["query_ids"],
+        reference_compositions=kwargs["reference_compositions"],
+        reference_energies=kwargs["reference_energies"],
+        costs=kwargs["costs"],
+        remaining_budget=1.0,
+        posterior_sample_count=16,
+        fantasy_sample_count=4,
+        certificate_sample_count=16,
+        seed=kwargs["seed"],
+    )
+    assert result.selected_action_index == result.delta_hull_action_index
+    assert result.gate_used is False
+    assert result.fallback_reason == "no_positive_delta_relative_certificate"
+    assert all(value <= 0.0 for value in result.certificate_lower_bounds)
 
 
 def test_delta_hull_anchored_rollout_records_rank_and_coupling_diagnostics() -> None:

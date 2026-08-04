@@ -28,7 +28,7 @@ greedy structured-label baseline, ungated SARR is the primary nonmyopic solver,
 and IC-SARR is an optional numerical screen documented in the appendix.
 The formal statements and exact counterexamples are recorded in
 `docs/DELAYED_STRUCTURED_LABEL_THEORY.md` and the manuscript at paper commit
-`5c2b8ca`.
+`74ddcc9`.
 
 ## Scientific status
 
@@ -70,6 +70,25 @@ MatPES holdout. MAD provides atomization energy rather than formation energy,
 so the first task is explicitly an isolated-atom-reference atomization-hull
 proxy. Do not call it a standard solid-state formation hull or silently use
 total energy as formation energy.
+
+## New method-development line (E48)
+
+The user-authorized Hull-ENS line is registered in
+`docs/HULL_ENS_PROTOCOL_V1.md`. `hull_ens` is a one-fantasy delayed-label
+batch approximation; `safe_hull_ens` is Delta-Hull-relative and falls back
+unless an independent iid posterior-world screen has a positive simultaneous
+lower bound. The first P0 uses method seed `20270804`, four policies, five
+development folds, and budgets `B=1..6`. Its raw root is external at
+`/home/workspace/lrh/DATA/EviMem-RL/analysis/hull_ens_p0_v1_20260804`.
+The first B=1 smoke completed with exact action parity against Delta-Hull;
+the first full P0 root stopped incomplete at the same four-component
+`Co-Fe-Li-O` Hull-ENS selection for every `B>=2` unit. It is preserved and must
+not be reused. The action-preserving recovery is registered in
+`docs/HULL_ENS_RECOVERY_V2_PROTOCOL.md` under a new external root with four
+candidate workers and four independent units. Do not integrate or claim
+results until the complete recovery summary passes count, roster,
+protocol-hash, and direct paired-contrast audits. Facet calibration is a
+deferred separate identity.
 
 ## Locations and environments
 

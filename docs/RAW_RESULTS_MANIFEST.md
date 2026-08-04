@@ -25,6 +25,11 @@ Inventory time: 2026-08-04 (Asia/Shanghai)
 | Exact-DP random suite v3 | `E:\DATA\EviMem-RL\analysis\matpes_ic_sarr_mechanism_v3_20260802\random_exact_dp_suite_v3.json` | complete | 1,000 instances | 1 file | 2,335,785 | 0 |
 | E32-A delayed-label parallel recovery | `/home/workspace/lrh/DATA/EviMem-RL/analysis/delayed_label_followup_e32_amendment_a_parallel_20260803` | complete | 5 folds x B=1..6 = 30/30 (25 new outputs + 5 read-only B1 reuse) | 30 root files | 360,052,352 | 0 |
 | MAD-1.5 direct mechanism curve | `E:\DATA\MAD-1.5-v1\mad15_direct_mechanism_20260803` | complete | 4 policies x B=1..6 = 24/24 | 2,322 | 34,405,598 | 0 |
+| E48 Hull-ENS P0 v1 | `/home/workspace/lrh/DATA/EviMem-RL/analysis/hull_ens_p0_v1_20260804` | incomplete/interrupted | 5 folds x B=1..6 = 5/30 complete | external root retained | 25 | 25 failure markers; not summarized |
+| E48 Hull-ENS action-preserving recovery v2 | `/home/workspace/lrh/DATA/EviMem-RL/analysis/hull_ens_p0_v2_recovery_20260804` | registered/pending | 5 folds x B=1..6 = 0/30 at inventory | not started | 0 | 0 |
+| E48 Hull-ENS full-settings Co-Fe smoke | `/home/workspace/lrh/DATA/EviMem-RL/analysis/hull_ens_recovery_smoke_cofe_v2_20260804` | complete diagnostic | 1 system x B=2 = 1/1 | external root retained | 1 | 0; 206.235 s/system |
+| E48 Hull-ENS low-MC Co-Fe smoke | `/home/workspace/lrh/DATA/EviMem-RL/analysis/hull_ens_recovery_smoke_cofe_light_20260804` | complete diagnostic | 1 system x B=2 = 1/1 | external root retained | 1 | 0; 10.841 s/system |
+| E48 Hull-ENS feasibility screen v1 | `/home/workspace/lrh/DATA/EviMem-RL/analysis/hull_ens_screen_v1_20260804` | registered/pending | 5 folds x B=1..6 = 0/30 at inventory | not started | 0 | 0 |
 
 The two remote campaigns were checked read-only. No active P0 launcher or
 closed-loop worker process was present at inventory time. The remote raw roots
@@ -50,6 +55,8 @@ same frozen inputs and registered code:
 | `E:\DATA\MAD-1.5-v1\mad15_direct_mechanism_20260803\mad15_direct_summary_20260804.json` | 72,848 | `61848689325400E8C76A1D0DA28DC6EB9DF46C868F57CD8966F6C431ECC77F81` | complete; MAD direct paired curve summary |
 | `E:\DATA\delayed_label_followup_figures_20260804\e32_delayed_label_mechanism.pdf` | 24,453 | `081EEDFC5A966AC21D8A0B0F53E1616DA16F243553D650F516C7A5445E1F38A2` | complete; manuscript-derived figure |
 | `E:\DATA\delayed_label_followup_figures_20260804\mad15_direct_mechanism_curve.pdf` | 24,354 | `A0B3787CDD8568AC76118816201655E0CA79FEF9943C939527191576FE21F33F` | complete; manuscript-derived figure |
+| `E:\DATA\E32-A_parallel_20260803_direct_lookahead_mechanism_audit.json` | 867,076 | `346A77C8503F885801F1101E727E78B5F20FBFC7110C1253203AD6FB09A39E94` | complete; evaluator-only Q-gap/rank-switch mechanism audit |
+| `E:\DATA\delayed_label_followup_figures_20260804\e32_direct_lookahead_mechanism.pdf` | 24,861 | `EFE26E0C41D7B6BDE08792D90B234C45161118AD7A7E45E8DAEC2EB8443B04AE` | complete; manuscript-derived action-versus-utility figure |
 
 The calibration audit initially exposed and then fixed a task-schema adapter
 bug: initial reference phases store corrected total energy and composition,

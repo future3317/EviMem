@@ -80,6 +80,7 @@ class ExperimentConfig:
     posterior_sample_count: int = MATPES_DEFAULTS.posterior_sample_count
     posterior_diagnostic_sample_count: int = 0
     fantasy_count: int = MATPES_DEFAULTS.fantasy_count
+    hull_candidate_workers: int = 1
     rollout_selection_timeout_seconds: float = 300.0
     conformal_threshold: float | None = None
     hull_backend: Literal["pymatgen", "fixed_composition"] = "pymatgen"
@@ -621,6 +622,7 @@ def run(
                 ),
                 posterior_sample_count=config.posterior_sample_count,
                 fantasy_count=config.fantasy_count,
+                hull_candidate_workers=config.hull_candidate_workers,
                 conformal_threshold=config.conformal_threshold,
                 hull_backend=config.hull_backend,
                 selection_timeout_seconds=(
@@ -637,6 +639,8 @@ def run(
                         ProtocolPolicy.CONFORMAL_SOURCE_ROLLOUT_DELTA_HULL.value,
                         ProtocolPolicy.PROTOCOL_HULL_KNOWLEDGE_GRADIENT.value,
                         ProtocolPolicy.PROTOCOL_HULL_RISK_REDUCTION.value,
+                        ProtocolPolicy.HULL_ENS.value,
+                        ProtocolPolicy.SAFE_HULL_ENS.value,
                     }
                     else 30.0
                 ),
@@ -900,6 +904,7 @@ def main() -> None:
     )
     parser.add_argument("--posterior-diagnostic-sample-count", type=int, default=0)
     parser.add_argument("--fantasy-count", type=int, default=MATPES_DEFAULTS.fantasy_count)
+    parser.add_argument("--hull-candidate-workers", type=int, default=1)
     parser.add_argument("--rollout-selection-timeout-seconds", type=float, default=300.0)
     parser.add_argument("--conformal-threshold", type=float, default=None)
     parser.add_argument("--split", choices=("development", "confirmatory"), default="development")
@@ -966,6 +971,7 @@ def main() -> None:
         posterior_sample_count=args.posterior_sample_count,
         posterior_diagnostic_sample_count=args.posterior_diagnostic_sample_count,
         fantasy_count=args.fantasy_count,
+        hull_candidate_workers=args.hull_candidate_workers,
         rollout_selection_timeout_seconds=args.rollout_selection_timeout_seconds,
         conformal_threshold=args.conformal_threshold,
         hull_backend=args.hull_backend,
@@ -1010,6 +1016,7 @@ def main() -> None:
             and config.posterior_diagnostic_sample_count < 4
         )
         or config.fantasy_count < 1
+        or config.hull_candidate_workers < 1
         or not math.isfinite(config.rollout_selection_timeout_seconds)
         or config.rollout_selection_timeout_seconds <= 0
         or (

@@ -104,9 +104,14 @@ positive state-compression result or independent MatPES holdout.
 The later registered P0-v3 campaign (E31 below) supersedes the earlier
 development headline numerically for the frozen MatPES mechanism story: its
 complete B=1..6 core curve gives B=6 $\Delta T=+0.1696$ per system with 95\%
-CI $[+0.0870,+0.2565]$ and 51/160/19 wins/ties/losses.  It does not alter the
-scientific decision boundary: this remains opened development evidence, not
-final-causal, cost-aware, deployment, or universal superiority.
+CI $[+0.0870,+0.2565]$ and 51/160/19 wins/ties/losses.  The completed E32-A
+follow-up adds a bounded same-posterior lookahead comparison: the
+Delta-Hull-anchored rollout is $+0.0391$ above Delta-Hull at B=6
+(sign-flip $p=0.0642$), while the posterior-only strata show no monotone
+coupling interaction. The completed MAD direct-mechanism curve likewise keeps
+the direct B=6 contrasts small. These results do not alter the scientific
+decision boundary: this remains opened development evidence, not final-causal,
+cost-aware, deployment, or universal superiority.
 
 The stopping chain does not authorize another outcome-selected posterior
 approximation. CHIC tested a real optimizer-input constraint without deleting
@@ -120,17 +125,17 @@ randomized-QMC numerical screen.
 
 The exact separation and controlled benchmark support the mechanism theory;
 the MatPES and MAD results are development/task-level evidence for the
-delayed-full-pool objective. They do not establish a solver, gate, final-causal,
-cost-aware, deployment, runtime, bounded-memory or universal-generalization
+delayed-full-pool objective. They do not establish a solver, gate,
+selected-history, cost-aware, deployment, runtime, bounded-memory or universal-generalization
 superiority claim. Every paid target outcome remains in the immutable archive
 and conditions the posterior. WBM remains the homogeneous low-compute null,
 and opened JARVIS evaluation systems remain closed to development. No new
 experiment is authorized by the manuscript integration.
 
-## Current manuscript integration record (2026-08-03)
+## Current manuscript integration record (2026-08-04)
 
 The single paper position is **Active Search with Delayed Structured Labels:
-Theory and Mechanisms for Durable Convex-Hull Discovery**. The manuscript's
+Greedy Sufficiency and the Limits of Lookahead in Convex-Hull Discovery.** The manuscript's
 primary contribution is the general delayed structured-label formulation and
 its mechanism theory: repeated greedy can be arbitrarily poor in general,
 adaptive submodularity can fail, rank stability/weak coupling can make greedy
@@ -142,14 +147,15 @@ but the direct B=6 contrasts are IC-SARR minus Delta-Hull `+0.0043` (95% CI
 `[-0.0609,+0.0696]`, `p=1.0000`) and IC-SARR minus ungated SARR `-0.0130`
 (95% CI `[-0.0565,+0.0304]`, `p=0.6930`). IC-SARR and Delta-Hull tie on
 terminal `T` for 187/230 systems. MAD contributes a protocol-shift mechanism
-check with oracle-final AUC `+0.2500`, final-causal AUC `+0.0260`, wall-time
-AUC `+8.5739 s*budget/system`, and frozen cost utility `-0.6074`; its label is
+check with complete-pool-proxy `T` AUC `+0.2500`, selected-history `F` AUC
+`+0.0260`, wall-time AUC `+8.5739 s*budget/system`, and frozen cost utility
+`-0.6074`; its label is
 an atomization-energy hull proxy, not a formation-energy hull.
 
 Accordingly, the manuscript may claim a distinct delayed full-pool objective,
 an exact theoretical necessity/mechanism analysis, and development-level
-mechanism evidence. It must not claim IC-SARR or SARR superiority, final-causal
-or cost-aware superiority, deployment advantage, runtime advantage, external
+mechanism evidence. It must not claim IC-SARR or SARR superiority,
+selected-history, cost-aware superiority, deployment advantage, runtime advantage, external
 universal generalization, or an untouched MatPES holdout. This section is the
 current interpretation layer; the numbered experiment entries below preserve
 the complete historical audit.
@@ -1253,6 +1259,20 @@ $0.2469$ for predicted versus realized $T$ advantage, and an $83.02\%$
 nonpositive realized-advantage rate among accepted deviations. This is a
 post-hoc calibration diagnostic and does not feed back into any policy.
 
+An additional evaluator-only trace audit is external to Git at
+`E:\DATA\E32-A_parallel_20260803_direct_lookahead_mechanism_audit.json`,
+SHA-256
+`346a77c8503f885801f1101e727e78b5f20fbfc7110c1253203ad6fb09a39e94`.
+It covers 1,320 anchored-rollout states from 220/230 systems. The
+model-relative anchored-rollout Q-gap has Spearman correlation `0.816` with
+action disagreement, but realized system-level $T$ gain correlates only
+`0.108` with the maximum Q-gap and `-0.121` with selected-action rank-switch;
+action disagreement itself correlates `-0.222` with selected-action
+rank-switch. This is a mechanism boundary, not a new policy result. The
+strict $\mathcal I_h(x)$ term is not identifiable from the frozen artifact
+because signed conditional hull probabilities were not archived; no new
+posterior replay is authorized at this stage.
+
 ## Superseded, invalid and incomplete evidence
 
 | Evidence | Required treatment |
@@ -1811,3 +1831,63 @@ ungated rollout minus Delta-Hull, IC-SARR minus ungated rollout, and IC-SARR
 minus Delta-Hull. No result from this amendment may be described as
 final-causal, cost-aware, deployment, universal, or formation-energy
 superiority.
+
+## E48 -- Hull-ENS method-development line (registered 2026-08-04)
+
+The user-authorized method-development continuation is registered in
+`docs/HULL_ENS_PROTOCOL_V1.md`. It changes the finite-horizon solver after the
+E32-A audit showed that the source-anchored rollout changes many actions while
+producing little direct terminal-T gain. It does not modify the task, target
+label, reveal boundary, posterior family, hull backend, or any prior output
+root. The new policy identity is therefore independent of E32-A and uses the
+new method seed `20270804`.
+
+The first P0 roster is `source_margin`, `delta_hull_active_search`, `hull_ens`,
+and `safe_hull_ens`, across the same five outcome-independent development
+folds and budgets `B=1..6`. Hull-ENS uses one conditional Gaussian fantasy per
+first action and ranks the best remaining conditional membership probabilities
+as a batch. Safe Hull-ENS uses an independent iid posterior-world,
+Delta-Hull-relative Hoeffding screen and falls back to Delta-Hull when no
+simultaneous lower bound is positive. At `B=1`, Hull-ENS must have exact
+Delta-Hull action parity.
+
+This is a proposal/registration until every external output and summary is
+complete. The required evidence is a direct paired D/F/T and wall-time curve,
+action disagreement, safe-gate fallback/selection rates, certificate sizes,
+and protocol/hash/count audits. Raw outputs remain outside Git. A positive or
+negative result on this opened MatPES development roster cannot be called a
+formation-energy holdout, final-causal superiority, cost-aware superiority,
+deployment benefit, or universal superiority. Facet-calibrated posterior
+fitting is deferred to a separate identity and will not be mixed into this
+first P0 comparison.
+
+The first execution root, `/home/workspace/lrh/DATA/EviMem-RL/analysis/`
+`hull_ens_p0_v1_20260804`, is **Incomplete/interrupted**: all five `B=1`
+units completed, while every `B=2..6` unit stopped at the same four-component
+`Co-Fe-Li-O` `hull_ens` selection with a persistent-worker timeout. Its raw
+outputs and failure markers are retained and must not be summarized or
+overwritten. The command's 1,800-second option was not applied to Hull-ENS by
+the runner; those selections used the 30-second default. A new single-system
+smoke at the same system reproduced this timeout-routing defect under its own
+external root. The read-only diagnosis found no active process and no evidence
+of task, vault, posterior, or reveal-boundary failure.
+
+An action-preserving engineering recovery is registered separately in
+`docs/HULL_ENS_RECOVERY_V2_PROTOCOL.md`, with a new root
+`/home/workspace/lrh/DATA/EviMem-RL/analysis/`
+`hull_ens_p0_v2_recovery_20260804`. It parallelizes independent candidate
+evaluations inside the Hull-ENS worker and lowers independent unit concurrency
+from 20 to 4; all scientific settings remain fixed and the worker count is
+part of the recovery identity. The recovery is still incomplete until its
+registered summary passes every count, hash, parity, and direct-contrast
+audit.
+
+Because the 128x8 single-system smoke required about 206 seconds even after
+candidate-level parallelism, a lower-cost feasibility screen is registered in
+`docs/HULL_ENS_SCREEN_PROTOCOL_V1.md` under
+`/home/workspace/lrh/DATA/EviMem-RL/analysis/`
+`hull_ens_screen_v1_20260804`. It uses the unchanged task, posterior family,
+seed, objective, four-policy roster, fixed-composition backend, and five-fold
+budget roster, but 16 posterior worlds x 2 fantasy worlds. It is explicitly a
+screening result: it can decide whether a 128x8 confirmation is worth the
+compute, but cannot be promoted to a main superiority claim.
