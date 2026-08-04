@@ -569,11 +569,22 @@ def render_objective_first_budget_curve(
             capsize=2.2,
             label=label,
         )
+        endpoint = float(means[-1])
+        cost_axis.annotate(
+            f"{endpoint:+.1f} s",
+            xy=(budgets[-1], endpoint),
+            xytext=(-4, 5 if endpoint < 20 else 0),
+            textcoords="offset points",
+            ha="right",
+            va="bottom" if endpoint < 20 else "center",
+            fontsize=6.1,
+            color=color,
+        )
     cost_axis.set(
         xticks=budgets,
         xlabel="Query budget $B$",
-        ylabel="Extra seconds/system",
-        title="Planning cost",
+        ylabel="Additional seconds/system",
+        title="Planning cost (vs target margin)",
     )
     cost_axis.legend(frameon=False, fontsize=6.0, loc="upper left")
     _finish(cost_axis)
@@ -582,19 +593,21 @@ def render_objective_first_budget_curve(
 
 
 def render_delta_hull_waterfall(e32_summary: dict[str, Any], output: Path) -> None:
-    """Render the D -> F -> T decomposition for source and Delta-Hull."""
-    b6 = e32_summary["curve_vs_source"]["6"]
-    source = b6["delta_hull_active_search"]["metrics"]
+    """Render a same-posterior D -> F -> T decomposition at budget two."""
+    budget = 2
+    row = e32_summary["curve_vs_source"][str(budget)]
+    target_margin = row["posterior_mean_target_margin"]["metrics"]
+    delta_hull = row["delta_hull_active_search"]["metrics"]
     values = {
-        "Source margin": (
-            source["D"]["baseline_mean"],
-            source["F"]["baseline_mean"],
-            source["T"]["baseline_mean"],
+        "Target-margin greedy": (
+            target_margin["D"]["policy_mean"],
+            target_margin["F"]["policy_mean"],
+            target_margin["T"]["policy_mean"],
         ),
         "Delta-Hull": (
-            source["D"]["policy_mean"],
-            source["F"]["policy_mean"],
-            source["T"]["policy_mean"],
+            delta_hull["D"]["policy_mean"],
+            delta_hull["F"]["policy_mean"],
+            delta_hull["T"]["policy_mean"],
         ),
     }
     figure, axes = plt.subplots(
@@ -620,7 +633,6 @@ def render_delta_hull_waterfall(e32_summary: dict[str, Any], output: Path) -> No
         axis.plot([3.31, 3.69], [t_value, t_value], color=SOURCE, lw=0.8)
         axis.set_ylabel("Confirmations/system")
         axis.set_title(policy, loc="left", fontsize=9, fontweight="bold")
-        axis.set_ylim(0, 5.25)
         axis.grid(axis="y", alpha=0.22)
         for index, (start, height) in enumerate(zip(starts, heights, strict=True)):
             if index in (0, 2, 4):
@@ -638,12 +650,15 @@ def render_delta_hull_waterfall(e32_summary: dict[str, Any], output: Path) -> No
                     color="white",
                 )
     axes[-1].set_xticks(np.arange(5), labels, fontsize=6.8)
-    source_values = values["Source margin"]
+    ymax = max(max(counts) for counts in values.values())
+    for axis in axes:
+        axis.set_ylim(0, max(1.0, 1.20 * ymax + 0.15))
+    target_values = values["Target-margin greedy"]
     delta_values = values["Delta-Hull"]
-    delta_d = delta_values[0] - source_values[0]
-    delta_f = delta_values[1] - source_values[1]
-    delta_t = delta_values[2] - source_values[2]
-    delta_ft = (delta_values[1] - delta_values[2]) - (source_values[1] - source_values[2])
+    delta_d = delta_values[0] - target_values[0]
+    delta_f = delta_values[1] - target_values[1]
+    delta_t = delta_values[2] - target_values[2]
+    delta_ft = (delta_values[1] - delta_values[2]) - (target_values[1] - target_values[2])
     figure.text(
         0.50,
         0.50,
@@ -652,6 +667,10 @@ def render_delta_hull_waterfall(e32_summary: dict[str, Any], output: Path) -> No
         va="center",
         fontsize=6.5,
         color=INK,
+    )
+    figure.suptitle(
+        "Same-posterior objective decomposition at $B=2$ (230 systems)",
+        fontsize=9.5,
     )
     _save(figure, output)
 

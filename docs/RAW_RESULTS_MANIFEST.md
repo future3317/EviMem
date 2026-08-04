@@ -9,8 +9,8 @@ Inventory time: 2026-08-04 (Asia/Shanghai)
 
 ## Provenance
 
-- Code commit: `ebdbc19` (`E:\CODE\EviMem-RL`)
-- Paper commit: `9f65ac5` (`E:\PAPER`)
+- Code commit: `de56c59` (`E:\CODE\EviMem-RL`)
+- Paper commit: `747d135` (`E:\PAPER`)
 - Local data root: `E:\DATA\EviMem-RL`
 - Remote data root: `/home/workspace/lrh/DATA/EviMem-RL`
 - Remote host: `lrh@100.110.148.20`
@@ -58,8 +58,8 @@ same frozen inputs and registered code:
 | `E:\DATA\delayed_label_followup_figures_20260804\mad15_direct_mechanism_curve.pdf` | 24,354 | `A0B3787CDD8568AC76118816201655E0CA79FEF9943C939527191576FE21F33F` | complete; manuscript-derived figure |
 | `E:\DATA\E32-A_parallel_20260803_direct_lookahead_mechanism_audit.json` | 867,076 | `346A77C8503F885801F1101E727E78B5F20FBFC7110C1253203AD6FB09A39E94` | complete; evaluator-only Q-gap/rank-switch mechanism audit |
 | `E:\DATA\delayed_label_followup_figures_20260804\e32_direct_lookahead_mechanism.pdf` | 24,861 | `EFE26E0C41D7B6BDE08792D90B234C45161118AD7A7E45E8DAEC2EB8443B04AE` | complete; manuscript-derived action-versus-utility figure |
-| `E:\DATA\delayed_label_followup_figures_20260804_objective_first_v2\matpes_budget_curve.pdf` | 50,909 | `6DE63873719895CAE019097B2078D4E303AE37BE1D417E6BEE62BE598F5AA115` | complete; objective-first manuscript Figure 2 source |
-| `E:\DATA\delayed_label_followup_figures_20260804_objective_first_v2\matpes_dft_waterfall.pdf` | 59,473 | `08FE20E8D32F005157F2C46E766BB7740B872E1EBE5289B78D17FF7BC12F0FF9` | complete; Delta-Hull objective decomposition Figure 3 source |
+| `E:\DATA\delayed_label_followup_figures_20260804_objective_first_v3\matpes_budget_curve.pdf` | 49,705 | `E6F2D901AFBA76A1230C8DAEC44EA4AF567D6320EA10FDE7061D70FB42B7C15E` | complete; objective-first Figure 2 with explicit B=6 cost endpoints |
+| `E:\DATA\delayed_label_followup_figures_20260804_objective_first_v3\matpes_dft_waterfall.pdf` | 61,116 | `59672F0A795982BE95850770F666591F2B89FC2FCC09AA521CC489678761356C` | complete; same-posterior target-margin vs Delta-Hull Figure 3 at B=2 |
 
 The calibration audit initially exposed and then fixed a task-schema adapter
 bug: initial reference phases store corrected total energy and composition,
