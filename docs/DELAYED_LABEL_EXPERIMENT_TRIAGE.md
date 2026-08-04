@@ -32,9 +32,12 @@ hull proxy and cannot be called a formation-energy holdout or deployment test.
 
 - Paired contrasts, rank-margin/coupling strata, and action disagreement are
   derived from the E32 traces and do not require another policy run.
-- Hull-tolerance or competitor-removal sensitivity should reuse frozen raw
-  selections and the oracle vault as an evaluator-only audit. It must not
-  change actions, posterior, policies, or the primary estimand.
+- Hull-tolerance and competitor-removal sensitivity has now been completed as
+  `DELAYED_LABEL_EVALUATOR_SENSITIVITY_PROTOCOL_V1`: zero selected-label flips
+  across `1e-8`--`1e-12`, and small bounded changes under protected nested and
+  unqueried-competitor-removal pools. It reuses frozen selections and the
+  oracle vault only; it does not change actions, posterior, policies, or the
+  primary estimand, and therefore does not establish action robustness.
 - Cost reporting should separate planning time from target-query cost using
   existing timing records; no cost weight is to be fitted from the new runs.
 

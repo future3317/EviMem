@@ -134,8 +134,8 @@ experiment is authorized by the manuscript integration.
 
 ## Current manuscript integration record (2026-08-04)
 
-The single paper position is **Active Search with Delayed Structured Labels:
-Greedy Sufficiency and the Limits of Lookahead in Convex-Hull Discovery.** The manuscript's
+The single paper position is **Active Search with Globally Adjudicated Labels:
+Full-Pool Objectives for Convex-Hull Discovery.** The manuscript's
 primary contribution is the general delayed structured-label formulation and
 its mechanism theory: repeated greedy can be arbitrarily poor in general,
 adaptive submodularity can fail, rank stability/weak coupling can make greedy
@@ -1891,3 +1891,30 @@ seed, objective, four-policy roster, fixed-composition backend, and five-fold
 budget roster, but 16 posterior worlds x 2 fantasy worlds. It is explicitly a
 screening result: it can decide whether a 128x8 confirmation is worth the
 compute, but cannot be promoted to a main superiority claim.
+
+## E49 -- Delayed-label evaluator sensitivity audit (registered 2026-08-04)
+
+This evaluator-only audit is registered in
+`docs/DELAYED_LABEL_EVALUATOR_SENSITIVITY_PROTOCOL_V1.md`. It re-evaluates the
+completed E32-A selected sets on the same 230 query systems and budgets
+`B=1..6`; it does not rerun a policy, refit a posterior, alter an action, or
+open a new evaluation system. The frozen task, oracle vault, reference phases,
+duplicate convention, and `fixed_composition` backend are reused.
+
+The audit scans hull tolerances `1e-8`, `1e-10`, `1e-11`, and `1e-12`, nested
+70/85/100% pools, and fixed-seed removal of 10%/20% of initially unqueried
+competitors. Selected IDs are protected so that the result is an evaluator
+sensitivity diagnostic, not action robustness. The complete summary is
+external at
+`/home/workspace/lrh/DATA/EviMem-RL/analysis/`
+`delayed_label_evaluator_sensitivity_v2_20260804/sensitivity_summary.json`,
+SHA-256 `06826be5f871c4b72d6436353b017382972b2cffd2f8d474da68e5ad0ac4a368`.
+
+All 1,380 system--budget records completed. The four tolerance values produce
+zero selected-label flips and identical policy ordering. Pool perturbations
+produce at most 1.72% selected-label flips and preserve the qualitative signs
+of the pooled direct contrasts against Delta-Hull, although the top evaluator
+mean at `B=6` swaps between anchored rollout and target-margin greedy in the
+70% nested condition. This supports a narrow evaluator-stability statement;
+it does not authorize a formation-energy holdout, a new policy run, or a pool-
+robust action claim.

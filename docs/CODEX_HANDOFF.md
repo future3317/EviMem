@@ -18,7 +18,8 @@ CHGNet is frozen and the transport model is a small frozen ridge/kernel fit.
 
 ## Current manuscript position
 
-The paper is now centered on **Active Search with Delayed Structured Labels**.
+The paper is now centered on **Active Search with Globally Adjudicated Labels:
+Full-Pool Objectives for Convex-Hull Discovery**.
 The general contribution is the delayed structured-label objective and its
 mechanism theory: repeated greedy can fail without a uniform approximation
 ratio, adaptive submodularity can fail, while rank stability/weak coupling make

@@ -39,7 +39,7 @@ def delayed_adjudication(path: Path) -> None:
     axes[1].scatter([0, 1, xs[1]], [0, 0, -0.035], color=[INK, INK, BLUE], s=28)
     axes[1].plot([0, xs[1], 1], [0, -0.035, 0], color=BLUE, lw=1.4)
     axes[1].text(xs[1], -0.075, "provisional\ndiscovery", ha="center", fontsize=7.5, color=BLUE)
-    axes[2].set_title("3. Expand pool and adjudicate", fontsize=8)
+    axes[2].set_title("3. Complete unqueried target\nenergies + adjudicate", fontsize=7.2)
     axes[2].scatter([0, 1, xs[1], xs[2]], [0, 0, -0.035, -0.090], color=[INK, INK, GRAY, RED], s=28)
     axes[2].plot([0, xs[2], 1], [0, -0.090, 0], color=RED, lw=1.4)
     axes[2].text(xs[1], -0.075, "$x$ invalidated", ha="center", fontsize=7.5, color=RED)
@@ -47,14 +47,14 @@ def delayed_adjudication(path: Path) -> None:
     axes[2].text(xs[2], -0.115, "$Y_x$", ha="center", fontsize=8.2, color=RED)
     timeline.axis("off")
     timeline.set(xlim=(0.0, 1.0), ylim=(0.0, 1.0))
-    steps = ("query $x$", "observe $E_T(x)$", "reveal competitors", "adjudicate $Y_x$")
+    steps = ("query $x$", "observe $E_T(x)$", "complete unqueried\ntarget energies", "adjudicate $Y_x$")
     positions = np.linspace(0.08, 0.92, len(steps))
     for i, step in enumerate(steps):
         timeline.text(positions[i], 0.57, step, ha="center", va="center", fontsize=7.0,
                       bbox={"boxstyle": "round,pad=0.25", "fc": "#EEF3F8", "ec": BLUE, "lw": 0.7})
         if i < 3:
             timeline.annotate("", xy=(positions[i + 1] - 0.08, 0.57), xytext=(positions[i] + 0.08, 0.57), arrowprops={"arrowstyle": "->", "lw": 0.8})
-    timeline.text(0.5, 0.13, "The query reveals $E_T(x)$ immediately; the discovery label $Y_x$ waits for pool expansion.", ha="center", fontsize=7.4, color=INK)
+    timeline.text(0.5, 0.13, "The energy observation is immediate; adjudication waits until unqueried target energies are completed.", ha="center", fontsize=7.2, color=INK)
     _save(fig, path)
 
 

@@ -1,12 +1,12 @@
 # Delayed Structured Labels: current theory and manuscript position
 
-Status: current manuscript theory note, 2026-08-03. This document records the
+Status: current manuscript theory note, 2026-08-04. This document records the
 paper-facing formulation and claim boundary. It does not authorize a new
 experiment, a new data split, or any change to the frozen MatPES/MAD policy,
 posterior, gate, hull backend, seeds, or estimands.
 
-The current manuscript is **Active Search with Delayed Structured Labels:
-Theory and Mechanisms for Durable Convex-Hull Discovery**. The paper's central
+The current manuscript is **Active Search with Globally Adjudicated Labels:
+Full-Pool Objectives for Convex-Hull Discovery**. The paper's central
 contribution is the problem and its mechanism theory; convex-hull acquisition
 is the materials instance. The primary solver is ungated source-anchored
 rollout (SARR), Delta-Hull is the materials greedy structured-label baseline,
@@ -15,20 +15,22 @@ and IC-SARR is an optional numerical screen documented in the appendix.
 ## Manuscript integration checkpoint
 
 The evidence-integrated manuscript is committed in the paper repository as
-`5c2b8ca`. Its main text keeps the delayed-label motivation, the exact Bellman
+`74ddcc9`. The manuscript keeps the delayed-label motivation, the exact Bellman
 objective, the greedy failure/sufficiency theory, the MatPES budget curve and
-D/F/T waterfall, and the MAD protocol-shift curve. The rollout schematic,
+D/F/T waterfall, and integrates the E32-A objective/lookahead follow-up and
+MAD direct-mechanism curve. The rollout schematic,
 controlled stress heatmaps, policy ablations, posterior/hull implementation
 specification, and numerical-gate audit are in the appendix; references precede
 the appendix and the main text occupies nine pages before references.
 
-This packaging pass changed exposition and provenance only. It ran no new
-scientific experiment and did not change any policy, posterior, gate, manifest,
-budget, hull backend, or frozen result. The paper now explicitly records the
-unperformed same-posterior objective sensitivity suite, hull tolerance and
-duplicate-rule sensitivity, candidate-pool perturbation, formation-energy
-holdout, and unrestricted-continuation comparison as limitations rather than
-implied evidence.
+This packaging pass adds one evaluator-only sensitivity audit and does not
+change any policy, posterior, gate, manifest, budget, hull backend, or frozen
+result. The audit re-evaluates the 1,380 frozen E32-A selected sets over four
+hull tolerances and protected nested/competitor-removed pools. It finds zero
+selected-label flips across the tolerance scan and small, bounded changes under
+pool perturbation, but it does not recompute actions. A formation-energy holdout,
+an instrumented signed-information replay, and unrestricted continuation remain
+unperformed limitations rather than implied evidence.
 
 ## General problem
 
@@ -68,8 +70,8 @@ feedback.
    coupling.** If every legal observation continuation preserves the
    posterior ranking of remaining candidates, repeated greedy is Bayes-optimal
    by backward induction. If every continuation changes each remaining label
-   probability by at most (epsilon), the manuscript proves the conservative
-   bound (V_n^\star-V_n^{\mathrm{greedy}}\le 4n\epsilon). Thus exact
+   probability by at most (epsilon), the manuscript proves the bound
+   (V_n^\star-V_n^{\mathrm{greedy}}\le 2n\epsilon). Thus exact
    pointwise labels are the (epsilon=0) null, while small cross-candidate
    posterior movement gives a quantitative greedy-sufficiency condition.
 
@@ -82,9 +84,9 @@ feedback.
    -\max_{y\ne x}p_h(y)\ge 0.
    \]
 
-   It is strictly positive when the observation of (x) changes the future
-   posterior maximizer with nonzero probability and the resulting posterior
-   means are not tied.
+   It is strictly positive when positive-probability observation events place
+   the conditional posterior vectors in different, non-tied maximizer regions
+   with a positive maximizing gap.
 
 5. **Mechanism values can be separated.** With (J/D) denoting joint versus
    diagonal covariance, (A/N) adaptive versus open-loop planning, and
@@ -120,8 +122,14 @@ feedback.
 The empirical interpretation is therefore: delayed full-pool adjudication is a
 distinct active-search objective; many observed systems are greedy-sufficient
 at the measured terminal utility; and lookahead value is a coupling-regime
-question. The MatPES ties do not prove posterior rank stability, and no solver
-or gate superiority claim is supported.
+question. The new evaluator-only E32 trace audit shows that the model-relative
+rollout Q-gap predicts action changes (Spearman rho 0.816), but realized
+terminal-T gain is only weakly related to that gap (rho 0.108), while selected-
+action rank-switch is not predictive. The frozen artifact does not identify the
+exact I_h(x) term because it stores absolute rather than signed conditional
+hull probabilities; a new instrumented posterior replay would be required.
+The MatPES ties do not prove posterior rank stability, and no solver or gate
+superiority claim is supported.
 
 ## Forbidden upgrades
 
@@ -133,7 +141,7 @@ or gate superiority claim is supported.
 - Do not treat the theoretical counterexamples as material experiments.
 - Do not retune opened MatPES/MAD systems to estimate the theoretical terms.
 
-The manuscript implementation is recorded at paper commit `5c2b8ca`; raw and
+The manuscript implementation is recorded at paper commit `74ddcc9`; raw and
 derived experiment artifacts remain outside Git under `E:\DATA` and the
 registered remote roots. The code repository's result manifest points to this
 paper commit.
