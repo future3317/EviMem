@@ -5,8 +5,8 @@ paper-facing formulation and claim boundary. It does not authorize a new
 experiment, a new data split, or any change to the frozen MatPES/MAD policy,
 posterior, gate, hull backend, seeds, or estimands.
 
-The current manuscript is **Active Search with Globally Adjudicated Labels:
-Full-Pool Objectives for Convex-Hull Discovery**. The paper's central
+The current manuscript is **Globally Adjudicated Active Search for Convex-Hull
+Discovery**. The paper's central
 contribution is the problem and its mechanism theory; convex-hull acquisition
 is the materials instance. The primary solver is ungated source-anchored
 rollout (SARR), Delta-Hull is the materials greedy structured-label baseline,
@@ -15,7 +15,7 @@ and IC-SARR is an optional numerical screen documented in the appendix.
 ## Manuscript integration checkpoint
 
 The evidence-integrated manuscript is committed in the paper repository as
-`74ddcc9`. The manuscript keeps the delayed-label motivation, the exact Bellman
+`9f65ac5`. The manuscript keeps the delayed-label motivation, the exact Bellman
 objective, the greedy failure/sufficiency theory, the MatPES budget curve and
 D/F/T waterfall, and integrates the E32-A objective/lookahead follow-up and
 MAD direct-mechanism curve. The rollout schematic,
@@ -109,6 +109,12 @@ feedback.
 - The exact 1,000-instance suite is consistent with the theory: source rollout
   equals exact DP on 84.8% of instances and beats source margin on 75.8%, but
   does not exceed greedy final selection under its registered generator.
+- The same-posterior objective-efficiency evaluator shows Delta-Hull minus
+  posterior-mean target-margin differences of `+0.0826`, `+0.0870`, `+0.0826`,
+  `+0.0696`, `+0.0217`, and `-0.0043` at `B=1..6`.  The exact-system AUC
+  contrast is `+0.3000`, 95% CI `[+0.0522,+0.5587]`, sign-flip `p=0.0247`,
+  with 60/114/56 wins/ties/losses.  This is early-budget efficiency evidence,
+  not a final-budget superiority result.
 - On 230 MatPES development systems at (B=6), IC-SARR has a source-relative
   (+0.1696\) complete-pool-(T) signal, but direct paired contrasts are
   (+0.0043) versus Delta-Hull and (-0.0130) versus ungated SARR, both with
@@ -141,7 +147,7 @@ superiority claim is supported.
 - Do not treat the theoretical counterexamples as material experiments.
 - Do not retune opened MatPES/MAD systems to estimate the theoretical terms.
 
-The manuscript implementation is recorded at paper commit `74ddcc9`; raw and
+The manuscript implementation is recorded at paper commit `9f65ac5`; raw and
 derived experiment artifacts remain outside Git under `E:\DATA` and the
 registered remote roots. The code repository's result manifest points to this
 paper commit.

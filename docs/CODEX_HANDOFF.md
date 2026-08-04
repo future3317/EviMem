@@ -18,8 +18,8 @@ CHGNet is frozen and the transport model is a small frozen ridge/kernel fit.
 
 ## Current manuscript position
 
-The paper is now centered on **Active Search with Globally Adjudicated Labels:
-Full-Pool Objectives for Convex-Hull Discovery**.
+The paper is now centered on **Globally Adjudicated Active Search for Convex-Hull
+Discovery**.
 The general contribution is the delayed structured-label objective and its
 mechanism theory: repeated greedy can fail without a uniform approximation
 ratio, adaptive submodularity can fail, while rank stability/weak coupling make
@@ -29,7 +29,7 @@ greedy structured-label baseline, ungated SARR is the primary nonmyopic solver,
 and IC-SARR is an optional numerical screen documented in the appendix.
 The formal statements and exact counterexamples are recorded in
 `docs/DELAYED_STRUCTURED_LABEL_THEORY.md` and the manuscript at paper commit
-`74ddcc9`.
+`9f65ac5`.
 
 ## Scientific status
 
@@ -247,3 +247,23 @@ development/holdout split before fitting or opening outcomes, and evaluate a
 frozen theory-motivated solver once; the existing 324 systems and JARVIS
 v4-natural remain closed to that purpose. No new experiment is required to
 close the current theory-and-mechanism manuscript.
+
+## 2026-08-04 manuscript integration checkpoint
+
+The completed E32-A outputs were post-processed by
+`tools/analyze_e32_objective_efficiency.py` as evaluator-only E50 analysis.
+The derived contrast is Delta-Hull minus posterior-mean target-margin greedy
+under a shared target posterior.  It is `+0.0826,+0.0870,+0.0826,+0.0696,
+ +0.0217,-0.0043` over `B=1..6`; the exact-system AUC contrast is `+0.3000`,
+95% CI `[+0.0522,+0.5587]`, sign-flip `p=0.0247`, W/T/L `60/114/56`.
+Bootstrap draws retain all budgets within each chemical system.  The derived
+JSON remains outside Git at
+`E:\DATA\EviMem-RL\analysis\delayed_label_objective_efficiency_e50_20260804.json`,
+SHA-256
+`db4799d6770bd7eae1d50196ff38bb48bc5944e45661536b199523296ea1cc99`.
+
+The paper was updated to make this early-budget objective-efficiency result the
+primary empirical claim, keep greedy-versus-lookahead as the second question,
+move safe-wrapper details to the appendix, and make the planner-cost accounting
+explicit. No policy, posterior, seed, budget, hull backend, or raw output was
+changed, and no new policy experiment is authorized by this checkpoint.

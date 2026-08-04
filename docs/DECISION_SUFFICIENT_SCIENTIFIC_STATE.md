@@ -2,7 +2,7 @@
 
 **Status (2026-08-04): v4, CHIC and myopic Delta-Hull are negative; the
 source-relative MatPES rollout evidence is complete and the theory manuscript
-integration is complete at paper commit `74ddcc9`.** The all-outcome state, fail-closed protocol activation,
+integration is complete at paper commit `9f65ac5`.** The all-outcome state, fail-closed protocol activation,
 source-environment transport and robust hull-decision certificate are
 implemented and pass replay, no-deletion, self-removal and interval-soundness
 tests. The real JARVIS--MP v1, v3 and fresh v4 gates are all NO-GO. V4's

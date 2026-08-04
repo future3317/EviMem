@@ -134,8 +134,8 @@ experiment is authorized by the manuscript integration.
 
 ## Current manuscript integration record (2026-08-04)
 
-The single paper position is **Active Search with Globally Adjudicated Labels:
-Full-Pool Objectives for Convex-Hull Discovery.** The manuscript's
+The single paper position is **Globally Adjudicated Active Search for
+Convex-Hull Discovery.** The manuscript's
 primary contribution is the general delayed structured-label formulation and
 its mechanism theory: repeated greedy can be arbitrarily poor in general,
 adaptive submodularity can fail, rank stability/weak coupling can make greedy
@@ -1918,3 +1918,27 @@ mean at `B=6` swaps between anchored rollout and target-margin greedy in the
 70% nested condition. This supports a narrow evaluator-stability statement;
 it does not authorize a formation-energy holdout, a new policy run, or a pool-
 robust action claim.
+
+## E50 -- Same-posterior objective-efficiency evaluator analysis (2026-08-04)
+
+This is evaluator-only post-processing of the complete E32-A outputs. It does
+not rerun a policy, recompute an action, refit a posterior, change a seed or
+budget, or access a new system. The registered analysis is
+`tools/analyze_e32_objective_efficiency.py`; its contrast is Delta-Hull minus
+posterior-mean target-margin greedy under the same target posterior, posterior
+worlds, tie-breaking, and complete-pool evaluator.
+
+The paired system-level differences for `B=1..6` are `+0.0826`, `+0.0870`,
+`+0.0826`, `+0.0696`, `+0.0217`, and `-0.0043`. The AUC over `B=0..6` is
+`+0.3000`, with exact-system bootstrap 95% CI `[+0.0522,+0.5587]`, two-sided
+sign-flip `p=0.0247`, and 60/114/56 wins/ties/losses. Each bootstrap draw
+resamples an exact chemical system and retains all six budgets and both
+policies within that draw. This result supports an early-budget objective-
+efficiency claim; the final-budget contrast is indistinguishable from zero and
+does not support solver superiority.
+
+The complete derived artifact remains outside Git at
+`E:\DATA\EviMem-RL\analysis\delayed_label_objective_efficiency_e50_20260804.json`,
+SHA-256
+`db4799d6770bd7eae1d50196ff38bb48bc5944e45661536b199523296ea1cc99`. The raw
+E32-A result roots remain external and unchanged.

@@ -10,7 +10,7 @@ Inventory time: 2026-08-04 (Asia/Shanghai)
 ## Provenance
 
 - Code commit: `7a19107` (`E:\CODE\EviMem-RL`)
-- Paper commit: `74ddcc9` (`E:\PAPER`)
+- Paper commit: `9f65ac5` (`E:\PAPER`)
 - Local data root: `E:\DATA\EviMem-RL`
 - Remote data root: `/home/workspace/lrh/DATA/EviMem-RL`
 - Remote host: `lrh@100.110.148.20`
@@ -52,11 +52,14 @@ same frozen inputs and registered code:
 | `E:\DATA\EviMem-RL\analysis\matpes_ic_sarr_mechanism_v3_20260802\derived_prequential_calibration_v1.json` | 22,710 | `0e7693d477a415c5ff228790c4511fe1edf1854545e946f6b9026d4a7d362d21` | complete; B=6 prequential energy diagnostics |
 | `E:\DATA\EviMem-RL\analysis\matpes_ic_sarr_mechanism_v3_20260802\derived_ic_sarr_calibration_v3_reaudit_20260804.json` | 1,768,548 | `A21B41B4912F35CF82043CEDA7BBF8961F8E7EAD3F938A5B4D78D41F60CDEC0B` | complete; registered post-hoc IC-SARR calibration re-audit |
 | `E:\DATA\E32-A_parallel_20260803_e32_summary.json` | 2,832,932 | `AE5B16F4AD7BC2FFA890A28EA3685BD8078602049B1C74DEA7CD7BF4DD9165CC` | complete; E32-A objective/lookahead summary |
+| `E:\DATA\EviMem-RL\analysis\delayed_label_objective_efficiency_e50_20260804.json` | 10,644 | `DB4799D6770BD7EAE1D50196FF38BB48BC5944E45661536B199523296EA1CC99` | complete; exact-system same-posterior Delta-Hull minus target-margin AUC contrast |
 | `E:\DATA\MAD-1.5-v1\mad15_direct_mechanism_20260803\mad15_direct_summary_20260804.json` | 72,848 | `61848689325400E8C76A1D0DA28DC6EB9DF46C868F57CD8966F6C431ECC77F81` | complete; MAD direct paired curve summary |
 | `E:\DATA\delayed_label_followup_figures_20260804\e32_delayed_label_mechanism.pdf` | 24,453 | `081EEDFC5A966AC21D8A0B0F53E1616DA16F243553D650F516C7A5445E1F38A2` | complete; manuscript-derived figure |
 | `E:\DATA\delayed_label_followup_figures_20260804\mad15_direct_mechanism_curve.pdf` | 24,354 | `A0B3787CDD8568AC76118816201655E0CA79FEF9943C939527191576FE21F33F` | complete; manuscript-derived figure |
 | `E:\DATA\E32-A_parallel_20260803_direct_lookahead_mechanism_audit.json` | 867,076 | `346A77C8503F885801F1101E727E78B5F20FBFC7110C1253203AD6FB09A39E94` | complete; evaluator-only Q-gap/rank-switch mechanism audit |
 | `E:\DATA\delayed_label_followup_figures_20260804\e32_direct_lookahead_mechanism.pdf` | 24,861 | `EFE26E0C41D7B6BDE08792D90B234C45161118AD7A7E45E8DAEC2EB8443B04AE` | complete; manuscript-derived action-versus-utility figure |
+| `E:\DATA\delayed_label_followup_figures_20260804_objective_first_v2\matpes_budget_curve.pdf` | 50,909 | `6DE63873719895CAE019097B2078D4E303AE37BE1D417E6BEE62BE598F5AA115` | complete; objective-first manuscript Figure 2 source |
+| `E:\DATA\delayed_label_followup_figures_20260804_objective_first_v2\matpes_dft_waterfall.pdf` | 59,473 | `08FE20E8D32F005157F2C46E766BB7740B872E1EBE5289B78D17FF7BC12F0FF9` | complete; Delta-Hull objective decomposition Figure 3 source |
 
 The calibration audit initially exposed and then fixed a task-schema adapter
 bug: initial reference phases store corrected total energy and composition,

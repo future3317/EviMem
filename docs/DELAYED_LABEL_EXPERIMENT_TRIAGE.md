@@ -28,6 +28,24 @@ they do not authorize another full campaign.
 Both are development/mechanism evidence. MAD remains an atomization-energy
 hull proxy and cannot be called a formation-energy holdout or deployment test.
 
+## E50 -- objective-efficiency evaluator analysis
+
+The completed E32-A outputs were reprocessed without rerunning a policy.  The
+contrast is Delta-Hull minus posterior-mean target-margin greedy under the same
+target posterior, worlds, tie-breaking, budgets, and hull evaluator.  The
+system-level paired differences are `+0.0826`, `+0.0870`, `+0.0826`, `+0.0696`,
+`+0.0217`, and `-0.0043` for `B=1..6`; the AUC contrast is `+0.3000` with
+95% CI `[+0.0522,+0.5587]`, sign-flip `p=0.0247`, and 60/114/56
+wins/ties/losses.  Bootstrap resampling is by exact chemical system and retains
+all budgets within each draw.
+
+The derived artifact is outside Git at
+`E:\DATA\EviMem-RL\analysis\delayed_label_objective_efficiency_e50_20260804.json`,
+SHA-256
+`db4799d6770bd7eae1d50196ff38bb48bc5944e45661536b199523296ea1cc99`.
+This result supports an early-budget objective-efficiency claim; it does not
+support a final-budget solver-superiority claim or authorize a new policy run.
+
 ## Use lightweight post-processing only when needed
 
 - Paired contrasts, rank-margin/coupling strata, and action disagreement are

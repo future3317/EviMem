@@ -8,8 +8,8 @@ to tune any opened task.
 
 ## Single paper position
 
-The paper is **Active Search with Globally Adjudicated Labels: Full-Pool
-Objectives for Convex-Hull Discovery.** Its central contribution is a
+The paper is **Globally Adjudicated Active Search for Convex-Hull Discovery.**
+Its central contribution is a
 general active-search problem in which observations arrive immediately but
 labels are structured functions of a latent candidate pool and are adjudicated
 only after the campaign. Materials convex-hull discovery is the motivating
@@ -19,7 +19,7 @@ value, and an exact information-structure separation. The real-data evidence
 is a development-level mechanism study; it is not a claim that one solver or
 gate is universally superior.
 
-The manuscript packaging checkpoint is paper commit `74ddcc9`: the main text
+The manuscript packaging checkpoint is paper commit `9f65ac5`: the main text
 is nine pages before references, references precede the appendix, and the
 rollout schematic, controlled heatmaps, policy ablations, posterior/hull
 implementation details, and numerical-gate audit are appendix material. This
@@ -38,6 +38,7 @@ direct-mechanism results; it does not authorize further method or task changes.
 | Is the method too expensive? | MAD wall-time AUC increases by `+8.5739 s*budget/system`, and the fixed cost utility is negative. | No cost-aware or runtime advantage is supported. | Keep cost co-primary and do not use secondary timings to soften this result. |
 | Is MAD a relabeled holdout or a formation-energy stability task? | It is documented as a public protocol-shift panel with an atomization-energy hull proxy. | It is opened task-level evidence and is not formation-energy thermodynamics. | Never use pristine, sealed, confirmatory, or formation-energy wording for MAD. |
 | Does the source-relative gain prove that the proposed solver wins? | P0-v3 directly compares source margin, Delta-Hull, ungated SARR, diagonal covariance and IC-SARR. IC-SARR minus Delta-Hull is `+0.0043` (CI `[-0.0609,+0.0696]`, `p=1.0000`) and minus ungated SARR is `-0.0130` (CI `[-0.0565,+0.0304]`, `p=0.6930`). | The evidence supports the delayed objective and a greedy-sufficiency boundary, not solver superiority. | Make direct paired contrasts primary and keep IC-SARR as an appendix numerical screen. |
+| Does the full-pool objective add anything beyond a better target posterior? | The evaluator-only same-posterior contrast gives Delta-Hull minus target-margin differences of `+0.0826,+0.0870,+0.0826,+0.0696,+0.0217,-0.0043` over `B=1..6`; AUC is `+0.3000` (95% CI `[+0.0522,+0.5587]`, `p=0.0247`). | The advantage is concentrated at early budgets and vanishes by `B=6`; this is an efficiency claim, not a terminal-value or solver-superiority claim. | Keep the objective contrast in the main figure and state the system-level bootstrap unit explicitly. |
 | Does numerical integration create the effect? | The registered 1,000-instance exact-world audit reproduced all IC actions, found zero exact false acceptances, and measured mean rollout regret `0.0005494`. | This is a finite-suite audit under the registered world model; it does not validate the material posterior. | Call the gate a randomized-QMC numerical screen/safeguard and separate posterior misspecification from integration error. |
 
 ## Submission-safe claims
@@ -47,9 +48,10 @@ direct-mechanism results; it does not authorize further method or task changes.
 2. Repeated greedy can fail in general, while rank stability and weak coupling
    explain regimes in which greedy is optimal or nearly optimal; delayed
    observations can have positive information value.
-3. The exact controlled benchmark, cross-fitted MatPES suite and MAD
-   protocol-shift task provide mechanism evidence, including the boundary where
-   Delta-Hull is sufficient and rollout/gating gains do not separate directly.
+3. Under a shared target posterior, full-pool greedy improves early-budget
+   efficiency over target-margin greedy, while the two are indistinguishable by
+   the final budget. The exact controlled benchmark, cross-fitted MatPES suite
+   and MAD protocol-shift task provide the corresponding mechanism evidence.
 4. Neither IC-SARR/SARR solver superiority, final-causal, cost-aware,
    bounded-memory, runtime, deployment nor universal-generalization
    superiority is established.
