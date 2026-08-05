@@ -5,12 +5,13 @@ outputs remain outside Git by design. The manifest is the versioned pointer that
 allows a later audit to identify the exact external result roots without making
 the code repository a data archive.
 
-Inventory time: 2026-08-04 (Asia/Shanghai)
+Inventory time: 2026-08-05 (Asia/Shanghai)
 
 ## Provenance
 
-- Code commit: `cea7053` (`E:\CODE\EviMem-RL`)
-- Paper commit: `747d135` (`E:\PAPER`)
++ Code baseline commit: `51c3b5d` (`E:\CODE\EviMem-RL`); E51 artifacts also
++  record the working-tree code hashes in their status entries below.
++ Paper commit: `e216ac0` (`E:\PAPER`)
 - Local data root: `E:\DATA\EviMem-RL`
 - Remote data root: `/home/workspace/lrh/DATA/EviMem-RL`
 - Remote host: `lrh@100.110.148.20`
@@ -60,6 +61,8 @@ same frozen inputs and registered code:
 | `E:\DATA\delayed_label_followup_figures_20260804\e32_direct_lookahead_mechanism.pdf` | 24,861 | `EFE26E0C41D7B6BDE08792D90B234C45161118AD7A7E45E8DAEC2EB8443B04AE` | complete; manuscript-derived action-versus-utility figure |
 | `E:\DATA\delayed_label_followup_figures_20260804_objective_first_v3\matpes_budget_curve.pdf` | 49,705 | `E6F2D901AFBA76A1230C8DAEC44EA4AF567D6320EA10FDE7061D70FB42B7C15E` | complete; objective-first Figure 2 with explicit B=6 cost endpoints |
 | `E:\DATA\delayed_label_followup_figures_20260804_objective_first_v3\matpes_dft_waterfall.pdf` | 61,116 | `59672F0A795982BE95850770F666591F2B89FC2FCC09AA521CC489678761356C` | complete; same-posterior target-margin vs Delta-Hull Figure 3 at B=2 |
+| `E:\DATA\EviMem-RL\analysis\selective_planning_finite_world_audit_e51a3_20260804.json` | 164,893 | `2a95393e000634eb253dcfceb689638a3c94c19e37df9ddbbbd41899d191eacf` | complete; E51 finite-world headroom/Hull-ENS audit, code hash `0ff17cbf...`, not material evidence |
+| `E:\DATA\EviMem-RL\analysis\selective_planning_synthetic_replay_e51b_20260805.json` | 717,360 | `d6a6b9065df8425530450580a86d2f99ee3741a2258a2f75b25a03927afda612` | complete; E51 nested selective replay, code hash `2bd328fa...`, not material evidence |
 
 The calibration audit initially exposed and then fixed a task-schema adapter
 bug: initial reference phases store corrected total energy and composition,

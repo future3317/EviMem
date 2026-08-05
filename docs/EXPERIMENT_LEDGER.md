@@ -1942,3 +1942,76 @@ The complete derived artifact remains outside Git at
 SHA-256
 `db4799d6770bd7eae1d50196ff38bb48bc5944e45661536b199523296ea1cc99`. The raw
 E32-A result roots remain external and unchanged.
+
+## E51 -- Selective Delta-Hull planning audit (registered 2026-08-04)
+
+The user-authorized selective-planning line is registered in
+`docs/SELECTIVE_PLANNING_PROTOCOL_V1.md`. It changes the failed assumption
+that source-relative lookahead should be invoked at every state: Delta-Hull is
+the default and a posterior-only headroom gate may invoke a Delta-Hull-
+anchored rollout. The posterior family, archive semantics, vault, reveal
+boundary, candidate/reference definitions, hull backend, and all prior result
+roots remain unchanged. This is a new method identity and is not a relabeling
+of E32-A or the Hull-ENS line.
+
+The registered first stage is a lightweight four-world finite-world audit of
+exact DP, repeated greedy/Delta-Hull, exact Hull-ENS, sampled Hull-ENS, and
+independent double-sampled Hull-ENS. Instances are summarized by the exact
+structural headroom `H*=V_DP-V_greedy` in four frozen bins. A second synthetic
+stage may test the selective gate only with nested threshold selection. No
+MatPES or MAD selective curve is authorized until both synthetic stages and
+the observation-measurability, top-two, decomposition, and numerical audits
+pass. Raw outputs remain outside Git. Any later material result must remain
+development/task-level and cannot be called holdout, formation-energy,
+final-causal, cost-aware, deployment, runtime, or universal superiority.
+
+The initial 4,000-candidate capacity preflight stopped before selecting any
+records because the `0<H*<=0.02` bin had only 13 candidates for the frozen
+quota of 32. It produced no summary and is incomplete, not a negative policy
+result. E51-A is the registered capacity-only recovery: it uses candidate
+pool count 16,000 with the same seed, exact-DP acceptance bins, quota, and
+policy code. The preflight and recovery are not merged or selectively
+relabelled. E51-A also found only 28 candidates in the small positive-headroom
+bin and therefore produced no summary. E51-A2 is registered at 32,000
+candidates as the final capacity-only recovery; if the frozen quota still
+cannot be populated, the bin remains unavailable and no material selective run
+is authorized. E51-A2 timed out at 32,000 candidates before producing a
+summary. E51-A3 is the final lightweight mechanism audit using the same 16,000
+candidate pool and seed with quota 16 per bin; its smaller stratum size is
+explicitly not a performance-generalization result.
+
+Stage B is now frozen before execution: 80 newly generated finite-world
+instances (40 inner, 40 outer), penalty grid `{0,.002,.005,.01,.02,.05,.10}`,
+zero synthetic compute penalty, and the registered invocation/retained-gain
+selection rule in `docs/SELECTIVE_PLANNING_PROTOCOL_V1.md`. The outer set is
+evaluated once with the inner-selected penalty. This remains synthetic
+mechanism evidence only.
+
+E51-A3 completed at external artifact
+`E:\DATA\EviMem-RL\analysis\selective_planning_finite_world_audit_e51a3_20260804.json`,
+SHA-256
+`2a95393e000634eb253dcfceb689638a3c94c19e37df9ddbbbd41899d191eacf`.
+It contains 64 selected instances (16 per bin) from a 16,000-candidate
+pre-screen. Exact Hull-ENS matches exact DP in every bin; mean greedy gaps are
+`0`, `0.012859`, `0.057514`, and `0.196123` for the four bins. The largest
+per-instance exact-versus-double-sampled value difference is `0.016556` and
+the mean difference is `0.000593`; no pre-registered tolerance was set for
+this maximum, so it is reported as an audit limitation rather than promoted
+to a pass by post-hoc choice.
+
+E51-B completed at external artifact
+`E:\DATA\EviMem-RL\analysis\selective_planning_synthetic_replay_e51b_20260805.json`,
+SHA-256
+`d6a6b9065df8425530450580a86d2f99ee3741a2258a2f75b25a03927afda612`.
+On 40 inner systems, nested calibration selected model penalty `0.01`. On
+the 40 held-out outer systems, selective invocation averaged `2.083%` of
+states and retained `1.000` of the full exact-HENS gain: selective-minus-
+greedy was `+0.014251` (2 wins, 38 ties, 0 losses), and selective-minus-full-
+HENS was zero for all 40 systems. This is a small synthetic mechanism result,
+not material evidence or a safety guarantee.
+
+Because the exact/sampled maximum discrepancy had no frozen tolerance and the
+synthetic outer panel is small, E51 does **not** authorize a new MatPES or
+MAD selective curve. The material method-development line remains closed;
+selective planning is recorded as a tested synthetic mechanism/proposal, not
+as a material solver claim.

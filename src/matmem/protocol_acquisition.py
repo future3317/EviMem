@@ -34,6 +34,7 @@ from .posterior import (
     _sample_gaussian_blocks,
     _sample_gaussian_from_factor,
 )
+from .selective_planning import selective_gate
 
 
 class ProtocolHullKnowledgeGradientResult(BaseModel):
@@ -158,6 +159,37 @@ class DeltaHullAnchoredRolloutResult(BaseModel):
     coupling_score_normalized: float = Field(ge=0)
     cross_candidate_influence: tuple[tuple[float, ...], ...]
     rank_switch_by_candidate: tuple[float, ...]
+
+
+class SelectiveDeltaHullResult(BaseModel):
+    """Delta-Hull with a posterior-only gate for invoking lookahead."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    selected_action_index: int = Field(ge=0)
+    delta_hull_action_index: int = Field(ge=0)
+    rollout_action_index: int | None = Field(default=None, ge=0)
+    gate_used: bool
+    robust_gain: float
+    headroom_mean: float
+    headroom_standard_error: float = Field(ge=0)
+    model_penalty: float = Field(ge=0)
+    cost_penalty: float = Field(ge=0)
+    two_step_scores: tuple[float, ...]
+    final_stability_probabilities: tuple[float, ...]
+    information_values: tuple[float, ...]
+    q_standard_errors: tuple[float, ...]
+    rank_margin: float = Field(ge=0)
+    rank_gaps: tuple[float, ...]
+    top_two_information_gap: float
+    maximizer_switch_probability: tuple[float, ...]
+    conditional_p_final: tuple[tuple[float, ...], ...]
+    signed_delta_p: tuple[tuple[float, ...], ...]
+    posterior_sample_count: int = Field(gt=0)
+    inner_sample_count: int = Field(gt=0)
+    rollout_posterior_sample_count: int | None = Field(default=None, gt=0)
+    rollout_horizon: int = Field(ge=1)
+    fallback_reason: str | None = None
 
 
 class DualHorizonSourceRolloutResult(BaseModel):
@@ -702,6 +734,7 @@ def _hull_ens_core(
     candidate_indices: Sequence[int] | None = None,
     independent_worlds: bool = False,
     candidate_workers: int = 1,
+    collect_conditionals: bool = False,
 ) -> dict[str, object]:
     """Evaluate the one-fantasy-per-first-action Hull-ENS approximation.
 
@@ -771,12 +804,23 @@ def _hull_ens_core(
     future_values = np.zeros(size, dtype=np.float64)
     information_values = np.zeros(size, dtype=np.float64)
     q_worlds = np.full((posterior_sample_count, len(candidates)), np.nan, dtype=np.float64)
+    conditional_probability_means = (
+        np.full((size, size), np.nan, dtype=np.float64) if collect_conditionals else None
+    )
+    conditional_maxima = (
+        np.full((size, posterior_sample_count), np.nan, dtype=np.float64)
+        if collect_conditionals
+        else None
+    )
+    maximizer_switch_probability = (
+        np.full(size, np.nan, dtype=np.float64) if collect_conditionals else None
+    )
     if horizon > 1:
         posterior_variance = np.maximum(np.diag(covariance), 1e-14)
 
         def evaluate_candidate(
             item: tuple[int, int],
-        ) -> tuple[int, int, float, float, np.ndarray]:
+        ) -> tuple[int, int, float, float, np.ndarray, np.ndarray, np.ndarray, float]:
             candidate_position, candidate = item
             remaining = tuple(index for index in range(size) if index != candidate)
             future_count = min(horizon - 1, len(remaining))
@@ -836,21 +880,56 @@ def _hull_ens_core(
             information_value = float(
                 np.mean(np.max(conditional_probabilities[:, remaining_array], axis=1) - baseline)
             )
+            conditional_mean = conditional_probabilities.mean(axis=0)
+            conditional_maximum = np.max(conditional_probabilities[:, remaining_array], axis=1)
+            baseline_action = min(
+                remaining,
+                key=lambda index: (-float(probabilities[index]), str(query_ids[index])),
+            )
+            switches = 0
+            for row in conditional_probabilities[:, remaining_array]:
+                conditional_action = min(
+                    range(len(remaining)),
+                    key=lambda local: (-float(row[local]), str(query_ids[remaining[local]])),
+                )
+                switches += int(remaining[conditional_action] != baseline_action)
             return (
                 candidate_position,
                 future_value,
                 information_value,
                 probabilities[candidate] + future_by_world,
+                conditional_mean,
+                conditional_maximum,
+                np.asarray((candidate,), dtype=np.int64),
+                switches / float(len(conditional_probabilities)),
             )
 
         def collect_candidate_results(
-            evaluated: Iterable[tuple[int, float, float, np.ndarray]],
+            evaluated: Iterable[
+                tuple[int, float, float, np.ndarray, np.ndarray, np.ndarray, np.ndarray, float]
+            ],
         ) -> None:
-            for candidate_position, future_value, information_value, q_values in evaluated:
+            for (
+                candidate_position,
+                future_value,
+                information_value,
+                q_values,
+                conditional_mean,
+                conditional_maximum,
+                _,
+                switch_probability,
+            ) in evaluated:
                 candidate = candidates[candidate_position]
                 future_values[candidate] = future_value
                 information_values[candidate] = information_value
                 q_worlds[:, candidate_position] = q_values
+                if collect_conditionals:
+                    assert conditional_probability_means is not None
+                    assert conditional_maxima is not None
+                    assert maximizer_switch_probability is not None
+                    conditional_probability_means[candidate] = conditional_mean
+                    conditional_maxima[candidate] = conditional_maximum
+                    maximizer_switch_probability[candidate] = switch_probability
 
         items = tuple(enumerate(candidates))
         if candidate_workers == 1 or len(items) == 1:
@@ -877,6 +956,9 @@ def _hull_ens_core(
         "horizon": horizon,
         "candidate_indices": candidates,
         "q_worlds": q_worlds,
+        "conditional_probability_means": conditional_probability_means,
+        "conditional_maxima": conditional_maxima,
+        "maximizer_switch_probability": maximizer_switch_probability,
     }
 
 
@@ -928,6 +1010,241 @@ def hull_ens(
         posterior_sample_count=posterior_sample_count,
         fantasy_sample_count=fantasy_sample_count,
         horizon=int(result["horizon"]),
+    )
+
+
+def two_step_information_value(
+    posterior: ProtocolTargetEnergyPosterior,
+    *,
+    query_compositions: Sequence[dict[str, float]],
+    query_ids: Sequence[str],
+    reference_compositions: Sequence[dict[str, float]],
+    reference_energies: np.ndarray,
+    costs: np.ndarray,
+    remaining_budget: float,
+    posterior_sample_count: int = 64,
+    inner_sample_count: int = 8,
+    seed: int = 0,
+    fixed_template: FixedCompositionHullTemplate | None = None,
+    candidate_workers: int = 1,
+    baseline_action_index: int | None = None,
+) -> dict[str, object]:
+    """Estimate the exact two-step information-value decomposition.
+
+    Outer draws provide the observable fantasy ``E_x``.  For every candidate
+    and every outer draw, the conditional label probabilities are estimated
+    from an independent inner stream.  The function is posterior-only and
+    does not access an oracle or a realized terminal label.
+    """
+
+    item_costs = np.asarray(costs, dtype=np.float64).reshape(-1)
+    if len(item_costs) == 0 or not np.allclose(item_costs, item_costs[0], atol=1e-12):
+        raise ValueError("two-step information value requires equal positive costs")
+    two_step_budget = min(float(remaining_budget), 2.0 * float(item_costs[0]))
+    result = _hull_ens_core(
+        posterior,
+        query_compositions=query_compositions,
+        query_ids=query_ids,
+        reference_compositions=reference_compositions,
+        reference_energies=reference_energies,
+        costs=item_costs,
+        remaining_budget=two_step_budget,
+        posterior_sample_count=posterior_sample_count,
+        fantasy_sample_count=inner_sample_count,
+        seed=seed,
+        fixed_template=fixed_template,
+        independent_worlds=True,
+        candidate_workers=candidate_workers,
+        collect_conditionals=True,
+    )
+    scores = np.asarray(result["scores"], dtype=np.float64)
+    probabilities = np.asarray(result["probabilities"], dtype=np.float64)
+    information_values = np.asarray(result["information_values"], dtype=np.float64)
+    q_worlds = np.asarray(result["q_worlds"], dtype=np.float64)
+    delta_action = (
+        int(result["delta_hull_action_index"])
+        if baseline_action_index is None
+        else int(baseline_action_index)
+    )
+    if delta_action < 0 or delta_action >= len(probabilities):
+        raise ValueError("two-step baseline action is outside the candidate vector")
+    selected_action = _stable_policy_argmax(scores, query_ids)
+    headroom_worlds = q_worlds[:, selected_action] - q_worlds[:, delta_action]
+    q_standard_errors = np.std(q_worlds, axis=0, ddof=1) / math.sqrt(posterior_sample_count)
+    headroom_standard_error = float(
+        np.std(headroom_worlds, ddof=1) / math.sqrt(posterior_sample_count)
+    )
+    ranking = sorted(
+        range(len(probabilities)), key=lambda index: (-probabilities[index], str(query_ids[index]))
+    )
+    rank_gaps = tuple(
+        float(probabilities[ranking[index]] - probabilities[ranking[index + 1]])
+        for index in range(len(ranking) - 1)
+    )
+    conditional_means = result["conditional_probability_means"]
+    switch_probabilities = result["maximizer_switch_probability"]
+    if int(result["horizon"]) == 1:
+        conditional_array = np.broadcast_to(probabilities, (len(probabilities), len(probabilities)))
+        switch_array = np.zeros(len(probabilities), dtype=np.float64)
+        information_values = np.zeros(len(probabilities), dtype=np.float64)
+    else:
+        if conditional_means is None or switch_probabilities is None:
+            raise RuntimeError("two-step diagnostics were not collected")
+        conditional_array = np.asarray(conditional_means, dtype=np.float64)
+        switch_array = np.asarray(switch_probabilities, dtype=np.float64)
+    signed_delta = conditional_array - probabilities[None, :]
+    return {
+        "scores": tuple(float(value) for value in scores),
+        "final_stability_probabilities": tuple(float(value) for value in probabilities),
+        "information_values": tuple(float(value) for value in information_values),
+        "q_standard_errors": tuple(float(value) for value in q_standard_errors),
+        "headroom_mean": float(scores[selected_action] - scores[delta_action]),
+        "headroom_standard_error": headroom_standard_error,
+        "greedy_order": tuple(int(index) for index in ranking),
+        "rank_margin": float(rank_gaps[0]) if rank_gaps else 0.0,
+        "rank_gaps": rank_gaps,
+        "top_two_information_gap": float(
+            information_values[ranking[1]] - information_values[ranking[0]]
+        )
+        if len(ranking) > 1
+        else 0.0,
+        "maximizer_switch_probability": tuple(
+            float(value) for value in switch_array
+        ),
+        "conditional_p_final": tuple(
+            tuple(float(value) for value in row) for row in conditional_array
+        ),
+        "signed_delta_p": tuple(
+            tuple(float(value) for value in row) for row in signed_delta
+        ),
+        "selected_action_index": selected_action,
+        "delta_hull_action_index": delta_action,
+        "posterior_sample_count": posterior_sample_count,
+        "inner_sample_count": inner_sample_count,
+        "horizon": int(result["horizon"]),
+    }
+
+
+def selective_delta_hull(
+    posterior: ProtocolTargetEnergyPosterior,
+    *,
+    query_compositions: Sequence[dict[str, float]],
+    query_ids: Sequence[str],
+    reference_compositions: Sequence[dict[str, float]],
+    reference_energies: np.ndarray,
+    costs: np.ndarray,
+    remaining_budget: float,
+    two_step_posterior_sample_count: int = 64,
+    two_step_inner_sample_count: int = 8,
+    rollout_posterior_sample_count: int = 128,
+    rollout_continuation_sample_count: int = 16,
+    rollout_horizon: int = 2,
+    seed: int = 0,
+    fixed_template: FixedCompositionHullTemplate | None = None,
+    candidate_workers: int = 1,
+    model_penalty: float = 0.0,
+    cost_penalty: float = 0.0,
+    critical_value: float = 1.96,
+) -> SelectiveDeltaHullResult:
+    """Invoke Delta-Hull-anchored lookahead only with positive net headroom.
+
+    The gate uses a low-cost, independent-inner two-step estimate.  The model
+    and compute penalties are explicit inputs; the function never estimates
+    them from realized evaluation outcomes.  A later campaign must freeze or
+    nested-calibrate these penalties before opening its query systems.
+    """
+
+    item_costs = np.asarray(costs, dtype=np.float64).reshape(-1)
+    delta = delta_hull_active_search(
+        posterior,
+        query_compositions=query_compositions,
+        reference_compositions=reference_compositions,
+        reference_energies=reference_energies,
+        costs=item_costs,
+        posterior_sample_count=two_step_posterior_sample_count,
+        seed=seed,
+        fixed_template=fixed_template,
+    )
+    delta_action = _stable_policy_argmax(np.asarray(delta.scores, dtype=np.float64), query_ids)
+    estimate = two_step_information_value(
+        posterior,
+        query_compositions=query_compositions,
+        query_ids=query_ids,
+        reference_compositions=reference_compositions,
+        reference_energies=reference_energies,
+        costs=item_costs,
+        remaining_budget=remaining_budget,
+        posterior_sample_count=two_step_posterior_sample_count,
+        inner_sample_count=two_step_inner_sample_count,
+        seed=seed + 7919,
+        fixed_template=fixed_template,
+        candidate_workers=candidate_workers,
+        baseline_action_index=delta_action,
+    )
+    gate = selective_gate(
+        greedy_action_index=delta_action,
+        rollout_action_index=int(estimate["selected_action_index"]),
+        headroom_mean=float(estimate["headroom_mean"]),
+        headroom_standard_error=float(estimate["headroom_standard_error"]),
+        model_penalty=model_penalty,
+        cost_penalty=cost_penalty,
+        critical_value=critical_value,
+    )
+    rollout_action: int | None = None
+    if gate.gate_used:
+        rollout = delta_hull_anchored_rollout(
+            posterior,
+            query_compositions=query_compositions,
+            query_ids=query_ids,
+            reference_compositions=reference_compositions,
+            reference_energies=reference_energies,
+            costs=item_costs,
+            remaining_budget=remaining_budget,
+            posterior_sample_count=rollout_posterior_sample_count,
+            continuation_sample_count=rollout_continuation_sample_count,
+            seed=seed + 104729,
+            fixed_template=fixed_template,
+            rollout_horizon=rollout_horizon,
+        )
+        rollout_action = int(rollout.selected_action_index)
+        selected_action = rollout_action
+        fallback_reason = None
+    else:
+        selected_action = delta_action
+        fallback_reason = gate.fallback_reason
+    return SelectiveDeltaHullResult(
+        selected_action_index=selected_action,
+        delta_hull_action_index=delta_action,
+        rollout_action_index=rollout_action,
+        gate_used=gate.gate_used,
+        robust_gain=gate.robust_gain,
+        headroom_mean=gate.headroom_mean,
+        headroom_standard_error=gate.headroom_standard_error,
+        model_penalty=gate.model_penalty,
+        cost_penalty=gate.cost_penalty,
+        two_step_scores=tuple(float(value) for value in estimate["scores"]),
+        final_stability_probabilities=tuple(
+            float(value) for value in estimate["final_stability_probabilities"]
+        ),
+        information_values=tuple(float(value) for value in estimate["information_values"]),
+        q_standard_errors=tuple(float(value) for value in estimate["q_standard_errors"]),
+        rank_margin=float(estimate["rank_margin"]),
+        rank_gaps=tuple(float(value) for value in estimate["rank_gaps"]),
+        top_two_information_gap=float(estimate["top_two_information_gap"]),
+        maximizer_switch_probability=tuple(
+            float(value) for value in estimate["maximizer_switch_probability"]
+        ),
+        conditional_p_final=tuple(
+            tuple(float(value) for value in row) for row in estimate["conditional_p_final"]
+        ),
+        signed_delta_p=tuple(
+            tuple(float(value) for value in row) for row in estimate["signed_delta_p"]
+        ),
+        posterior_sample_count=two_step_posterior_sample_count,
+        inner_sample_count=two_step_inner_sample_count,
+        rollout_posterior_sample_count=(rollout_posterior_sample_count if gate.gate_used else None),
+        rollout_horizon=rollout_horizon,
+        fallback_reason=fallback_reason,
     )
 
 

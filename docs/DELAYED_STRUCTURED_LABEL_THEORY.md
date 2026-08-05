@@ -104,6 +104,43 @@ feedback.
    source-relative bar to one component. Interactions depend on the chosen
    order; the existing direct paired ablations measure only selected slices.
 
+6. **Top-two exchange is value-degenerate.** Let `g_1` and `g_2` be the two
+   largest current final-label probabilities and let `I_h(x)` be the delayed
+   information value in Result 4. For the two-step objective,
+
+   \[
+   Q_2(g_2\mid h)-Q_2(g_1\mid h)=I_h(g_2)-I_h(g_1).
+   \]
+
+   The immediate terms are the same pair `p_h(g_1)+p_h(g_2)` under either
+   order. Therefore an action switch between the top two candidates is not
+   evidence of positive planning value: a small information-estimation error
+   can change the action while leaving terminal utility unchanged. For a
+   lower-ranked candidate `x`, the direct probability deficit must be offset by
+   its information advantage, making the rank gap an explicit hurdle rather
+   than a generic disagreement statistic.
+
+7. **Observed planning gain has three distinct sources.** Let `J_P` denote
+   evaluator value, `J_q` working-posterior value, `pi_g` Delta-Hull,
+   `pi_q^star` the posterior-optimal planning policy, and `hat pi` the
+   implemented Monte-Carlo policy. Then
+
+   \[
+   \begin{aligned}
+   J_P(\hat\pi)-J_P(\pi_g)
+   ={}&[J_q(\pi_q^\star)-J_q(\pi_g)]
+   -[J_q(\pi_q^\star)-J_q(\hat\pi)]\\
+   &+[(J_P-J_q)(\hat\pi)-(J_P-J_q)(\pi_g)].
+   \end{aligned}
+   \]
+
+   The terms are, respectively, structural planning headroom, solver/
+   Monte-Carlo regret, and differential posterior model error. An incremental
+   compute price `lambda(C(hat pi)-C(pi_g))` is a separate declared penalty;
+   it is not a target-query cost and does not create a cost-aware claim. This
+   identity explains why many action changes can coexist with little realized
+   gain, and motivates a selective gate rather than an always-on rollout.
+
 ## Connection to frozen evidence
 
 - The exact 1,000-instance suite is consistent with the theory: source rollout
@@ -136,6 +173,21 @@ exact I_h(x) term because it stores absolute rather than signed conditional
 hull probabilities; a new instrumented posterior replay would be required.
 The MatPES ties do not prove posterior rank stability, and no solver or gate
 superiority claim is supported.
+
+The next registered method-development line, `E51`, treats the two results
+above as an audit target. It estimates top-two information/headroom with an
+independent inner stream and invokes Delta-Hull-anchored lookahead only when a
+predeclared lower bound exceeds model and compute penalties. Its first stage is
+finite-world only; no selective material curve is implied by this theory note.
+
+The completed E51 finite-world audit is consistent with this separation:
+exact Hull-ENS reaches exact finite-world DP in all four small headroom strata,
+while sampled/double-sampled Hull-ENS shows small regret in the low-headroom
+strata. In a separate 40-system outer synthetic replay, nested selective
+gating invoked exact-HENS lookahead on 2.083% of states and retained all
+observed full-planner gain. These are implementation/mechanism checks with
+small synthetic panels; the unregistered maximum exact-versus-sampled
+discrepancy prevents promoting them to a material selective result.
 
 ## Forbidden upgrades
 

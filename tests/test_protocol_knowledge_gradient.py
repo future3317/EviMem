@@ -29,6 +29,7 @@ from matmem.protocol_acquisition import (
     protocol_hull_knowledge_gradient,
     protocol_hull_risk_reduction,
     safe_hull_ens,
+    selective_delta_hull,
     source_rollout_delta_hull,
     source_rollout_system_score,
     ungated_source_rollout_delta_hull,
@@ -821,6 +822,29 @@ def test_posterior_rank_diagnostics_are_posterior_only_and_bounded() -> None:
     assert 0.0 <= diagnostics["posterior_rank_switch_probability"] <= 1.0
     assert diagnostics["posterior_rank_margin"] >= 0.0
     assert diagnostics["posterior_coupling_score"] >= 0.0
+
+
+def test_selective_delta_hull_falls_back_without_positive_net_headroom() -> None:
+    kwargs = _ic_kwargs()
+    result = selective_delta_hull(
+        kwargs["posterior"],
+        query_compositions=kwargs["query_compositions"],
+        query_ids=kwargs["query_ids"],
+        reference_compositions=kwargs["reference_compositions"],
+        reference_energies=kwargs["reference_energies"],
+        costs=kwargs["costs"],
+        remaining_budget=kwargs["remaining_budget"],
+        two_step_posterior_sample_count=16,
+        two_step_inner_sample_count=4,
+        rollout_posterior_sample_count=16,
+        rollout_continuation_sample_count=4,
+        seed=kwargs["seed"],
+        model_penalty=10.0,
+    )
+    assert result.selected_action_index == result.delta_hull_action_index
+    assert result.gate_used is False
+    assert result.rollout_action_index is None
+    assert len(result.conditional_p_final) == len(kwargs["query_ids"])
 
 
 def test_delta_hull_active_search_rejects_ratio_heuristic_costs() -> None:

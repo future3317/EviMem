@@ -120,6 +120,7 @@ from .protocol_acquisition import (
     ProtocolHullPosteriorSummary,
     ProtocolHullRiskReductionResult,
     SafeHullENSResult,
+    SelectiveDeltaHullResult,
     SourceRolloutDeltaHullResult,
     conformal_one_deviation_source_rollout,
     constrained_dual_horizon_source_rollout,
@@ -131,9 +132,11 @@ from .protocol_acquisition import (
     protocol_hull_posterior_summary,
     protocol_hull_risk_reduction,
     safe_hull_ens,
+    selective_delta_hull,
     source_margin_action_indices,
     source_rollout_delta_hull,
     source_rollout_system_score,
+    two_step_information_value,
 )
 from .protocol_closed_loop import (
     AppendOnlyProtocolEventLog,
@@ -178,6 +181,16 @@ from .ridge_acquisition import (
     linear_ridge_predicted_final_hull_acquisition,
 )
 from .risk import ConformalCalibration, ProtocolRiskController, RiskDecision, ScreeningDecision
+from .selective_planning import (
+    EvaluatorTrace,
+    PlanningValueDecomposition,
+    SelectiveGateDecision,
+    StateTrace,
+    planning_value_decomposition,
+    selective_gate,
+    stable_argmax,
+    top_two_exchange_gap,
+)
 from .sufficient_state import (
     AllOutcomeLinearGaussianState,
     AllOutcomeTargetCorrectionState,
