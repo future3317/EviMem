@@ -9,9 +9,9 @@ Inventory time: 2026-08-05 (Asia/Shanghai)
 
 ## Provenance
 
-+ Code baseline commit: `51c3b5d` (`E:\CODE\EviMem-RL`); E51 artifacts also
-+  record the working-tree code hashes in their status entries below.
-+ Paper commit: `e216ac0` (`E:\PAPER`)
+- Code baseline commit: `51c3b5d` (`E:\CODE\EviMem-RL`); E51 artifacts also
+  record the working-tree code hashes in their status entries below.
+- Paper commit: `e216ac0` (`E:\PAPER`)
 - Local data root: `E:\DATA\EviMem-RL`
 - Remote data root: `/home/workspace/lrh/DATA/EviMem-RL`
 - Remote host: `lrh@100.110.148.20`
