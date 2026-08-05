@@ -1,8 +1,8 @@
 # Decision-Sufficient Scientific State
 
-**Status (2026-08-03): v4, CHIC and myopic Delta-Hull are negative; the
+**Status (2026-08-04): v4, CHIC and myopic Delta-Hull are negative; the
 source-relative MatPES rollout evidence is complete and the theory manuscript
-integration is complete at paper commit `5c2b8ca`.** The all-outcome state, fail-closed protocol activation,
+integration is complete at paper commit `74ddcc9`.** The all-outcome state, fail-closed protocol activation,
 source-environment transport and robust hull-decision certificate are
 implemented and pass replay, no-deletion, self-removal and interval-soundness
 tests. The real JARVIS--MP v1, v3 and fresh v4 gates are all NO-GO. V4's
@@ -32,10 +32,12 @@ evidence for this theory, not as a new state-compression result. IC-SARR has a
 source-relative development signal but no direct terminal-$T$ superiority over
 Delta-Hull or ungated SARR. See
 `docs/DELAYED_STRUCTURED_LABEL_THEORY.md` for the canonical theorem and claim
-matrix. The manuscript integration itself is closed; the separately
-registered, user-authorized E32 objective/lookahead follow-up is the only live
-new experiment and cannot change the claim matrix until its complete outputs
-are audited.
+matrix. The manuscript integration itself remains closed for the frozen paper
+claim. A separate user-authorized E48 method-development line is now
+registered in `docs/HULL_ENS_PROTOCOL_V1.md`; it is not evidence for the
+current manuscript until its independent outputs pass the protocol audit. The
+E48 line changes only the finite-horizon solver and does not reopen or modify
+E32, P0-v3, MAD, or any sealed evaluation split.
 
 The organizing principle is **Decision--Inference--Systems Alignment**. A
 bounded scientific-state claim must simultaneously preserve the registered

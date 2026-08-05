@@ -461,6 +461,7 @@ class ProtocolPolicySubprocess(PersistentWorkerSubprocess):
         transport_model: FrozenProtocolRidgeTransport | None = None,
         posterior_sample_count: int = 16,
         fantasy_count: int = 3,
+        hull_candidate_workers: int = 1,
         conformal_threshold: float | None = None,
         hull_backend: Literal["pymatgen", "fixed_composition"] = "pymatgen",
         selection_timeout_seconds: float = 30.0,
@@ -477,6 +478,7 @@ class ProtocolPolicySubprocess(PersistentWorkerSubprocess):
         self.transport_model = transport_model
         self.posterior_sample_count = posterior_sample_count
         self.fantasy_count = fantasy_count
+        self.hull_candidate_workers = hull_candidate_workers
         self.conformal_threshold = conformal_threshold
         self.hull_backend = hull_backend
         if (
@@ -490,6 +492,8 @@ class ProtocolPolicySubprocess(PersistentWorkerSubprocess):
             raise ValueError("protocol policy scales must be finite and positive")
         if posterior_sample_count < 4 or fantasy_count < 1:
             raise ValueError("protocol hull Monte Carlo settings are too small")
+        if not isinstance(hull_candidate_workers, int) or hull_candidate_workers < 1:
+            raise ValueError("Hull-ENS candidate workers must be a positive integer")
         if requires_protocol_transport(self.policy) and transport_model is None:
             raise ValueError("protocol hull policies require a frozen transport model")
         if self.policy in {
@@ -550,6 +554,7 @@ class ProtocolPolicySubprocess(PersistentWorkerSubprocess):
                 ),
                 "posterior_sample_count": self.posterior_sample_count,
                 "fantasy_count": self.fantasy_count,
+                "hull_candidate_workers": self.hull_candidate_workers,
                 "conformal_threshold": self.conformal_threshold,
                 "hull_backend": self.hull_backend,
                 "execution_mode": ("persistent_jsonl" if self._persistent else "one_shot_custom"),
@@ -575,6 +580,8 @@ class ProtocolPolicySubprocess(PersistentWorkerSubprocess):
             str(self.posterior_sample_count),
             "--fantasy-count",
             str(self.fantasy_count),
+            "--hull-candidate-workers",
+            str(self.hull_candidate_workers),
             "--hull-backend",
             self.hull_backend,
         ]
@@ -587,6 +594,7 @@ class ProtocolPolicySubprocess(PersistentWorkerSubprocess):
         if self.transport_model is not None:
             payload["transport_model"] = self.transport_model.model_dump(mode="json")
         payload["hull_backend"] = self.hull_backend
+        payload["hull_candidate_workers"] = self.hull_candidate_workers
         return json.dumps(payload, sort_keys=True, separators=(",", ":"))
 
     def select(self, state: ProtocolPolicyState) -> str:

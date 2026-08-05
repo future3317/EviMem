@@ -26,10 +26,12 @@ from matmem.protocol_acquisition import (
     delta_hull_active_search,
     delta_hull_anchored_rollout,
     diagonal_independent_confirmation_source_rollout,
+    hull_ens,
     independent_confirmation_source_rollout,
     independent_world_confirmation_source_rollout,
     protocol_hull_knowledge_gradient,
     protocol_hull_risk_reduction,
+    safe_hull_ens,
     source_margin_action_indices,
     source_rollout_delta_hull,
     ungated_source_rollout_delta_hull,
@@ -91,6 +93,7 @@ def select(
     transport_model: FrozenProtocolRidgeTransport | None = None,
     posterior_sample_count: int = 16,
     fantasy_count: int = 3,
+    hull_candidate_workers: int = 1,
     conformal_threshold: float | None = None,
     hull_backend: str = "pymatgen",
     diagnostics: dict[str, object] | None = None,
@@ -113,6 +116,8 @@ def select(
         "posterior_mean_target_margin",
         "posterior_current_hull_probability",
         "delta_hull_active_search",
+        "hull_ens",
+        "safe_hull_ens",
         "ungated_source_rollout",
         "source_rollout_delta_hull",
         "delta_hull_anchored_rollout",
@@ -152,6 +157,8 @@ def select(
         )
         if policy in {
             "delta_hull_active_search",
+            "hull_ens",
+            "safe_hull_ens",
             "posterior_mean_target_margin",
             "posterior_current_hull_probability",
             "ungated_source_rollout",
@@ -299,7 +306,87 @@ def select(
                             }
                         )
                     return str(queries[selected_index]["pair_id"])
-                if policy == "delta_hull_active_search":
+                if policy == "hull_ens":
+                    result = hull_ens(
+                        posterior,
+                        query_compositions=hull_arguments["query_compositions"],
+                        query_ids=tuple(str(row["pair_id"]) for row in queries),
+                        reference_compositions=hull_arguments["reference_compositions"],
+                        reference_energies=hull_arguments["reference_energies"],
+                        costs=hull_arguments["costs"],
+                        remaining_budget=float(payload["remaining_budget"]),
+                        posterior_sample_count=hull_arguments["posterior_sample_count"],
+                        fantasy_sample_count=max(2, min(8, hull_arguments["fantasy_count"])),
+                        seed=hull_arguments["seed"],
+                        fixed_template=fixed_template,
+                        candidate_workers=hull_candidate_workers,
+                    )
+                    if diagnostics is not None:
+                        query_ids = tuple(str(row["pair_id"]) for row in queries)
+                        diagnostics.update(
+                            {
+                                "diagnostic_schema_version": 1,
+                                "kind": "hull_ens",
+                                "candidate_pair_ids": query_ids,
+                                "selected_pair_id": query_ids[result.selected_action_index],
+                                "delta_hull_action_id": query_ids[result.delta_hull_action_index],
+                                "scores": result.scores,
+                                "final_stability_probabilities": result.final_stability_probabilities,
+                                "expected_future_values": result.expected_future_values,
+                                "information_values": result.information_values,
+                                "posterior_sample_count": result.posterior_sample_count,
+                                "fantasy_sample_count": result.fantasy_sample_count,
+                                "hull_candidate_workers": hull_candidate_workers,
+                                "horizon": result.horizon,
+                            }
+                        )
+                    return str(queries[result.selected_action_index]["pair_id"])
+                elif policy == "safe_hull_ens":
+                    result = safe_hull_ens(
+                        posterior,
+                        query_compositions=hull_arguments["query_compositions"],
+                        query_ids=tuple(str(row["pair_id"]) for row in queries),
+                        reference_compositions=hull_arguments["reference_compositions"],
+                        reference_energies=hull_arguments["reference_energies"],
+                        costs=hull_arguments["costs"],
+                        remaining_budget=float(payload["remaining_budget"]),
+                        posterior_sample_count=hull_arguments["posterior_sample_count"],
+                        fantasy_sample_count=max(2, min(8, hull_arguments["fantasy_count"])),
+                        certificate_sample_count=max(
+                            16, hull_arguments["posterior_sample_count"]
+                        ),
+                        seed=hull_arguments["seed"],
+                        fixed_template=fixed_template,
+                        candidate_workers=hull_candidate_workers,
+                    )
+                    if diagnostics is not None:
+                        query_ids = tuple(str(row["pair_id"]) for row in queries)
+                        diagnostics.update(
+                            {
+                                "diagnostic_schema_version": 1,
+                                "kind": "safe_hull_ens",
+                                "candidate_pair_ids": query_ids,
+                                "selected_pair_id": query_ids[result.selected_action_index],
+                                "delta_hull_action_id": query_ids[result.delta_hull_action_index],
+                                "scores": result.scores,
+                                "final_stability_probabilities": result.final_stability_probabilities,
+                                "expected_future_values": result.expected_future_values,
+                                "information_values": result.information_values,
+                                "gate_used": result.gate_used,
+                                "certificate_radius": result.certificate_radius,
+                                "certificate_candidate_indices": result.certificate_candidate_indices,
+                                "certificate_mean_advantages": result.certificate_mean_advantages,
+                                "certificate_lower_bounds": result.certificate_lower_bounds,
+                                "gate_failure_probability": result.gate_failure_probability,
+                                "fallback_reason": result.fallback_reason,
+                                "posterior_sample_count": result.posterior_sample_count,
+                                "fantasy_sample_count": result.fantasy_sample_count,
+                                "hull_candidate_workers": hull_candidate_workers,
+                                "horizon": result.horizon,
+                            }
+                        )
+                    return str(queries[result.selected_action_index]["pair_id"])
+                elif policy == "delta_hull_active_search":
                     result = delta_hull_active_search(
                         posterior,
                         query_compositions=hull_arguments["query_compositions"],
@@ -739,6 +826,8 @@ def main() -> None:
             "posterior_mean_target_margin",
             "posterior_current_hull_probability",
             "delta_hull_active_search",
+            "hull_ens",
+            "safe_hull_ens",
             "ungated_source_rollout",
             "source_rollout_delta_hull",
             "delta_hull_anchored_rollout",
@@ -758,6 +847,7 @@ def main() -> None:
     parser.add_argument("--boundary-temperature", type=float, default=0.05)
     parser.add_argument("--posterior-sample-count", type=int, default=16)
     parser.add_argument("--fantasy-count", type=int, default=3)
+    parser.add_argument("--hull-candidate-workers", type=int, default=1)
     parser.add_argument("--conformal-threshold", type=float, default=None)
     parser.add_argument(
         "--hull-backend", choices=("pymatgen", "fixed_composition"), default="pymatgen"
@@ -783,6 +873,7 @@ def main() -> None:
             transport_model=transport_model,
             posterior_sample_count=args.posterior_sample_count,
             fantasy_count=args.fantasy_count,
+            hull_candidate_workers=args.hull_candidate_workers,
             conformal_threshold=args.conformal_threshold,
             hull_backend=args.hull_backend,
             diagnostics=diagnostics,

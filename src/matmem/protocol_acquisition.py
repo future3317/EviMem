@@ -12,6 +12,7 @@ import hashlib
 import json
 import math
 from collections.abc import Sequence
+from concurrent.futures import ThreadPoolExecutor
 
 import numpy as np
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -26,7 +27,13 @@ from .hull_geometry import (
     _fixed_evaluation_compositions,
     fixed_composition_hull_membership,
 )
-from .posterior import ProtocolTargetEnergyPosterior, _sample_gaussian, _sample_gaussian_blocks
+from .posterior import (
+    ProtocolTargetEnergyPosterior,
+    _gaussian_factor,
+    _sample_gaussian,
+    _sample_gaussian_blocks,
+    _sample_gaussian_from_factor,
+)
 
 
 class ProtocolHullKnowledgeGradientResult(BaseModel):
@@ -51,6 +58,40 @@ class DeltaHullActiveSearchResult(BaseModel):
     scores: tuple[float, ...]
     final_stability_probabilities: tuple[float, ...]
     posterior_sample_count: int = Field(gt=0)
+
+
+class HullENSResult(BaseModel):
+    """Batch approximation to the delayed-label expected number of discoveries.
+
+    ``scores`` use the same complete-pool membership label as Delta-Hull.  The
+    first term is the posterior membership probability of the queried
+    candidate; the second term is the expected sum of the largest remaining
+    conditional membership probabilities after one fantasy observation.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    scores: tuple[float, ...]
+    final_stability_probabilities: tuple[float, ...]
+    expected_future_values: tuple[float, ...]
+    information_values: tuple[float, ...]
+    selected_action_index: int = Field(ge=0)
+    delta_hull_action_index: int = Field(ge=0)
+    posterior_sample_count: int = Field(gt=0)
+    fantasy_sample_count: int = Field(gt=0)
+    horizon: int = Field(ge=1)
+
+
+class SafeHullENSResult(HullENSResult):
+    """Hull-ENS with an independent Delta-Hull-relative improvement screen."""
+
+    gate_used: bool
+    certificate_radius: float = Field(ge=0)
+    certificate_candidate_indices: tuple[int, ...]
+    certificate_mean_advantages: tuple[float, ...]
+    certificate_lower_bounds: tuple[float, ...]
+    gate_failure_probability: float = Field(gt=0, lt=1)
+    fallback_reason: str | None = None
 
 
 class ProtocolHullRiskReductionResult(BaseModel):
@@ -616,6 +657,421 @@ def delta_hull_active_search(
         scores=tuple(float(value) for value in probabilities),
         final_stability_probabilities=tuple(float(value) for value in probabilities),
         posterior_sample_count=posterior_sample_count,
+    )
+
+
+def _sample_gaussian_iid(
+    mean: np.ndarray,
+    covariance: np.ndarray,
+    *,
+    sample_count: int,
+    seed: int,
+) -> np.ndarray:
+    """Draw iid Gaussian worlds for the safe-gate certificate stream."""
+
+    if sample_count < 1:
+        raise ValueError("iid Gaussian sampling requires a positive count")
+    mean = np.asarray(mean, dtype=np.float64).reshape(-1)
+    factor = _gaussian_factor(np.asarray(covariance, dtype=np.float64))
+    rng = np.random.default_rng(seed)
+    return mean + rng.standard_normal((sample_count, len(mean))) @ factor.T
+
+
+def _stable_policy_argmax(values: np.ndarray, query_ids: Sequence[str]) -> int:
+    """Return a deterministic maximum with immutable-ID tie breaking."""
+
+    return min(
+        range(len(values)),
+        key=lambda index: (-float(values[index]), str(query_ids[index])),
+    )
+
+
+def _hull_ens_core(
+    posterior: ProtocolTargetEnergyPosterior,
+    *,
+    query_compositions: Sequence[dict[str, float]],
+    query_ids: Sequence[str],
+    reference_compositions: Sequence[dict[str, float]],
+    reference_energies: np.ndarray,
+    costs: np.ndarray,
+    remaining_budget: float,
+    posterior_sample_count: int,
+    fantasy_sample_count: int,
+    seed: int,
+    fixed_template: FixedCompositionHullTemplate | None,
+    candidate_indices: Sequence[int] | None = None,
+    independent_worlds: bool = False,
+    candidate_workers: int = 1,
+) -> dict[str, object]:
+    """Evaluate the one-fantasy-per-first-action Hull-ENS approximation.
+
+    The expensive future path is deliberately not simulated.  For a first
+    action ``x``, one conditional Gaussian is formed after observing its
+    sampled energy and the remaining candidates' conditional membership
+    probabilities are ranked as a batch.  The returned per-world values are
+    used only by the independent safe-gate stream.
+    """
+
+    mean = np.asarray(posterior.mean, dtype=np.float64)
+    covariance = np.asarray(posterior.covariance, dtype=np.float64)
+    item_costs = np.asarray(costs, dtype=np.float64).reshape(-1)
+    size = len(mean)
+    if (
+        len(query_compositions) != size
+        or len(query_ids) != size
+        or len(item_costs) != size
+        or len(set(query_ids)) != size
+    ):
+        raise ValueError("Hull-ENS inputs disagree")
+    if size == 0 or not np.isfinite(mean).all() or not np.isfinite(covariance).all():
+        raise ValueError("Hull-ENS posterior must be nonempty and finite")
+    if np.any(~np.isfinite(item_costs)) or np.any(item_costs <= 0):
+        raise ValueError("Hull-ENS query costs must be finite and positive")
+    if not np.allclose(item_costs, item_costs[0], atol=1e-12):
+        raise ValueError("Hull-ENS requires equal query costs")
+    if remaining_budget < item_costs[0]:
+        raise ValueError("Hull-ENS budget cannot pay for one query")
+    if posterior_sample_count < 4 or fantasy_sample_count < 2:
+        raise ValueError("Hull-ENS sample counts are too small")
+    if not isinstance(candidate_workers, int) or candidate_workers < 1:
+        raise ValueError("Hull-ENS candidate workers must be a positive integer")
+    if len(reference_compositions) != len(np.asarray(reference_energies).reshape(-1)):
+        raise ValueError("Hull-ENS reference arrays disagree")
+    if candidate_indices is None:
+        candidates = tuple(range(size))
+    else:
+        candidates = tuple(int(index) for index in candidate_indices)
+    if not candidates or len(set(candidates)) != len(candidates) or any(
+        index < 0 or index >= size for index in candidates
+    ):
+        raise ValueError("Hull-ENS candidate set is invalid")
+
+    horizon = min(size, int(math.floor((remaining_budget + 1e-12) / item_costs[0])))
+    if independent_worlds:
+        samples = _sample_gaussian_iid(
+            mean, covariance, sample_count=posterior_sample_count, seed=seed
+        )
+    else:
+        samples = _sample_gaussian(
+            mean, covariance, sample_count=posterior_sample_count, seed=seed
+        )
+    runtime_plan = (
+        None if fixed_template is None else FixedHullRuntimePlan.from_template(fixed_template)
+    )
+    labels = _final_hull_membership(
+        query_compositions=query_compositions,
+        sampled_query_energies=samples,
+        reference_compositions=reference_compositions,
+        reference_energies=np.asarray(reference_energies, dtype=np.float64),
+        fixed_template=fixed_template,
+        fixed_runtime_plan=runtime_plan,
+    )
+    probabilities = labels.mean(axis=0)
+    future_values = np.zeros(size, dtype=np.float64)
+    information_values = np.zeros(size, dtype=np.float64)
+    q_worlds = np.full((posterior_sample_count, len(candidates)), np.nan, dtype=np.float64)
+    if horizon > 1:
+        posterior_variance = np.maximum(np.diag(covariance), 1e-14)
+        def evaluate_candidate(
+            item: tuple[int, int],
+        ) -> tuple[int, int, float, float, np.ndarray]:
+            candidate_position, candidate = item
+            remaining = tuple(index for index in range(size) if index != candidate)
+            future_count = min(horizon - 1, len(remaining))
+            observed = samples[:, candidate]
+            cross = covariance[np.asarray(remaining, dtype=np.int64), candidate]
+            conditional_mean = mean[np.asarray(remaining, dtype=np.int64)] + np.outer(
+                observed - mean[candidate], cross / posterior_variance[candidate]
+            )
+            conditional_covariance = covariance[
+                np.ix_(remaining, remaining)
+            ] - np.outer(cross, cross) / posterior_variance[candidate]
+            conditional_covariance = 0.5 * (conditional_covariance + conditional_covariance.T)
+            conditional_factor = _gaussian_factor(conditional_covariance)
+            if independent_worlds:
+                noise = _sample_gaussian_iid(
+                    np.zeros(len(remaining), dtype=np.float64),
+                    conditional_covariance,
+                    sample_count=posterior_sample_count * fantasy_sample_count,
+                    seed=seed + 15485863 * (candidate + 1),
+                ).reshape(posterior_sample_count, fantasy_sample_count, len(remaining))
+            else:
+                noise = _sample_gaussian_from_factor(
+                    np.zeros(len(remaining), dtype=np.float64),
+                    conditional_factor,
+                    sample_count=fantasy_sample_count,
+                    seed=seed + 15485863 * (candidate + 1),
+                )
+                noise = np.broadcast_to(
+                    noise[None, :, :],
+                    (posterior_sample_count, fantasy_sample_count, len(remaining)),
+                )
+            conditional_samples = conditional_mean[:, None, :] + noise
+            full_samples = np.empty(
+                (posterior_sample_count * fantasy_sample_count, size), dtype=np.float64
+            )
+            full_samples[:, candidate] = np.repeat(observed, fantasy_sample_count)
+            full_samples[:, np.asarray(remaining, dtype=np.int64)] = conditional_samples.reshape(
+                posterior_sample_count * fantasy_sample_count, len(remaining)
+            )
+            conditional_labels = _final_hull_membership(
+                query_compositions=query_compositions,
+                sampled_query_energies=full_samples,
+                reference_compositions=reference_compositions,
+                reference_energies=np.asarray(reference_energies, dtype=np.float64),
+                fixed_template=fixed_template,
+                fixed_runtime_plan=runtime_plan,
+            ).reshape(posterior_sample_count, fantasy_sample_count, size)
+            conditional_probabilities = conditional_labels.mean(axis=1)
+            remaining_array = np.asarray(remaining, dtype=np.int64)
+            top_future = np.partition(
+                conditional_probabilities[:, remaining_array], -future_count, axis=1
+            )[:, -future_count:]
+            future_by_world = top_future.sum(axis=1)
+            future_value = float(np.mean(future_by_world))
+            baseline = np.max(probabilities[remaining_array])
+            information_value = float(
+                np.mean(np.max(conditional_probabilities[:, remaining_array], axis=1) - baseline)
+            )
+            return (
+                candidate_position,
+                candidate,
+                future_value,
+                information_value,
+                probabilities[candidate] + future_by_world,
+            )
+
+        items = tuple(enumerate(candidates))
+        if candidate_workers == 1 or len(items) == 1:
+            evaluated = map(evaluate_candidate, items)
+            for candidate_position, candidate, future_value, information_value, q_values in evaluated:
+                future_values[candidate] = future_value
+                information_values[candidate] = information_value
+                q_worlds[:, candidate_position] = q_values
+        else:
+            with ThreadPoolExecutor(
+                max_workers=min(candidate_workers, len(items)),
+                thread_name_prefix="hull-ens-candidate",
+            ) as executor:
+                evaluated = executor.map(evaluate_candidate, items)
+                for (
+                    candidate_position,
+                    candidate,
+                    future_value,
+                    information_value,
+                    q_values,
+                ) in evaluated:
+                    future_values[candidate] = future_value
+                    information_values[candidate] = information_value
+                    q_worlds[:, candidate_position] = q_values
+    else:
+        for candidate_position, candidate in enumerate(candidates):
+            q_worlds[:, candidate_position] = probabilities[candidate]
+    scores = probabilities + future_values
+    selected = _stable_policy_argmax(scores, query_ids)
+    delta_index = _stable_policy_argmax(probabilities, query_ids)
+    return {
+        "scores": scores,
+        "probabilities": probabilities,
+        "future_values": future_values,
+        "information_values": information_values,
+        "selected_action_index": selected,
+        "delta_hull_action_index": delta_index,
+        "horizon": horizon,
+        "candidate_indices": candidates,
+        "q_worlds": q_worlds,
+    }
+
+
+def hull_ens(
+    posterior: ProtocolTargetEnergyPosterior,
+    *,
+    query_compositions: Sequence[dict[str, float]],
+    query_ids: Sequence[str],
+    reference_compositions: Sequence[dict[str, float]],
+    reference_energies: np.ndarray,
+    costs: np.ndarray,
+    remaining_budget: float,
+    posterior_sample_count: int = 128,
+    fantasy_sample_count: int = 8,
+    seed: int = 0,
+    fixed_template: FixedCompositionHullTemplate | None = None,
+    candidate_workers: int = 1,
+) -> HullENSResult:
+    """Return the delayed-label Hull-ENS batch approximation.
+
+    At horizon one this function uses the same complete-pool membership
+    probabilities as Delta-Hull and therefore has exact action parity.
+    Horizon two is the one-fantasy Bayes value approximation; larger horizons
+    rank the best remaining conditional batch rather than simulating future
+    action paths.
+    """
+
+    result = _hull_ens_core(
+        posterior,
+        query_compositions=query_compositions,
+        query_ids=query_ids,
+        reference_compositions=reference_compositions,
+        reference_energies=reference_energies,
+        costs=costs,
+        remaining_budget=remaining_budget,
+        posterior_sample_count=posterior_sample_count,
+        fantasy_sample_count=fantasy_sample_count,
+        seed=seed,
+        fixed_template=fixed_template,
+        candidate_workers=candidate_workers,
+    )
+    return HullENSResult(
+        scores=tuple(float(value) for value in result["scores"]),
+        final_stability_probabilities=tuple(float(value) for value in result["probabilities"]),
+        expected_future_values=tuple(float(value) for value in result["future_values"]),
+        information_values=tuple(float(value) for value in result["information_values"]),
+        selected_action_index=int(result["selected_action_index"]),
+        delta_hull_action_index=int(result["delta_hull_action_index"]),
+        posterior_sample_count=posterior_sample_count,
+        fantasy_sample_count=fantasy_sample_count,
+        horizon=int(result["horizon"]),
+    )
+
+
+def _top_k_union(
+    values: np.ndarray,
+    information_values: np.ndarray,
+    query_ids: Sequence[str],
+    top_k: int,
+) -> tuple[int, ...]:
+    k = max(1, min(int(top_k), len(values)))
+    ranked_values = sorted(range(len(values)), key=lambda i: (-float(values[i]), str(query_ids[i])))
+    ranked_information = sorted(
+        range(len(values)), key=lambda i: (-float(information_values[i]), str(query_ids[i]))
+    )
+    return tuple(dict.fromkeys((*ranked_values[:k], *ranked_information[:k])))
+
+
+def safe_hull_ens(
+    posterior: ProtocolTargetEnergyPosterior,
+    *,
+    query_compositions: Sequence[dict[str, float]],
+    query_ids: Sequence[str],
+    reference_compositions: Sequence[dict[str, float]],
+    reference_energies: np.ndarray,
+    costs: np.ndarray,
+    remaining_budget: float,
+    posterior_sample_count: int = 128,
+    fantasy_sample_count: int = 8,
+    certificate_sample_count: int | None = None,
+    seed: int = 0,
+    fixed_template: FixedCompositionHullTemplate | None = None,
+    top_k: int = 8,
+    gate_failure_probability: float = 0.05,
+    candidate_workers: int = 1,
+) -> SafeHullENSResult:
+    """Screen Hull-ENS against Delta-Hull with an independent iid stream.
+
+    The certificate is deliberately Delta-relative.  It can only authorize a
+    candidate in the posterior value estimate when its simultaneous
+    Hoeffding-adjusted paired advantage is positive; otherwise the policy
+    exactly falls back to Delta-Hull.  This is a posterior-value screen, not a
+    guarantee against model misspecification or oracle error.
+    """
+
+    if not 0.0 < gate_failure_probability < 1.0:
+        raise ValueError("safe Hull-ENS failure probability must lie in (0, 1)")
+    main = _hull_ens_core(
+        posterior,
+        query_compositions=query_compositions,
+        query_ids=query_ids,
+        reference_compositions=reference_compositions,
+        reference_energies=reference_energies,
+        costs=costs,
+        remaining_budget=remaining_budget,
+        posterior_sample_count=posterior_sample_count,
+        fantasy_sample_count=fantasy_sample_count,
+        seed=seed,
+        fixed_template=fixed_template,
+        candidate_workers=candidate_workers,
+    )
+    scores = np.asarray(main["scores"], dtype=np.float64)
+    probabilities = np.asarray(main["probabilities"], dtype=np.float64)
+    future_values = np.asarray(main["future_values"], dtype=np.float64)
+    information_values = np.asarray(main["information_values"], dtype=np.float64)
+    delta_index = int(main["delta_hull_action_index"])
+    candidate_indices = _top_k_union(
+        probabilities, information_values, query_ids, top_k=top_k
+    )
+    if delta_index not in candidate_indices:
+        candidate_indices = (delta_index, *candidate_indices)
+    candidate_indices = tuple(dict.fromkeys(candidate_indices))
+    certificate_count = posterior_sample_count if certificate_sample_count is None else int(
+        certificate_sample_count
+    )
+    if certificate_count < 4:
+        raise ValueError("safe Hull-ENS certificate needs at least four worlds")
+    certificate = _hull_ens_core(
+        posterior,
+        query_compositions=query_compositions,
+        query_ids=query_ids,
+        reference_compositions=reference_compositions,
+        reference_energies=reference_energies,
+        costs=costs,
+        remaining_budget=remaining_budget,
+        posterior_sample_count=certificate_count,
+        fantasy_sample_count=fantasy_sample_count,
+        seed=seed + 32452843,
+        fixed_template=fixed_template,
+        candidate_indices=candidate_indices,
+        independent_worlds=True,
+        candidate_workers=candidate_workers,
+    )
+    certificate_worlds = np.asarray(certificate["q_worlds"], dtype=np.float64)
+    baseline_position = candidate_indices.index(delta_index)
+    differences = certificate_worlds - certificate_worlds[:, [baseline_position]]
+    means = differences.mean(axis=0)
+    horizon = int(main["horizon"])
+    radius = horizon * math.sqrt(
+        2.0
+        * math.log(2.0 * len(candidate_indices) / gate_failure_probability)
+        / certificate_count
+    )
+    lower_bounds = means - radius
+    lower_bounds[baseline_position] = 0.0
+    improving = [
+        position
+        for position, lower_bound in enumerate(lower_bounds)
+        if position != baseline_position and lower_bound > 0.0
+    ]
+    if improving:
+        selected_position = min(
+            improving,
+            key=lambda position: (
+                -float(certificate_worlds[:, position].mean()),
+                str(query_ids[candidate_indices[position]]),
+            ),
+        )
+        selected = int(candidate_indices[selected_position])
+        gate_used = True
+        fallback_reason = None
+    else:
+        selected = delta_index
+        gate_used = False
+        fallback_reason = "no_positive_delta_relative_certificate"
+    return SafeHullENSResult(
+        scores=tuple(float(value) for value in scores),
+        final_stability_probabilities=tuple(float(value) for value in probabilities),
+        expected_future_values=tuple(float(value) for value in future_values),
+        information_values=tuple(float(value) for value in information_values),
+        selected_action_index=selected,
+        delta_hull_action_index=delta_index,
+        posterior_sample_count=posterior_sample_count,
+        fantasy_sample_count=fantasy_sample_count,
+        horizon=horizon,
+        gate_used=gate_used,
+        certificate_radius=float(radius),
+        certificate_candidate_indices=candidate_indices,
+        certificate_mean_advantages=tuple(float(value) for value in means),
+        certificate_lower_bounds=tuple(float(value) for value in lower_bounds),
+        gate_failure_probability=gate_failure_probability,
+        fallback_reason=fallback_reason,
     )
 
 

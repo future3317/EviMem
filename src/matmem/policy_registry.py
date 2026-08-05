@@ -17,6 +17,8 @@ class ProtocolPolicy(StrEnum):
     POSTERIOR_MEAN_TARGET_MARGIN = "posterior_mean_target_margin"
     POSTERIOR_CURRENT_HULL_PROBABILITY = "posterior_current_hull_probability"
     DELTA_HULL_ACTIVE_SEARCH = "delta_hull_active_search"
+    HULL_ENS = "hull_ens"
+    SAFE_HULL_ENS = "safe_hull_ens"
     UNGATED_SOURCE_ROLLOUT = "ungated_source_rollout"
     SOURCE_ROLLOUT_DELTA_HULL = "source_rollout_delta_hull"
     DELTA_HULL_ANCHORED_ROLLOUT = "delta_hull_anchored_rollout"
@@ -39,6 +41,8 @@ class ProtocolPolicy(StrEnum):
 
         return {
             cls.DELTA_HULL_ACTIVE_SEARCH,
+            cls.HULL_ENS,
+            cls.SAFE_HULL_ENS,
             cls.POSTERIOR_MEAN_TARGET_MARGIN,
             cls.POSTERIOR_CURRENT_HULL_PROBABILITY,
             cls.UNGATED_SOURCE_ROLLOUT,
