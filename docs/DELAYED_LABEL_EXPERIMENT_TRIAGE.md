@@ -1,5 +1,10 @@
 # Delayed-label experiment triage
 
+**Status: completed historical triage, superseded on 2026-08-09 by E52 in
+`docs/CURRENT_PAPER_EXPERIMENT_CONTRACT.md`.** Its old stop rule applies to the
+completed E32/MAD stage, not to the separately authorized matched-baseline,
+membership-calibration, and acquisition-under-pool-shift analyses.
+
 This memo fixes the evidence priority after the manuscript was reframed as an
 objective/theory/mechanism paper. It is a scope control document: a proposed
 experiment must change a paper claim to justify additional compute.
@@ -61,9 +66,10 @@ support a final-budget solver-superiority claim or authorize a new policy run.
 
 ## Do not add to this project stage
 
-- Do not search for or manufacture an external formation-energy holdout. The
-  opened MatPES systems cannot be relabeled as holdout, and MAD is not the same
-  label definition.
+- At that stage, no external formation-energy search was authorized. The
+  enduring boundary is narrower: opened MatPES systems cannot be relabeled as
+  holdout, and MAD is not the same label definition. E52 may search a genuinely
+  disjoint source under its new identity.
 - Do not repeat the 1,000-instance exact-DP suite or the controlled grid; they
   already establish the theoretical mechanism boundary.
 - Do not launch a new instrumentation run solely for hull-membership

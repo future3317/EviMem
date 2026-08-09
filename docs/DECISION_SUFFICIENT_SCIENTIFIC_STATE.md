@@ -1,8 +1,10 @@
 # Decision-Sufficient Scientific State
 
-**Status (2026-08-04): v4, CHIC and myopic Delta-Hull are negative; the
-source-relative MatPES rollout evidence is complete and the theory manuscript
-integration is complete at paper commit `9f65ac5`.** The all-outcome state, fail-closed protocol activation,
+**Status (2026-08-09): historical authority for the decision-sufficient-state
+and state-compression line; it is not the operational contract for the current
+paper. See `docs/CURRENT_PAPER_EXPERIMENT_CONTRACT.md`.** V4, CHIC, and the
+state-compression program remain closed under the evidence below. The
+all-outcome state, fail-closed protocol activation,
 source-environment transport and robust hull-decision certificate are
 implemented and pass replay, no-deletion, self-removal and interval-soundness
 tests. The real JARVIS--MP v1, v3 and fresh v4 gates are all NO-GO. V4's
@@ -13,31 +15,29 @@ not delete archive contributions, but its JARVIS development task did not show
 a training-state or acquisition advantage. The active MatPES continuation
 changes the posterior and protocol task, not archive retention.
 
-## Current manuscript-facing decision (2026-08-03)
+## Historical line and current-paper boundary
 
 This document remains the authority for the older decision-sufficient-state and
 state-compression line; that line is not the current paper's empirical claim.
-The current manuscript is centered on the general problem of **Active Search
-with Delayed Structured Labels**. Its theory establishes a no-uniform-ratio
+The current manuscript is centered on **globally adjudicated active search**.
+Its theory establishes a no-uniform-ratio
 greedy counterexample, a failure of adaptive submodularity in general,
 weak-coupling/rank-stability conditions for greedy optimality or near
 optimality, a strict delayed-information value criterion, and an
 order-specific joint-covariance/adaptivity/continuation decomposition. The
 materials convex-hull task instantiates this problem. Delta-Hull is the
-materials greedy baseline, ungated SARR is the primary rollout solver, and
-IC-SARR is an optional numerical screen documented in the appendix.
+objective-aligned greedy baseline; additional lookahead is evaluated relative
+to it. SARR and IC-SARR are historical or appendix diagnostics, not the
+paper's primary method identity.
 
 The existing exact-DP suite and MatPES/MAD results are interpreted as mechanism
 evidence for this theory, not as a new state-compression result. IC-SARR has a
 source-relative development signal but no direct terminal-$T$ superiority over
 Delta-Hull or ungated SARR. See
 `docs/DELAYED_STRUCTURED_LABEL_THEORY.md` for the canonical theorem and claim
-matrix. The manuscript integration itself remains closed for the frozen paper
-claim. A separate user-authorized E48 method-development line is now
-registered in `docs/HULL_ENS_PROTOCOL_V1.md`; it is not evidence for the
-current manuscript until its independent outputs pass the protocol audit. The
-E48 line changes only the finite-horizon solver and does not reopen or modify
-E32, P0-v3, MAD, or any sealed evaluation split.
+matrix. The former E48 Hull-ENS line is preserved as historical solver
+development in `docs/HULL_ENS_PROTOCOL_V1.md`; it does not govern E52 or the
+current manuscript identity.
 
 The organizing principle is **Decision--Inference--Systems Alignment**. A
 bounded scientific-state claim must simultaneously preserve the registered
@@ -353,10 +353,10 @@ R(S,E_T)=\sum_{x\in S}\mathbf 1\{x\in H_T^\star(E_T)\}.
 
 The exact finite-horizon Bellman recursion is well-defined but not claimed
 tractable. Delta-Hull is its `b=1` specialization; repeated greedy use at
-budget six is an empirical policy, not a horizon-optimality theorem. The
-current manuscript also studies ungated source-anchored rollout (SARR) as a
-nonmyopic solver and treats IC-SARR only as an optional numerical screen. The
-general theory and its counterexamples are recorded in
+budget six is an empirical policy, not a horizon-optimality theorem. Historical
+experiments also studied source-anchored rollout and IC-SARR; current
+paper-facing planning comparisons are anchored to Delta-Hull. The general
+theory and its counterexamples are recorded in
 `docs/DELAYED_STRUCTURED_LABEL_THEORY.md`.
 
 The expanded 24-system development panel at budget six shows a clearer but

@@ -1,11 +1,12 @@
 # Authoritative experiment and decision ledger
 
-**Status: authoritative audit trail; the current experiment program is closed
-for manuscript integration (2026-08-03).** The active paper is a theory-and-
-mechanism study of delayed structured labels, not a new solver-development
-campaign. This is the first file
-a future maintainer or coding agent should read before changing the method or
-launching another experiment. It records why the research moved from CAW-Joint to DACC,
+**Status: authoritative audit trail; the paper-facing E52 validation campaign
+is active under `docs/CURRENT_PAPER_EXPERIMENT_CONTRACT.md` (2026-08-09).**
+The active paper is an objective-first study of globally adjudicated active
+search and the boundary between greedy sufficiency and planning value. This
+ledger preserves the full research history and the evidence status of opened,
+invalidated, incomplete, and stopped lines. It records why the research moved
+from CAW-Joint to DACC,
 from DACC to P3C, why P3C exposed outcome-contribution deletion and reference
 mismatch, why AKSC was proposed, why the WBM compute gate stopped AKSC as the
 paper's next main line, and why two real JARVIS--MP transport certificates did
@@ -24,8 +25,10 @@ result, including results that no longer belong in the paper's main text. A
 manuscript edit may move old methods to an appendix or summarize them as an
 ablation, but it must not erase their scientific disposition from this file.
 
-The remaining files in `docs/` are live scientific or data-contract notes; they
-do not override this ledger. Superseded formulas, configs and runners were
+`docs/CURRENT_PAPER_EXPERIMENT_CONTRACT.md` is the operational contract for
+the current manuscript. Other protocol files may be current or historical as
+marked; they do not overwrite the evidence dispositions in this ledger.
+Superseded formulas, configs and runners were
 removed from the live tree after their unique experiment identity, checksum,
 failure attribution and stopping decision were consolidated here. Git tags are
 the recovery mechanism for retired code; restoring an old runner to the live
@@ -99,7 +102,7 @@ final-causal confirmation is `+0.013/system` with an interval crossing zero,
 runtime increases by about `+22.35 s/system`, and there is no paper-level
 positive state-compression result or independent MatPES holdout.
 
-## Current research decision (not an experiment)
+## Current research decision (updated 2026-08-09)
 
 The later registered P0-v3 campaign (E31 below) supersedes the earlier
 development headline numerically for the frozen MatPES mechanism story: its
@@ -113,24 +116,25 @@ the direct B=6 contrasts small. These results do not alter the scientific
 decision boundary: this remains opened development evidence, not final-causal,
 cost-aware, deployment, or universal superiority.
 
-The stopping chain does not authorize another outcome-selected posterior
-approximation. CHIC tested a real optimizer-input constraint without deleting
-outcomes, but its JARVIS task did not show an advantage. The current paper
-therefore studies the general problem of active search with delayed structured
-labels: a query reveals an immediate observation, while the evaluated label is
-a function of the complete latent pool. Convex-hull discovery is the materials
-instance. Delta-Hull is the one-step greedy structured-label baseline, ungated
-SARR is the primary source-anchored rollout solver, and IC-SARR is an optional
-randomized-QMC numerical screen.
+The current paper studies the general problem of active search with globally
+adjudicated utility: a query reveals an immediate observation, while the
+evaluated label is a function of the complete latent pool. Convex-hull
+discovery is the materials instance. Delta-Hull is the deliberately simple
+one-step Bayes action for this utility. The central comparison is objective
+alignment (target margin versus Delta-Hull) followed by planning value beyond
+the aligned greedy policy (Delta-Hull-anchored lookahead versus Delta-Hull).
+SARR, IC-SARR, Hull-ENS, and selective gates are historical or appendix
+diagnostics rather than competing paper identities.
 
 The exact separation and controlled benchmark support the mechanism theory;
 the MatPES and MAD results are development/task-level evidence for the
-delayed-full-pool objective. They do not establish a solver, gate,
-selected-history, cost-aware, deployment, runtime, bounded-memory or universal-generalization
-superiority claim. Every paid target outcome remains in the immutable archive
-and conditions the posterior. WBM remains the homogeneous low-compute null,
-and opened JARVIS evaluation systems remain closed to development. No new
-experiment is authorized by the manuscript integration.
+complete-pool objective. E52 is authorized to test a matched final-label
+baseline, final-membership calibration, and acquisition reruns under
+outcome-independent pool shift. A genuinely external formation-energy test
+requires a disjoint source; the first raw-release audit found zero new systems
+or pairs. Every paid target outcome remains in the immutable archive and
+conditions the posterior, and all prior opened-data boundaries remain in
+force.
 
 ## Current manuscript integration record (2026-08-04)
 
@@ -2015,3 +2019,33 @@ synthetic outer panel is small, E51 does **not** authorize a new MatPES or
 MAD selective curve. The material method-development line remains closed;
 selective planning is recorded as a tested synthetic mechanism/proposal, not
 as a material solver claim.
+
+## E52 -- Objective-first validation campaign (authorized 2026-08-09)
+
+**Active independent validation identity.** The paper question has changed
+from solver development to globally adjudicated utility and the empirical
+boundary between objective alignment and additional planning. E52 therefore
+does not reopen IC-SARR, Hull-ENS, selective planning, state compression, or
+any stopped posterior approximation. Its operational protocol is
+`docs/CURRENT_PAPER_EXPERIMENT_CONTRACT.md`.
+
+E52-A adds `protocol_hull_knowledge_gradient` as a matched two-step
+final-label baseline under the same posterior and evaluator. E52-B records
+policy-side final-hull membership probabilities before reveal and joins them
+with complete-pool labels only after trace completion for system-clustered
+calibration analysis. E52-C reruns acquisition on outcome-independently hashed
+70%, 85%, and 100% candidate pools; it is distinct from the evaluator-only E49
+audit because actions are recomputed and selected IDs are not protected.
+
+E52-D attempted to identify a genuinely fresh formation-energy roster from
+the raw MatPES PBE and r2SCAN release. The completed builder produced task
+SHA-256
+`7dee93e2705a0e6b6006b5215da50d00236155344b751ef65453c92f200cc8d1`
+and vault SHA-256
+`a272d3a2ce6286443ae6fce35726a688751a37284e3df362c5d1f70e2fcb9952`.
+Read-only comparison found exact overlap with the existing task: 324/324
+systems and 10,236/10,236 pair IDs, with zero new systems or pairs. The vault
+was not opened for scientific analysis. This route is an infrastructure
+NO-GO for external validation, not a negative method result. A formation-
+energy external claim remains blocked until a genuinely disjoint source or
+release is available; E52-A--C may proceed as development robustness analyses.

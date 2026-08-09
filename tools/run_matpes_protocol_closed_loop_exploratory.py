@@ -190,6 +190,13 @@ def _evaluate_action_trace(
         for entry in oracle_pool_diagram.stable_entries
         if str(entry.entry_id) in candidate_ids
     }
+    # This evaluator-only map is emitted only after the complete trace has
+    # finished.  It supports post-hoc calibration of policy-side posterior
+    # membership probabilities and is never passed to the acquisition worker.
+    oracle_pool_final_labels_by_pair_id = {
+        pair_id: pair_id in oracle_pool_stable_candidate_ids
+        for pair_id in sorted(candidate_ids)
+    }
     rounds: list[dict[str, Any]] = []
     stable_discoveries = 0
     causal_discovery_ids: list[str] = []
@@ -363,6 +370,7 @@ def _evaluate_action_trace(
         "final_causal_confirmed_ids": final_causal_confirmed_ids,
         "oracle_pool_confirmed_discoveries": oracle_pool_count,
         "oracle_pool_confirmed_ids": oracle_pool_confirmed_ids,
+        "oracle_pool_final_labels_by_pair_id": oracle_pool_final_labels_by_pair_id,
         # D, F and T are distinct estimands: an online causal declaration may
         # be revoked by a later selected phase, and a final-causal survivor may
         # be invalidated by an unqueried competitor in the complete pool.

@@ -328,7 +328,10 @@ def select(
                                 "diagnostic_schema_version": 1,
                                 "kind": "hull_ens",
                                 "candidate_pair_ids": query_ids,
-                                "selected_pair_id": query_ids[result.selected_action_index],
+                                "selected_pair_id": min(
+                                    zip(query_ids, values, strict=True),
+                                    key=lambda item: (-item[1], item[0]),
+                                )[0],
                                 "delta_hull_action_id": query_ids[result.delta_hull_action_index],
                                 "scores": result.scores,
                                 "final_stability_probabilities": result.final_stability_probabilities,
@@ -398,6 +401,28 @@ def select(
                         fixed_template=fixed_template,
                     )
                     values = result.scores
+                    if diagnostics is not None:
+                        query_ids = tuple(str(row["pair_id"]) for row in queries)
+                        diagnostics.update(
+                            {
+                                "diagnostic_schema_version": 1,
+                                "kind": "delta_hull_active_search",
+                                "candidate_pair_ids": query_ids,
+                                "final_stability_probabilities": {
+                                    pair_id: float(probability)
+                                    for pair_id, probability in zip(
+                                        query_ids,
+                                        result.final_stability_probabilities,
+                                        strict=True,
+                                    )
+                                },
+                                "selected_pair_id": min(
+                                    zip(query_ids, values, strict=True),
+                                    key=lambda item: (-item[1], item[0]),
+                                )[0],
+                                "posterior_sample_count": result.posterior_sample_count,
+                            }
+                        )
                 elif policy == "ungated_source_rollout":
                     result = ungated_source_rollout_delta_hull(
                         posterior,
@@ -737,6 +762,21 @@ def select(
                         **hull_arguments,
                     )
                     values = result.scores
+                    if diagnostics is not None:
+                        query_ids = tuple(str(row["pair_id"]) for row in queries)
+                        diagnostics.update(
+                            {
+                                "diagnostic_schema_version": 1,
+                                "kind": "protocol_hull_risk_reduction",
+                                "candidate_pair_ids": query_ids,
+                                "selected_pair_id": min(
+                                    zip(query_ids, values, strict=True),
+                                    key=lambda item: (-item[1], item[0]),
+                                )[0],
+                                "posterior_sample_count": result.posterior_sample_count,
+                                "fantasy_count": result.fantasy_count,
+                            }
+                        )
                 else:
                     result = protocol_hull_knowledge_gradient(
                         posterior,
@@ -744,6 +784,38 @@ def select(
                         **hull_arguments,
                     )
                     values = result.scores
+                    if diagnostics is not None:
+                        query_ids = tuple(str(row["pair_id"]) for row in queries)
+                        diagnostics.update(
+                            {
+                                "diagnostic_schema_version": 1,
+                                "kind": "protocol_hull_knowledge_gradient",
+                                "candidate_pair_ids": query_ids,
+                                "final_stability_probabilities": {
+                                    pair_id: float(probability)
+                                    for pair_id, probability in zip(
+                                        query_ids,
+                                        result.final_stability_probabilities,
+                                        strict=True,
+                                    )
+                                },
+                                "expected_second_step_values": {
+                                    pair_id: float(value)
+                                    for pair_id, value in zip(
+                                        query_ids,
+                                        result.expected_second_step_values,
+                                        strict=True,
+                                    )
+                                },
+                                "selected_pair_id": min(
+                                    zip(query_ids, values, strict=True),
+                                    key=lambda item: (-item[1], item[0]),
+                                )[0],
+                                "posterior_sample_count": result.posterior_sample_count,
+                                "fantasy_count": result.fantasy_count,
+                                "horizon": result.horizon,
+                            }
+                        )
         elif policy == "ridge_predicted_final_margin":
             phases = list(payload["causal_hull_phases"])
             elements = tuple(queries[0]["chemical_system"])

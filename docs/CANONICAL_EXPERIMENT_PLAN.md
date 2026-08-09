@@ -1,5 +1,10 @@
 # Canonical experiment plan
 
+**Status: historical plan, superseded on 2026-08-09 by
+`docs/CURRENT_PAPER_EXPERIMENT_CONTRACT.md`.** It is retained only to explain
+the earlier IC-SARR development setup and must not be used to launch a new
+paper-facing campaign.
+
 The active MatPES development artifact is the v6 task with frozen CHGNet
 source embeddings, its v5 oracle vault, and the fold-0 cross-fit transport
 model. Their remote paths and SHA-256 values are recorded in

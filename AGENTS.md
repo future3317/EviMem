@@ -14,12 +14,13 @@
 - Prefer maintained libraries such as Pydantic, NumPy, SciPy, scikit-learn,
   pymatgen, and dscribe over local reimplementations.
 - Do not introduce legacy EviPGCE compatibility adapters.
-- Before changing a method, restoring a runner or launching an experiment, read
-  `docs/EXPERIMENT_LEDGER.md`. Respect its superseded/invalid/incomplete result
-  labels and do not repeat a stopped line without stating which failed
-  assumption and gate have changed.
-- Read `docs/DECISION_SUFFICIENT_SCIENTIFIC_STATE.md` before proposing a new
-  paper-facing method. Every state-compression experiment must identify a
+- Before paper-facing method or experiment work, read
+  `docs/CURRENT_PAPER_EXPERIMENT_CONTRACT.md`. Use
+  `docs/EXPERIMENT_LEDGER.md` to preserve provenance, opened-data boundaries,
+  and superseded/invalid/incomplete result labels; historical method-specific
+  stopping rules do not silently redefine the current paper.
+- Read `docs/DECISION_SUFFICIENT_SCIENTIFIC_STATE.md` only when working on the
+  historical state-compression line. Any such experiment must identify a
   measured nontriviality condition, preserve all outcomes in the archive, and
   reduce exactly to full history in the homogeneous zero-transport-cost null
-  regime. Do not introduce another outcome-selected posterior coreset.
+  regime. Never introduce an outcome-selected posterior coreset.
