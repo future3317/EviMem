@@ -62,6 +62,16 @@ and KG fantasy 32. The audit compares each implementation across precision as
 well as against the other implementation. No policy-effect claim is authorized
 from this numerical diagnostic.
 
+That convergence layer is complete. Cross-method action agreement rises from
+1/4 on the fast settings to 3/4 at high precision; the high-precision mean and
+maximum centered absolute Q discrepancies are 0.00106 and 0.00783, and mean
+absolute headroom discrepancy is 0.00098. Both methods choose the same
+Delta-Hull anchor in all four systems. The remaining action disagreement has a
+0.00391 headroom discrepancy, so the supported interpretation is numerical
+argmax sensitivity near small planning headroom. The audit supports treating
+the methods as estimators of one Bellman target, not reporting Hull-KG as a
+separate policy-effect baseline.
+
 ### E52-B: final-membership calibration
 
 At every pre-reveal decision state, policy code may record candidate IDs and

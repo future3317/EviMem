@@ -2101,3 +2101,18 @@ nonconvergence, not evidence for two distinct planning objectives. It triggers
 one four-system, fit-element-supported B=2 convergence audit at MC1024,
 anchored continuation 64, and KG fantasy 32; it does not authorize a full
 Hull-KG budget curve or access to the 94-system secondary panel.
+
+The high-precision convergence audit completed on Ba--Cu--O, Ca--O--Sn,
+Fe--O--V, and La--Mn--O--Sr with four query and 226 fit systems, zero failures,
+and no access to the 94-system panel. Task, vault, and cross-fit SHA-256 values
+are respectively `2a2361ac91dd9fec209cafebbf868466eda17e725124ae482f2922154f69b3c5`,
+`b513aac13fc1733ec8b86def9d0dcc8b501347a86ea60d4a0c31504ad0fb669f`, and
+`517bf2eb656e6b5dd472344bf0aa7eee198a6ac7b85caae1a42856b6d437db5a`.
+Cross-method first-action agreement improved from 1/4 under the fast settings
+to 3/4 at high precision, while Delta-Hull anchor actions agreed in 4/4. The
+high-precision mean centered absolute Q discrepancy was 0.00106, the maximum
+was 0.00783, and mean absolute headroom discrepancy was 0.00098. The remaining
+cross-method action disagreement had a 0.00391 headroom discrepancy. This
+closes E52-A as a numerical-convergence diagnostic: finite integration can
+change an argmax when headroom is tiny, but no distinct Hull-KG policy class or
+effect curve is supported.
