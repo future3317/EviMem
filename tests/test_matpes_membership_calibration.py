@@ -140,8 +140,45 @@ def test_membership_summary_reports_equal_system_and_top3_metrics(tmp_path: Path
     assert result["schema_version"] == 2
     assert group["all_candidates"]["metrics"]["brier_score"] == pytest.approx(0.17)
     assert group["all_candidates"]["equal_system_metrics"]["brier_score"] == pytest.approx(0.41)
+    equal_system_bins = group["all_candidates"]["equal_system_reliability_bins"]
+    assert equal_system_bins[0]["record_count"] == 3
+    assert equal_system_bins[0]["mean_predicted_probability"] == pytest.approx(0.1)
+    assert equal_system_bins[0]["empirical_frequency"] == pytest.approx(2.0 / 3.0)
+    assert equal_system_bins[4]["record_count"] == 2
+    assert equal_system_bins[4]["mean_predicted_probability"] == pytest.approx(0.9)
+    assert equal_system_bins[4]["empirical_frequency"] == pytest.approx(1.0)
     assert group["top3_candidates"]["metrics"]["record_count"] == 4
     assert "equal_system_cluster_bootstrap_95" in group["top3_candidates"]
+
+
+def test_equal_system_bootstrap_preserves_duplicate_system_multiplicity(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _DuplicateDrawRng:
+        def choice(self, _systems: list[str], **_kwargs: object) -> list[str]:
+            return ["A", "A", "B"]
+
+    monkeypatch.setattr(
+        membership_calibration.np.random,
+        "default_rng",
+        lambda _seed: _DuplicateDrawRng(),
+    )
+    rows = [
+        {"system": "A", "probability": 0.0, "label": 0},
+        {"system": "B", "probability": 1.0, "label": 0},
+        {"system": "C", "probability": 0.0, "label": 0},
+    ]
+
+    intervals = membership_calibration._cluster_bootstrap(
+        rows,
+        bin_count=2,
+        bootstrap_count=1,
+        seed=7,
+        equal_system=True,
+    )
+
+    assert intervals["brier_score"]["lower_95"] == pytest.approx(1.0 / 3.0)
+    assert intervals["brier_score"]["upper_95"] == pytest.approx(1.0 / 3.0)
 
 
 def test_decision_top_k_keeps_selected_then_breaks_score_ties_by_id() -> None:
@@ -150,7 +187,7 @@ def test_decision_top_k_keeps_selected_then_breaks_score_ties_by_id() -> None:
             "system": "A-B",
             "state_checksum": "state",
             "pair_id": "z",
-            "probability": 0.9,
+            "probability": 0.1,
             "label": 1,
             "selected": True,
         },
@@ -158,7 +195,7 @@ def test_decision_top_k_keeps_selected_then_breaks_score_ties_by_id() -> None:
             "system": "A-B",
             "state_checksum": "state",
             "pair_id": "c",
-            "probability": 0.5,
+            "probability": 0.9,
             "label": 0,
             "selected": False,
         },
@@ -166,7 +203,7 @@ def test_decision_top_k_keeps_selected_then_breaks_score_ties_by_id() -> None:
             "system": "A-B",
             "state_checksum": "state",
             "pair_id": "b",
-            "probability": 0.5,
+            "probability": 0.9,
             "label": 1,
             "selected": False,
         },
@@ -174,7 +211,7 @@ def test_decision_top_k_keeps_selected_then_breaks_score_ties_by_id() -> None:
             "system": "A-B",
             "state_checksum": "state",
             "pair_id": "a",
-            "probability": 0.5,
+            "probability": 0.9,
             "label": 0,
             "selected": False,
         },
