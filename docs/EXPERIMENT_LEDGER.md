@@ -2116,3 +2116,29 @@ cross-method action disagreement had a 0.00391 headroom discrepancy. This
 closes E52-A as a numerical-convergence diagnostic: finite integration can
 change an argmax when headroom is tiny, but no distinct Hull-KG policy class or
 effect curve is supported.
+
+The paper-facing scalar endpoint is B=2 on the 100% visible query pool. The
+B=1--6 curve is secondary, its AUC is descriptive, and the 70% and 85% reruns
+are robustness analyses. This reporting hierarchy does not change the E52-E
+boundary: the 94-system complement remains excluded from this development
+calibration analysis and remains a single frozen secondary held-out MatPES
+rerun with prior exposure stated, not external or untouched validation.
+
+The evaluator-side, non-overwriting schema-v2 calibration summary is
+`/home/workspace/lrh/DATA/EviMem-RL/analysis/matpes_e52_reduced_campaign_20260809/summary/membership-calibration-equal-system-top3.json`,
+SHA-256 `ac78a5d5221fce162a6942012156d2ffe131b55b16f69f7dbf409130313ee8ea`.
+It was generated only from the five existing 100% B=6 objective folds and has
+the same input SHA-256 mapping, task SHA-256
+`2a2361ac91dd9fec209cafebbf868466eda17e725124ae482f2922154f69b3c5`,
+and policy `delta_hull_active_search` as the prior summary. It contains 217
+systems and 1,302 pre-reveal decision states. Equal-system point metrics are:
+
+| Population | Records | Positives | Brier | Bernoulli NLL | ECE | ROC AUC | Average precision |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| All candidates | 37,665 | 4,889 | 0.05983078614182731 | 0.20949500284567396 | 0.02626654117277377 | 0.941095426011217 | 0.7923887539978598 |
+| Selected actions | 1,302 | 848 | 0.12687901600897766 | 0.40125550870434407 | 0.06896316364247314 | 0.9044304816723456 | 0.9455365946335119 |
+| Per-state top-3 candidates | 3,906 | 2,169 | 0.14068693194215995 | 0.43860005199143093 | 0.06971871199756781 | 0.8941417678795656 | 0.9140993587314409 |
+
+The top-3 population includes the selected action and the two highest-probability
+unselected candidates per state. The prior `membership-calibration.json` was
+not overwritten.

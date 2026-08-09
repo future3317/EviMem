@@ -142,3 +142,11 @@ from which B=1..6 target-margin and Delta-Hull prefixes are derived, plus one
 10-system B=2 numerical-equivalence unit. Final-membership calibration uses
 all legal candidate-state predictions on the 100% Delta-Hull trajectories;
 selected-action calibration is secondary.
+
+## E52 paper-facing endpoint hierarchy
+
+The paper-facing primary scalar endpoint is the B=2 result on the 100% visible
+query pool. The B=1--6 curve is secondary, its AUC is descriptive rather than
+a second primary endpoint, and the 70% and 85% query-pool reruns are robustness
+analyses. This hierarchy does not authorize access to or use of the 94-system
+secondary panel before its separately frozen E52-E execution.
