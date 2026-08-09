@@ -21,6 +21,9 @@ records. Evidence dispositions and opened-data boundaries always remain in
 - E52-C: true 70/85/100% acquisition reruns under pool shift.
 - E52-D: external formation-energy gate, currently blocked because the raw
   MatPES rebuild contained zero systems or pairs outside the opened corpus.
+- E52-E: clean-room 230-system development rerun followed by a one-time
+  94-system secondary held-out rerun; the latter is historically exposed and
+  is not an untouched panel.
 
 ## Completed paper evidence
 

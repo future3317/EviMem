@@ -78,6 +78,21 @@ external candidates and must not be opened or reported as validation. E52-D is
 blocked pending a genuinely disjoint formation-energy source or release; this
 does not block E52-A--C.
 
+### E52-E: clean-room rerun and secondary MatPES confirmation
+
+Rebuild the current idea from a fresh execution boundary. The 230 systems in
+prior folds 1--5 form a five-fold development universe; each fold fits only on
+the other 184 development systems. The complementary 94 systems are excluded
+from all E52 development fitting, calibration, baseline selection, thresholds,
+and debugging. After E52-A--C and the analysis procedure are frozen, refit once
+on all 230 development systems and run the 94-system panel once.
+
+This execution is holdout-aware and free of fit overlap under E52. It is not
+epistemically untouched: the 94 systems are exactly 46 earlier fold-0 systems
+plus 48 previously opened repartition systems. Report it as a **secondary
+held-out MatPES rerun under the frozen current protocol**, not as an untouched
+or external confirmation panel.
+
 ## Invariants that remain binding
 
 - Policy-facing code never receives oracle target energies or final labels.

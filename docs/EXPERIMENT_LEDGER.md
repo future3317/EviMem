@@ -2049,3 +2049,25 @@ was not opened for scientific analysis. This route is an infrastructure
 NO-GO for external validation, not a negative method result. A formation-
 energy external claim remains blocked until a genuinely disjoint source or
 release is available; E52-A--C may proceed as development robustness analyses.
+
+The apparent 94-system complement of the manuscript's 230-system panel was
+audited before E52 execution. It is exactly the disjoint union of the 46
+fold-0 development systems and the 48 previously opened repartition systems;
+there is no unexplained remainder. All 46 fold-0 systems occur in the
+posterior fit sets for folds 1--5, while the other 48 were opened in E22. The
+94-system set SHA-256 is
+`3097b96716ab4a22f0a24f93b3c8a3f9391b3a3728f39ec42c3abd868ed0c674`.
+It cannot be relabeled as untouched.
+
+E52-E nevertheless authorizes a clean-room **execution**: refit and develop
+only within the 230-system folds-1--5 universe, exclude all 94 systems from
+every E52 development operation, then run the frozen protocol once on the 94
+with a model fitted only to the 230. This can be reported as a secondary
+held-out MatPES rerun under the current protocol, with prior exposure stated;
+it is not external or pristine confirmation.
+
+The E52-C builder produced nested 70%, 85%, and 100% pools with 7,295, 8,860,
+and 10,236 pairs. Ag--S budget-one smokes completed on all three. Delta-Hull
+and `protocol_hull_knowledge_gradient` had exact action/value parity as
+required at horizon one, and the membership-calibration policy/evaluator join
+completed. These are engineering gates, not effect estimates.
