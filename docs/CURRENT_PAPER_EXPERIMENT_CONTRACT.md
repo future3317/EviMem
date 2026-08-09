@@ -44,12 +44,14 @@ identity and should not be expanded into a solver zoo.
 E52 is a new, independent identity authorized on 2026-08-09. It does not
 overwrite, pool with, or retroactively relabel E32, E49, E50, or E51.
 
-### E52-A: matched strong baseline
+### E52-A: matched two-step numerical audit
 
-Run `protocol_hull_knowledge_gradient` as a two-step final-label baseline under
-the same posterior, complete-pool evaluator, candidate roster, tie-breaking,
-budget, and system-clustered analysis as Delta-Hull. This is a robustness test
-of the objective-first conclusion, not a new headline method.
+`protocol_hull_knowledge_gradient` and Delta-Hull-anchored rollout estimate the
+same exact two-step Bellman value. They differ in numerical integration, not
+in planning class. Freeze a small outcome-independent development roster and
+compare their actions, centered Q-values, and planning headroom at B=2. A
+larger Hull-KG curve is authorized only if this audit finds disagreement beyond
+the frozen numerical tolerance; Hull-KG is not a new headline method.
 
 ### E52-B: final-membership calibration
 
@@ -61,12 +63,12 @@ with uncertainty or resampling clustered by exact chemical system.
 
 ### E52-C: acquisition under pool shift
 
-Construct nested 70%, 85%, and 100% candidate pools by an outcome-independent
-stable hash over the protocol identity, exact chemical system, and pair ID.
-Refit or condition the registered posterior on the corresponding observable
-pool and rerun acquisition on that pool. Selected IDs are not protected. This
-is an action-and-utility robustness experiment, unlike the evaluator-only E49
-audit.
+Construct nested 70%, 85%, and 100% visible query pools by an
+outcome-independent stable hash over the protocol identity, exact chemical
+system, and pair ID. Reduce only the current query fold; retain every row from
+the other 184 development systems used for transport fitting. Rerun acquisition
+without protecting selected IDs. This isolates query-pool robustness from a
+change in posterior fitting and differs from the evaluator-only E49 audit.
 
 ### E52-D: external formation-energy validation gate
 
@@ -114,3 +116,10 @@ longer govern current method development. They remain available in the ledger
 or their historical protocol documents for provenance. Paper-facing code and
 documentation should prefer one canonical name per policy, one shared runner
 path, and the smallest diagnostic schema needed for E52.
+
+The stopped 90-unit E52 launcher is not resumed. The reduced development run
+contains 15 B=6 objective units (three query-pool fractions by five folds),
+from which B=1..6 target-margin and Delta-Hull prefixes are derived, plus one
+10-system B=2 numerical-equivalence unit. Final-membership calibration uses
+all legal candidate-state predictions on the 100% Delta-Hull trajectories;
+selected-action calibration is secondary.

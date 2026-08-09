@@ -2071,3 +2071,22 @@ and 10,236 pairs. Ag--S budget-one smokes completed on all three. Delta-Hull
 and `protocol_hull_knowledge_gradient` had exact action/value parity as
 required at horizon one, and the membership-calibration policy/evaluator join
 completed. These are engineering gates, not effect estimates.
+
+The initial E52 launcher expanded this design to 90 units (three pools by six
+budgets by five folds) and also reduced rows from posterior-fit systems. It was
+stopped by user authorization on 2026-08-09 after five complete pool-070 B=1
+units and six partial units, with zero failure markers and no access to the
+94-system secondary panel. Outputs remain incomplete/interrupted and cannot be
+used for inference. The external stopped-campaign manifest records their exact
+paths and hashes.
+
+The replacement E52 design changes two failed assumptions. First, target
+margin and Delta-Hull are budget-independent policies, so one B=6 trajectory
+per fold supplies the registered B=1..6 prefixes. Second, pool shift now
+reduces only the visible query fold while preserving all 184 fit-system rows.
+The resulting objective campaign has 15 complete units rather than 90.
+Hull-KG and Delta-Hull-anchored rollout are recognized as numerical estimators
+of the same exact two-step Bellman value; a frozen 10-system B=2 development
+audit compares their actions, centered Q-values, and headroom before any wider
+Hull-KG execution is considered. This reduced line changes the experiment
+design, not the oracle or opened-data boundary.

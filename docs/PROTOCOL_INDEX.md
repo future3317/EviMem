@@ -16,9 +16,11 @@ records. Evidence dispositions and opened-data boundaries always remain in
 
 ## Active campaign
 
-- E52-A: matched `protocol_hull_knowledge_gradient` baseline.
+- E52-A: small matched numerical-equivalence audit of Hull-KG and
+  Delta-Hull-anchored rollout, which target the same two-step Bellman value.
 - E52-B: candidate-level final-hull membership calibration.
-- E52-C: true 70/85/100% acquisition reruns under pool shift.
+- E52-C: 70/85/100% acquisition reruns that shrink only the visible query
+  fold while preserving the full development fit rows.
 - E52-D: external formation-energy gate, currently blocked because the raw
   MatPES rebuild contained zero systems or pairs outside the opened corpus.
 - E52-E: clean-room 230-system development rerun followed by a one-time

@@ -807,8 +807,24 @@ def select(
                                         strict=True,
                                     )
                                 },
+                                "two_step_scores": {
+                                    pair_id: float(value)
+                                    for pair_id, value in zip(
+                                        query_ids,
+                                        result.scores,
+                                        strict=True,
+                                    )
+                                },
                                 "selected_pair_id": min(
                                     zip(query_ids, values, strict=True),
+                                    key=lambda item: (-item[1], item[0]),
+                                )[0],
+                                "delta_hull_action_id": min(
+                                    zip(
+                                        query_ids,
+                                        result.final_stability_probabilities,
+                                        strict=True,
+                                    ),
                                     key=lambda item: (-item[1], item[0]),
                                 )[0],
                                 "posterior_sample_count": result.posterior_sample_count,
