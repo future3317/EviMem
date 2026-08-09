@@ -3,7 +3,29 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from tools.render_e52_validation_figure import render
+from tools.render_e52_validation_figure import _calibration_panel_data, render
+
+
+def test_calibration_panel_uses_equal_system_fields() -> None:
+    group = {
+        "all_candidates": {
+            "metrics": {"brier_score": 0.01},
+            "reliability_bins": [{"mean_predicted_probability": 0.1}],
+            "equal_system_metrics": {"brier_score": 0.41},
+            "equal_system_reliability_bins": [
+                {
+                    "record_count": 2,
+                    "mean_predicted_probability": 0.4,
+                    "empirical_frequency": 0.5,
+                }
+            ],
+        }
+    }
+
+    bins, metrics = _calibration_panel_data(group)
+
+    assert metrics["brier_score"] == 0.41
+    assert bins[0]["mean_predicted_probability"] == 0.4
 
 
 def test_render_e52_validation_figure(tmp_path: Path) -> None:
@@ -35,6 +57,23 @@ def test_render_e52_validation_figure(tmp_path: Path) -> None:
                         "roc_auc": 0.94,
                     },
                     "reliability_bins": [
+                        {
+                            "record_count": 10,
+                            "mean_predicted_probability": 0.1,
+                            "empirical_frequency": 0.12,
+                        },
+                        {
+                            "record_count": 5,
+                            "mean_predicted_probability": 0.8,
+                            "empirical_frequency": 0.75,
+                        },
+                    ],
+                    "equal_system_metrics": {
+                        "brier_score": 0.05,
+                        "bernoulli_nll": 0.2,
+                        "roc_auc": 0.94,
+                    },
+                    "equal_system_reliability_bins": [
                         {
                             "record_count": 10,
                             "mean_predicted_probability": 0.1,

@@ -25,6 +25,18 @@ except ImportError:  # pragma: no cover - direct script execution
     )
 
 
+def _calibration_panel_data(group: dict[str, object]) -> tuple[list[dict[str, object]], dict[str, float]]:
+    """Return equal-system calibration fields for the all-candidate panel."""
+
+    all_candidates = group["all_candidates"]
+    assert isinstance(all_candidates, dict)
+    reliability_bins = all_candidates["equal_system_reliability_bins"]
+    metrics = all_candidates["equal_system_metrics"]
+    assert isinstance(reliability_bins, list)
+    assert isinstance(metrics, dict)
+    return reliability_bins, metrics
+
+
 def render(*, objective_path: Path, calibration_path: Path, output_path: Path) -> None:
     objective = json.loads(objective_path.read_text(encoding="utf-8"))
     calibration = json.loads(calibration_path.read_text(encoding="utf-8"))
@@ -77,7 +89,7 @@ def render(*, objective_path: Path, calibration_path: Path, output_path: Path) -
     axes[0].set_ylim(-0.065, 0.205)
     style_axis(axes[0], grid=True)
 
-    reliability = group["all_candidates"]["reliability_bins"]
+    reliability, metrics = _calibration_panel_data(group)
     plotted = [row for row in reliability if row["record_count"]]
     predicted = np.asarray([row["mean_predicted_probability"] for row in plotted])
     empirical = np.asarray([row["empirical_frequency"] for row in plotted])
@@ -100,7 +112,6 @@ def render(*, objective_path: Path, calibration_path: Path, output_path: Path) -
     axes[1].set_xlabel("Predicted final-hull probability")
     axes[1].set_ylabel("Observed complete-pool frequency")
     axes[1].set_title("b  Membership reliability", loc="left", fontweight="bold")
-    metrics = group["all_candidates"]["metrics"]
     axes[1].text(
         0.04,
         0.96,
