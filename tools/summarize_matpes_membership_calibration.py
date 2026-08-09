@@ -21,49 +21,107 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def _safe_ranking_metric(labels: np.ndarray, probabilities: np.ndarray, *, ap: bool) -> float | None:
+def _equal_system_weights(rows: list[dict[str, Any]]) -> np.ndarray:
+    by_system: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for row in rows:
+        by_system[str(row["system"])].append(row)
+    system_count = len(by_system)
+    return np.asarray(
+        [1.0 / (system_count * len(by_system[str(row["system"])])) for row in rows],
+        dtype=float,
+    )
+
+
+def _normalized_weights(weights: np.ndarray | None, *, size: int) -> np.ndarray | None:
+    if weights is None:
+        return None
+    normalized = np.asarray(weights, dtype=float)
+    if normalized.shape != (size,):
+        raise ValueError("weights must provide one value per row")
+    if np.any(normalized < 0.0) or not np.any(normalized > 0.0):
+        raise ValueError("weights must include a positive value and no negative values")
+    return normalized / np.sum(normalized)
+
+
+def _safe_ranking_metric(
+    labels: np.ndarray,
+    probabilities: np.ndarray,
+    *,
+    ap: bool,
+    weights: np.ndarray | None = None,
+) -> float | None:
     if len(np.unique(labels)) < 2:
         return None
     function = average_precision_score if ap else roc_auc_score
-    return float(function(labels, probabilities))
+    return float(function(labels, probabilities, sample_weight=weights))
 
 
-def _metrics(rows: list[dict[str, Any]], *, bin_count: int) -> dict[str, float | int | None]:
+def _metrics(
+    rows: list[dict[str, Any]],
+    *,
+    bin_count: int,
+    weights: np.ndarray | None = None,
+) -> dict[str, float | int | None]:
     probabilities = np.asarray([row["probability"] for row in rows], dtype=float)
     labels = np.asarray([row["label"] for row in rows], dtype=int)
+    normalized_weights = _normalized_weights(weights, size=len(rows))
     clipped = np.clip(probabilities, 1e-6, 1.0 - 1e-6)
     indices = np.minimum((probabilities * bin_count).astype(int), bin_count - 1)
     ece = 0.0
     for index in range(bin_count):
         mask = indices == index
         if np.any(mask):
-            ece += float(np.mean(mask)) * abs(
-                float(np.mean(probabilities[mask])) - float(np.mean(labels[mask]))
+            if normalized_weights is None:
+                bin_weights = None
+                bin_mass = float(np.mean(mask))
+            else:
+                bin_weights = normalized_weights[mask]
+                bin_mass = float(np.sum(bin_weights))
+            ece += bin_mass * abs(
+                float(np.average(probabilities[mask], weights=bin_weights))
+                - float(np.average(labels[mask], weights=bin_weights))
             )
     return {
         "record_count": len(rows),
         "positive_count": int(np.sum(labels)),
-        "brier_score": float(np.mean((probabilities - labels) ** 2)),
+        "brier_score": float(np.average((probabilities - labels) ** 2, weights=normalized_weights)),
         "bernoulli_nll": float(
-            -np.mean(labels * np.log(clipped) + (1 - labels) * np.log(1.0 - clipped))
+            -np.average(
+                labels * np.log(clipped) + (1 - labels) * np.log(1.0 - clipped),
+                weights=normalized_weights,
+            )
         ),
         "expected_calibration_error": ece,
-        "roc_auc": _safe_ranking_metric(labels, probabilities, ap=False),
-        "average_precision": _safe_ranking_metric(labels, probabilities, ap=True),
+        "roc_auc": _safe_ranking_metric(
+            labels, probabilities, ap=False, weights=normalized_weights
+        ),
+        "average_precision": _safe_ranking_metric(
+            labels, probabilities, ap=True, weights=normalized_weights
+        ),
     }
 
 
-def _reliability(rows: list[dict[str, Any]], *, bin_count: int) -> list[dict[str, Any]]:
+def _reliability(
+    rows: list[dict[str, Any]],
+    *,
+    bin_count: int,
+    weights: np.ndarray | None = None,
+) -> list[dict[str, Any]]:
+    normalized_weights = _normalized_weights(weights, size=len(rows))
     result: list[dict[str, Any]] = []
     for index in range(bin_count):
         lower = index / bin_count
         upper = (index + 1) / bin_count
-        in_bin = [
-            row
-            for row in rows
-            if lower <= row["probability"] < upper
-            or (index == bin_count - 1 and row["probability"] == 1.0)
-        ]
+        mask = np.asarray(
+            [
+                lower <= row["probability"] < upper
+                or (index == bin_count - 1 and row["probability"] == 1.0)
+                for row in rows
+            ],
+            dtype=bool,
+        )
+        in_bin = [row for row, include in zip(rows, mask, strict=True) if include]
+        bin_weights = None if normalized_weights is None else normalized_weights[mask]
         by_system: dict[str, list[dict[str, Any]]] = defaultdict(list)
         for row in in_bin:
             by_system[row["system"]].append(row)
@@ -82,10 +140,16 @@ def _reliability(rows: list[dict[str, Any]], *, bin_count: int) -> list[dict[str
                 "record_count": len(in_bin),
                 "system_count": len(by_system),
                 "mean_predicted_probability": (
-                    None if not in_bin else float(np.mean([row["probability"] for row in in_bin]))
+                    None
+                    if not in_bin
+                    else float(
+                        np.average([row["probability"] for row in in_bin], weights=bin_weights)
+                    )
                 ),
                 "empirical_frequency": (
-                    None if not in_bin else float(np.mean([row["label"] for row in in_bin]))
+                    None
+                    if not in_bin
+                    else float(np.average([row["label"] for row in in_bin], weights=bin_weights))
                 ),
                 "equal_system_mean_predicted_probability": (
                     None if not system_probability else float(np.mean(system_probability))
@@ -104,6 +168,7 @@ def _cluster_bootstrap(
     bin_count: int,
     bootstrap_count: int,
     seed: int,
+    equal_system: bool = False,
 ) -> dict[str, dict[str, float] | None]:
     by_system: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for row in rows:
@@ -116,7 +181,15 @@ def _cluster_bootstrap(
     for _ in range(bootstrap_count):
         sampled = rng.choice(systems, size=len(systems), replace=True)
         sampled_rows = [row for system in sampled for row in by_system[str(system)]]
-        metrics = _metrics(sampled_rows, bin_count=bin_count)
+        sampled_weights = None
+        if equal_system:
+            sampled_weights = np.concatenate(
+                [
+                    np.full(len(by_system[str(system)]), 1.0 / (len(systems) * len(by_system[str(system)])))
+                    for system in sampled
+                ]
+            )
+        metrics = _metrics(sampled_rows, bin_count=bin_count, weights=sampled_weights)
         for name, value in metrics.items():
             if name.endswith("count") or value is None:
                 continue
@@ -128,6 +201,58 @@ def _cluster_bootstrap(
         }
         for name, values in draws.items()
         if values
+    }
+
+
+def _decision_top_k(rows: list[dict[str, Any]], k: int = 3) -> list[dict[str, Any]]:
+    if k < 1:
+        raise ValueError("decision top-k must include the selected action")
+    by_state: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
+    for row in rows:
+        by_state[(str(row["system"]), str(row["state_checksum"]))].append(row)
+    selected_rows: list[dict[str, Any]] = []
+    for state_rows in by_state.values():
+        selected = [row for row in state_rows if row["selected"]]
+        if len(selected) != 1:
+            raise ValueError("each decision state must have exactly one selected row")
+        unselected = sorted(
+            (row for row in state_rows if not row["selected"]),
+            key=lambda row: (-float(row["probability"]), str(row["pair_id"])),
+        )
+        selected_rows.extend(selected + unselected[: k - 1])
+    return selected_rows
+
+
+def _population_summary(
+    rows: list[dict[str, Any]],
+    *,
+    bin_count: int,
+    bootstrap_count: int,
+    seed: int,
+) -> dict[str, Any]:
+    equal_system_weights = _equal_system_weights(rows)
+    return {
+        "metrics": _metrics(rows, bin_count=bin_count),
+        "cluster_bootstrap_95": _cluster_bootstrap(
+            rows,
+            bin_count=bin_count,
+            bootstrap_count=bootstrap_count,
+            seed=seed,
+        ),
+        "reliability_bins": _reliability(rows, bin_count=bin_count),
+        "equal_system_metrics": _metrics(
+            rows, bin_count=bin_count, weights=equal_system_weights
+        ),
+        "equal_system_cluster_bootstrap_95": _cluster_bootstrap(
+            rows,
+            bin_count=bin_count,
+            bootstrap_count=bootstrap_count,
+            seed=seed,
+            equal_system=True,
+        ),
+        "equal_system_reliability_bins": _reliability(
+            rows, bin_count=bin_count, weights=equal_system_weights
+        ),
     }
 
 
@@ -215,35 +340,34 @@ def summarize(
     groups: dict[str, Any] = {}
     for group_index, ((task_sha, policy), rows) in enumerate(sorted(grouped.items())):
         selected_rows = [row for row in rows if row["selected"]]
+        top3_rows = _decision_top_k(rows)
         systems = sorted({row["system"] for row in rows})
         groups[f"{task_sha}:{policy}"] = {
             "task_sha256": task_sha,
             "policy": policy,
             "system_count": len(systems),
             "unique_state_count": len({row["state_checksum"] for row in rows}),
-            "all_candidates": {
-                "metrics": _metrics(rows, bin_count=bin_count),
-                "cluster_bootstrap_95": _cluster_bootstrap(
-                    rows,
-                    bin_count=bin_count,
-                    bootstrap_count=bootstrap_count,
-                    seed=seed + group_index,
-                ),
-                "reliability_bins": _reliability(rows, bin_count=bin_count),
-            },
-            "selected_actions": {
-                "metrics": _metrics(selected_rows, bin_count=bin_count),
-                "cluster_bootstrap_95": _cluster_bootstrap(
-                    selected_rows,
-                    bin_count=bin_count,
-                    bootstrap_count=bootstrap_count,
-                    seed=seed + 1000 + group_index,
-                ),
-                "reliability_bins": _reliability(selected_rows, bin_count=bin_count),
-            },
+            "all_candidates": _population_summary(
+                rows,
+                bin_count=bin_count,
+                bootstrap_count=bootstrap_count,
+                seed=seed + group_index,
+            ),
+            "selected_actions": _population_summary(
+                selected_rows,
+                bin_count=bin_count,
+                bootstrap_count=bootstrap_count,
+                seed=seed + 1000 + group_index,
+            ),
+            "top3_candidates": _population_summary(
+                top3_rows,
+                bin_count=bin_count,
+                bootstrap_count=bootstrap_count,
+                seed=seed + 2000 + group_index,
+            ),
         }
     result = {
-        "schema_version": 1,
+        "schema_version": 2,
         "status": "e52_final_hull_membership_calibration_complete",
         "deduplication_unit": "task_sha256, system, policy, pre_reveal_state_checksum",
         "bootstrap_unit": "exact_chemical_system",
