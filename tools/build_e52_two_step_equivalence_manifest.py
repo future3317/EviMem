@@ -25,6 +25,7 @@ def build(
     development_crossfit_path: Path,
     output: Path,
     system_count: int = 10,
+    require_fit_element_support: bool = False,
 ) -> dict[str, Any]:
     if output.exists():
         raise FileExistsError(f"refusing to overwrite {output}")
@@ -40,13 +41,34 @@ def build(
     if system_count < 1 or system_count >= len(eligible):
         raise ValueError("system_count must leave at least one fit system")
     release_id = str(crossfit["release_id"])
+    eligible_for_query = eligible
+    if require_fit_element_support:
+        element_counts: dict[str, int] = {}
+        for system in eligible:
+            for element in system.split("-"):
+                element_counts[element] = element_counts.get(element, 0) + 1
+        eligible_for_query = [
+            system
+            for system in eligible
+            if all(element_counts[element] >= 2 for element in system.split("-"))
+        ]
     ranked = sorted(
-        eligible,
+        eligible_for_query,
         key=lambda system: hashlib.sha256(
             f"{release_id}||e52-two-step-equivalence-v1||{system}".encode()
         ).hexdigest(),
     )
     selected = ranked[:system_count]
+    if len(selected) != system_count:
+        raise ValueError("not enough systems satisfy the registered roster rule")
+    fit_systems = set(eligible) - set(selected)
+    fit_elements = {
+        element for system in fit_systems for element in system.split("-")
+    }
+    if require_fit_element_support and any(
+        not set(system.split("-")) <= fit_elements for system in selected
+    ):
+        raise AssertionError("selected convergence system lacks fit-element support")
     result = {
         "schema_version": 1,
         "status": "e52_two_step_equivalence_roster_frozen",
@@ -66,8 +88,14 @@ def build(
         "selected_system_set_sha256": _set_sha256(selected),
         "assignment_rule": (
             "lowest SHA256(release_id || e52-two-step-equivalence-v1 || system)"
+            + (
+                " among systems whose elements remain represented after query exclusion"
+                if require_fit_element_support
+                else ""
+            )
         ),
         "assignment_uses_target_outcomes": False,
+        "requires_fit_element_support": require_fit_element_support,
         "parent_development_crossfit_sha256": _sha256(development_crossfit_path),
     }
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -81,12 +109,14 @@ def main() -> None:
     parser.add_argument("--development-crossfit", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--system-count", type=int, default=10)
+    parser.add_argument("--require-fit-element-support", action="store_true")
     args = parser.parse_args()
     result = build(
         task_path=args.task,
         development_crossfit_path=args.development_crossfit,
         output=args.output,
         system_count=args.system_count,
+        require_fit_element_support=args.require_fit_element_support,
     )
     print(json.dumps(result, indent=2, sort_keys=True))
 

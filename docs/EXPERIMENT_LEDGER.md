@@ -2090,3 +2090,14 @@ of the same exact two-step Bellman value; a frozen 10-system B=2 development
 audit compares their actions, centered Q-values, and headroom before any wider
 Hull-KG execution is considered. This reduced line changes the experiment
 design, not the oracle or opened-data boundary.
+
+The completed fast two-step unit contained ten hash-selected development
+systems. Nine had transport element support; Ag--Cl--O used the identical
+out-of-support fallback and was excluded from Q comparisons. Among the nine,
+the two numerical implementations agreed on 4/9 first actions. Their mean
+centered absolute Q discrepancy was 0.00596, maximum centered discrepancy was
+0.04555, and mean absolute headroom discrepancy was 0.01098. This is numerical
+nonconvergence, not evidence for two distinct planning objectives. It triggers
+one four-system, fit-element-supported B=2 convergence audit at MC1024,
+anchored continuation 64, and KG fantasy 32; it does not authorize a full
+Hull-KG budget curve or access to the 94-system secondary panel.

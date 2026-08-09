@@ -53,6 +53,15 @@ compare their actions, centered Q-values, and planning headroom at B=2. A
 larger Hull-KG curve is authorized only if this audit finds disagreement beyond
 the frozen numerical tolerance; Hull-KG is not a new headline method.
 
+The fast 10-system audit found only 4/9 action agreement on transport-supported
+systems, with mean centered absolute Q discrepancy 0.0060 and mean absolute
+headroom discrepancy 0.0110. This triggers one convergence layer, not a wider
+solver curve: four outcome-independently hashed, fit-element-supported
+development systems at B=2, using posterior MC1024, anchored continuation 64,
+and KG fantasy 32. The audit compares each implementation across precision as
+well as against the other implementation. No policy-effect claim is authorized
+from this numerical diagnostic.
+
 ### E52-B: final-membership calibration
 
 At every pre-reveal decision state, policy code may record candidate IDs and
