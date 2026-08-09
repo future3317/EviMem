@@ -103,3 +103,52 @@ def test_summarize_two_step_equivalence_rejects_roster_mismatch(tmp_path: Path) 
 
     with pytest.raises(ValueError, match="candidate roster mismatch"):
         summarize(input_path=input_path, output=tmp_path / "summary.json")
+
+
+def test_summarize_two_step_equivalence_separates_common_fallback(tmp_path: Path) -> None:
+    supported = {
+        "strategies": {
+            "delta_hull_anchored_rollout": _strategy(
+                kind="delta_hull_anchored_rollout",
+                selected="a",
+                scores={"a": 0.7, "b": 0.4},
+            ),
+            "protocol_hull_knowledge_gradient": _strategy(
+                kind="protocol_hull_knowledge_gradient",
+                selected="a",
+                scores={"a": 0.7, "b": 0.4},
+            ),
+        },
+        "transport_element_support": True,
+    }
+    fallback_strategy = {
+        "policy_decision_rounds": [
+            {"selected_pair_id": "fallback", "selection_diagnostics": None}
+        ]
+    }
+    payload = {
+        "task_sha256": "task-sha",
+        "active_policies": [
+            "delta_hull_anchored_rollout",
+            "protocol_hull_knowledge_gradient",
+        ],
+        "systems": {
+            "A-B": supported,
+            "Ag-Cl-O": {
+                "strategies": {
+                    "delta_hull_anchored_rollout": fallback_strategy,
+                    "protocol_hull_knowledge_gradient": fallback_strategy,
+                },
+                "transport_element_support": False,
+            },
+        },
+    }
+    input_path = tmp_path / "input.json"
+    input_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    result = summarize(input_path=input_path, output=tmp_path / "summary.json")
+
+    assert result["roster_system_count"] == 2
+    assert result["transport_supported_system_count"] == 1
+    assert result["common_fallback_system_count"] == 1
+    assert result["excluded_common_fallback_rows"][0]["action_agreement"] is True

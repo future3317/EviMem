@@ -28,12 +28,32 @@ def summarize(*, input_path: Path, output: Path) -> dict[str, Any]:
     if not {ANCHORED, KG} <= set(payload["active_policies"]):
         raise ValueError("equivalence audit requires anchored rollout and Hull-KG")
     rows: list[dict[str, Any]] = []
+    excluded: list[dict[str, Any]] = []
     for system, system_result in payload["systems"].items():
         strategies = system_result["strategies"]
         anchored_event = strategies[ANCHORED]["policy_decision_rounds"][0]
         kg_event = strategies[KG]["policy_decision_rounds"][0]
         anchored = anchored_event["selection_diagnostics"]
         kg = kg_event["selection_diagnostics"]
+        if anchored is None or kg is None:
+            if (
+                anchored is not None
+                or kg is not None
+                or bool(system_result.get("transport_element_support"))
+            ):
+                raise ValueError(f"unexpected missing two-step diagnostics for {system}")
+            excluded.append(
+                {
+                    "system": system,
+                    "reason": "outside_transport_element_support_common_fallback",
+                    "anchored_action": anchored_event["selected_pair_id"],
+                    "kg_action": kg_event["selected_pair_id"],
+                    "action_agreement": (
+                        anchored_event["selected_pair_id"] == kg_event["selected_pair_id"]
+                    ),
+                }
+            )
+            continue
         anchored_ids = tuple(anchored["candidate_pair_ids"])
         kg_ids = tuple(kg["candidate_pair_ids"])
         if anchored_ids != kg_ids:
@@ -72,13 +92,18 @@ def summarize(*, input_path: Path, output: Path) -> dict[str, Any]:
                 ),
             }
         )
+    if not rows:
+        raise ValueError("no transport-supported two-step states found")
     result = {
         "schema_version": 1,
         "status": "e52_two_step_equivalence_audit_complete",
         "input_path": str(input_path.resolve()),
         "input_sha256": _sha256(input_path),
         "task_sha256": payload["task_sha256"],
+        "roster_system_count": len(payload["systems"]),
         "system_count": len(rows),
+        "transport_supported_system_count": len(rows),
+        "common_fallback_system_count": len(excluded),
         "action_agreement_count": sum(row["action_agreement"] for row in rows),
         "action_agreement_rate": float(np.mean([row["action_agreement"] for row in rows])),
         "mean_absolute_q_difference": float(
@@ -97,9 +122,12 @@ def summarize(*, input_path: Path, output: Path) -> dict[str, Any]:
             np.mean([row["absolute_headroom_difference"] for row in rows])
         ),
         "rows": rows,
+        "excluded_common_fallback_rows": excluded,
         "interpretation": (
             "Both methods target the same exact two-step Bellman value; discrepancies measure "
-            "finite numerical integration and argmax error, not a different planning class."
+            "finite numerical integration and argmax error, not a different planning class. "
+            "Systems outside transport element support use a common fallback and are excluded "
+            "from Q-value discrepancies."
         ),
     }
     output.parent.mkdir(parents=True, exist_ok=True)
