@@ -264,6 +264,7 @@ def _protocol_transport_fixture():
     "policy_name",
     (
         "delta_hull_active_search",
+        "matched_local_hull_probability",
         "posterior_mean_target_margin",
         "ungated_source_rollout",
         "source_rollout_delta_hull",
@@ -397,6 +398,39 @@ def test_delta_hull_fixed_composition_backend_is_action_equivalent(
         selected[backend] = result.selected_pair_ids
         assert result.selected_pair_ids == result.revealed_pair_ids
     assert selected["fixed_composition"] == selected["pymatgen"]
+
+
+def test_matched_local_hull_probability_drives_only_authorized_reveals(
+    tmp_path: Path,
+) -> None:
+    candidates, outcomes = _fixture()
+    vault = ProtocolOracleVault(outcomes, expected_split="fixture")
+    event_log = AppendOnlyProtocolEventLog(tmp_path / "matched-local-probability.jsonl")
+    policy = ProtocolPolicySubprocess(
+        "matched_local_hull_probability",
+        transport_model=_protocol_transport_fixture(),
+        posterior_sample_count=8,
+        hull_backend="fixed_composition",
+    )
+    runner = SecureProtocolQueryRunner(
+        candidates=candidates,
+        vault=vault,
+        causal_hull=ProtocolCausalHull(
+            (
+                ComputedEntry("Fe", 0.0, entry_id="Fe"),
+                ComputedEntry("Zr", 0.0, entry_id="Zr"),
+            ),
+            chemical_system=("Fe", "Zr"),
+        ),
+        policy=policy,
+        event_log=event_log,
+    )
+    result = runner.run(oracle_budget=2)
+    event_log.close()
+    assert result.selected_pair_ids == result.revealed_pair_ids
+    assert result.selected_pair_ids == vault.revealed_pair_ids
+    assert policy.last_selection_diagnostics is not None
+    assert policy.last_selection_diagnostics["kind"] == "matched_local_hull_probability"
 
 
 def test_source_rollout_drives_only_authorized_reveals(tmp_path: Path) -> None:

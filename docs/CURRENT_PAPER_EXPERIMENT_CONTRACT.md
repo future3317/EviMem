@@ -114,6 +114,34 @@ plus 48 previously opened repartition systems. Report it as a **secondary
 held-out MatPES rerun under the frozen current protocol**, not as an untouched
 or external confirmation panel.
 
+## E53: matched adjudicator isolation
+
+E53 isolates complete-pool adjudication from probability scoring. Its new
+`matched_local_hull_probability` policy uses the same conditioned posterior,
+Sobol Gaussian worlds, posterior count, numerical tolerance, and immutable-ID
+tie breaking as Delta-Hull. It differs only in the adjudicator: Local-prob
+tests a candidate against references and legally revealed phases, whereas
+Delta-Hull includes every still-latent candidate in the visible pool.
+
+E53-A runs posterior-mean target margin, matched Local-prob, and Delta-Hull as
+five `B=6` cross-fitted trajectories on the frozen 230-system development
+universe at the 100% visible pool. Prefixes define `B=1..6`. The predeclared
+identification contrast is Delta-Hull minus Local-prob; Delta-Hull minus target
+margin is a secondary continuity contrast. Exact chemical systems are the
+analysis unit. One paired sign-randomization procedure supplies both the
+two-sided p-value and its inverted 95% interval.
+
+Only after E53-A code, policies, analysis, and summaries are frozen may E53-B
+fit once on all 230 development systems and run the same three-policy `B=6`
+protocol on the complementary 94 systems. That stage is a secondary held-out
+MatPES rerun under the frozen current protocol. It is neither untouched nor
+external, and its outcomes cannot be used to alter E53 methods or analysis.
+
+Observed-path theory diagnostics may summarize consecutive-state membership
+drift, rank preservation, and existing two-step headroom. They are weighted by
+exact chemical system and do not convert sufficient theoretical conditions
+into empirically necessary claims.
+
 ## Invariants that remain binding
 
 - Policy-facing code never receives oracle target energies or final labels.
@@ -125,7 +153,7 @@ or external confirmation panel.
   systems is not an external holdout.
 - Raw datasets, vaults, checkpoints, and experiment outputs remain outside
   Git. Counts, identities, protocol hashes, and summary hashes are audited
-  before any manuscript claim is added.
+before any manuscript claim is added.
 
 ## What may now be simplified
 

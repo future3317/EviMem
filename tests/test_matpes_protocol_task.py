@@ -51,6 +51,7 @@ def _row(*, identifier: str, functional: str, formation: float, parent: str) -> 
 
 def test_delta_hull_runner_requires_frozen_protocol_transport() -> None:
     assert _requires_protocol_transport("delta_hull_active_search")
+    assert _requires_protocol_transport("matched_local_hull_probability")
     assert _requires_protocol_transport("independent_confirmation_source_rollout")
     assert _requires_protocol_transport("constrained_dual_horizon_source_rollout")
     assert _requires_protocol_transport("conformal_source_rollout_delta_hull")
@@ -192,6 +193,7 @@ def test_builder_keeps_target_values_only_in_oracle_vault(tmp_path: Path) -> Non
     assert experiment["active_policies"] == ["source_margin"]
     assert set(experiment["code_provenance"]) == {
         "frozen_structure_encoder_sha256",
+        "protocol_acquisition_sha256",
         "protocol_closed_loop_sha256",
         "protocol_knowledge_gradient_sha256",
         "protocol_policy_worker_sha256",

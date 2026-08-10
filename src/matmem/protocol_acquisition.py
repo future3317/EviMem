@@ -18,6 +18,7 @@ import numpy as np
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from scipy.stats import t as student_t
 
+from .constants import HULL_NUMERICAL_TOLERANCE
 from .hull_geometry import (
     FixedCompositionHullTemplate,
     FixedHullRuntimePlan,
@@ -685,6 +686,54 @@ def delta_hull_active_search(
         fixed_runtime_plan=runtime_plan,
     )
     probabilities = labels.mean(axis=0)
+    return DeltaHullActiveSearchResult(
+        scores=tuple(float(value) for value in probabilities),
+        final_stability_probabilities=tuple(float(value) for value in probabilities),
+        posterior_sample_count=posterior_sample_count,
+    )
+
+
+def matched_local_hull_probability(
+    posterior: ProtocolTargetEnergyPosterior,
+    *,
+    current_competing_hull_energies: np.ndarray,
+    costs: np.ndarray,
+    posterior_sample_count: int = 16,
+    seed: int = 0,
+) -> DeltaHullActiveSearchResult:
+    """Score current-history hull membership on Delta-Hull posterior worlds.
+
+    The current competing hull contains only fixed references and legally
+    revealed candidates. Still-unqueried competitors are excluded, making the
+    adjudicator local while preserving Delta-Hull's posterior sampler and
+    probability-scoring statistic.
+    """
+
+    mean = np.asarray(posterior.mean, dtype=np.float64)
+    covariance = np.asarray(posterior.covariance, dtype=np.float64)
+    competing = np.asarray(current_competing_hull_energies, dtype=np.float64).reshape(-1)
+    item_costs = np.asarray(costs, dtype=np.float64).reshape(-1)
+    if len(competing) != len(mean) or len(item_costs) != len(mean):
+        raise ValueError("matched local-hull probability inputs disagree")
+    if not np.isfinite(competing).all():
+        raise ValueError("current competing-hull energies must be finite")
+    if np.any(~np.isfinite(item_costs)) or np.any(item_costs <= 0):
+        raise ValueError("matched local-hull query costs must be finite and positive")
+    if not np.allclose(item_costs, item_costs[0], atol=1e-12):
+        raise ValueError("matched local-hull probability requires equal query costs")
+    if posterior_sample_count < 4:
+        raise ValueError("matched local-hull probability needs at least four posterior samples")
+
+    samples = _sample_gaussian(
+        mean,
+        covariance,
+        sample_count=posterior_sample_count,
+        seed=seed,
+    )
+    probabilities = np.mean(
+        samples <= competing[None, :] + HULL_NUMERICAL_TOLERANCE,
+        axis=0,
+    )
     return DeltaHullActiveSearchResult(
         scores=tuple(float(value) for value in probabilities),
         final_stability_probabilities=tuple(float(value) for value in probabilities),

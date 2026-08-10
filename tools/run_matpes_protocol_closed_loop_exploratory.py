@@ -828,6 +828,9 @@ def run(
             "protocol_knowledge_gradient_sha256": _sha256(
                 repo_root / "src" / "matmem" / "protocol_knowledge_gradient.py"
             ),
+            "protocol_acquisition_sha256": _sha256(
+                repo_root / "src" / "matmem" / "protocol_acquisition.py"
+            ),
             "frozen_structure_encoder_sha256": _sha256(
                 repo_root / "src" / "matmem" / "frozen_structure_encoder.py"
             ),

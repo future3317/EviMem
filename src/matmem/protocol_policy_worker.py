@@ -29,6 +29,7 @@ from matmem.protocol_acquisition import (
     hull_ens,
     independent_confirmation_source_rollout,
     independent_world_confirmation_source_rollout,
+    matched_local_hull_probability,
     protocol_hull_knowledge_gradient,
     protocol_hull_risk_reduction,
     safe_hull_ens,
@@ -115,6 +116,7 @@ def select(
         "ridge_predicted_final_margin",
         "posterior_mean_target_margin",
         "posterior_current_hull_probability",
+        "matched_local_hull_probability",
         "delta_hull_active_search",
         "hull_ens",
         "safe_hull_ens",
@@ -161,6 +163,7 @@ def select(
             "safe_hull_ens",
             "posterior_mean_target_margin",
             "posterior_current_hull_probability",
+            "matched_local_hull_probability",
             "ungated_source_rollout",
             "source_rollout_delta_hull",
             "delta_hull_anchored_rollout",
@@ -389,6 +392,39 @@ def select(
                             }
                         )
                     return str(queries[result.selected_action_index]["pair_id"])
+                elif policy == "matched_local_hull_probability":
+                    result = matched_local_hull_probability(
+                        posterior,
+                        current_competing_hull_energies=arguments[
+                            "current_competing_hull_energies"
+                        ],
+                        costs=hull_arguments["costs"],
+                        posterior_sample_count=hull_arguments["posterior_sample_count"],
+                        seed=hull_arguments["seed"],
+                    )
+                    values = result.scores
+                    if diagnostics is not None:
+                        query_ids = tuple(str(row["pair_id"]) for row in queries)
+                        diagnostics.update(
+                            {
+                                "diagnostic_schema_version": 1,
+                                "kind": "matched_local_hull_probability",
+                                "candidate_pair_ids": query_ids,
+                                "local_stability_probabilities": {
+                                    pair_id: float(probability)
+                                    for pair_id, probability in zip(
+                                        query_ids,
+                                        result.final_stability_probabilities,
+                                        strict=True,
+                                    )
+                                },
+                                "selected_pair_id": min(
+                                    zip(query_ids, values, strict=True),
+                                    key=lambda item: (-item[1], item[0]),
+                                )[0],
+                                "posterior_sample_count": result.posterior_sample_count,
+                            }
+                        )
                 elif policy == "delta_hull_active_search":
                     result = delta_hull_active_search(
                         posterior,
@@ -913,6 +949,7 @@ def main() -> None:
             "ridge_predicted_final_margin",
             "posterior_mean_target_margin",
             "posterior_current_hull_probability",
+            "matched_local_hull_probability",
             "delta_hull_active_search",
             "hull_ens",
             "safe_hull_ens",

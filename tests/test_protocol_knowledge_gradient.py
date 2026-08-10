@@ -25,6 +25,7 @@ from matmem.protocol_acquisition import (
     hull_ens,
     independent_confirmation_source_rollout,
     independent_world_confirmation_source_rollout,
+    matched_local_hull_probability,
     posterior_rank_diagnostics,
     protocol_hull_knowledge_gradient,
     protocol_hull_risk_reduction,
@@ -695,6 +696,73 @@ def test_delta_hull_active_search_prefers_final_support_phase() -> None:
     )
     assert result.final_stability_probabilities == pytest.approx((1.0, 0.0))
     assert np.argmax(result.scores) == 0
+
+
+def test_matched_local_hull_probability_equals_manual_sample_frequency() -> None:
+    posterior = ProtocolTargetEnergyPosterior(
+        mean=(-0.12, -0.08),
+        covariance=((0.01, 0.004), (0.004, 0.02)),
+        system_offset_mean=0.0,
+        system_offset_variance=0.0,
+        history_count=1,
+    )
+    current_hull = np.asarray([-0.10, -0.15])
+    sample_count = 32
+    seed = 91
+
+    result = matched_local_hull_probability(
+        posterior,
+        current_competing_hull_energies=current_hull,
+        costs=np.ones(2),
+        posterior_sample_count=sample_count,
+        seed=seed,
+    )
+    samples = _sample_gaussian(
+        np.asarray(posterior.mean),
+        np.asarray(posterior.covariance),
+        sample_count=sample_count,
+        seed=seed,
+    )
+    expected = np.mean(samples <= current_hull[None, :], axis=0)
+
+    assert result.scores == pytest.approx(expected)
+    assert result.final_stability_probabilities == pytest.approx(expected)
+
+
+def test_matched_local_hull_probability_is_seed_deterministic() -> None:
+    posterior = ProtocolTargetEnergyPosterior(
+        mean=(0.0, 0.0),
+        covariance=((1.0, 0.25), (0.25, 1.0)),
+        system_offset_mean=0.0,
+        system_offset_variance=0.0,
+        history_count=0,
+    )
+    kwargs = {
+        "current_competing_hull_energies": np.asarray([0.1, -0.2]),
+        "costs": np.ones(2),
+        "posterior_sample_count": 16,
+        "seed": 4,
+    }
+    first = matched_local_hull_probability(posterior, **kwargs)
+    second = matched_local_hull_probability(posterior, **kwargs)
+    assert first == second
+
+
+def test_matched_local_hull_probability_rejects_unequal_costs() -> None:
+    posterior = ProtocolTargetEnergyPosterior(
+        mean=(0.0, 0.0),
+        covariance=((1.0, 0.0), (0.0, 1.0)),
+        system_offset_mean=0.0,
+        system_offset_variance=0.0,
+        history_count=0,
+    )
+    with pytest.raises(ValueError, match="equal query costs"):
+        matched_local_hull_probability(
+            posterior,
+            current_competing_hull_energies=np.zeros(2),
+            costs=np.asarray([1.0, 2.0]),
+            posterior_sample_count=8,
+        )
 
 
 def test_hull_ens_horizon_one_has_delta_hull_action_parity() -> None:

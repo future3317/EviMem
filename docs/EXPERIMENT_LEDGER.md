@@ -2116,3 +2116,33 @@ cross-method action disagreement had a 0.00391 headroom discrepancy. This
 closes E52-A as a numerical-convergence diagnostic: finite integration can
 change an argmax when headroom is tiny, but no distinct Hull-KG policy class or
 effect curve is supported.
+
+## E53 -- matched adjudicator objective isolation (registered 2026-08-10)
+
+E53 is registered before any new execution. Its design is frozen in
+`docs/superpowers/specs/2026-08-10-e53-objective-isolation-design.md` and its
+implementation plan in
+`docs/superpowers/plans/2026-08-10-e53-objective-isolation.md`. It adds the
+policy identity `matched_local_hull_probability` rather than changing the
+historical analytic `posterior_current_hull_probability` policy.
+
+The E53-A roster is posterior-mean target margin, matched Local-prob, and
+Delta-Hull. All three use the E52 100% task/vault, seed `20260810`, five frozen
+development folds, fixed-composition hull backend, posterior count 1024, and
+one `B=6` trajectory per fold. The matched Local-prob and Delta-Hull policies
+share posterior samples and probability scoring; only their local versus
+complete-pool adjudicator differs. Prefixes define budgets 1--6. The primary
+identification contrast is Delta-Hull minus Local-prob. The analysis unit is
+the exact chemical system, and paired sign randomization plus inversion of the
+same test supplies p-values and 95% intervals.
+
+E53-B is physically separated from the default launcher stage. After E53-A
+and analysis freeze, it may run exactly once with the 94-system query roster
+and a transport fit on all 230 development systems. The 94 systems have prior
+exposure documented under E52; therefore this result remains a secondary
+held-out MatPES rerun and cannot be called untouched, external, or independent
+dataset validation. External outputs are rooted at
+`/home/workspace/lrh/DATA/EviMem-RL/analysis/`
+`matpes_e53_objective_isolation_20260810` and remain outside Git. This entry is
+registration only until completion counts, hashes, rosters, fit/query
+disjointness, prefix consistency, and frozen summaries pass.

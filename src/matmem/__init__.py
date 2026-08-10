@@ -128,6 +128,7 @@ from .protocol_acquisition import (
     fit_conformal_source_rollout_calibration,
     hull_ens,
     independent_confirmation_source_rollout,
+    matched_local_hull_probability,
     protocol_hull_knowledge_gradient,
     protocol_hull_posterior_summary,
     protocol_hull_risk_reduction,
