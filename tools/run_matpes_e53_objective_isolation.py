@@ -84,6 +84,8 @@ def build_units(
     *,
     full_pool_root: Path,
     split_manifest_root: Path,
+    secondary_task: Path | None,
+    secondary_vault: Path | None,
     output_root: Path,
     runner: Path,
     stage: str,
@@ -100,19 +102,21 @@ def build_units(
     if posterior_sample_count < 4:
         raise ValueError("E53 needs at least four posterior samples")
 
-    task = full_pool_root / "matpes-e52-pool-100-task.json"
-    vault = full_pool_root / "matpes-e52-pool-100-vault.json"
+    development_task = full_pool_root / "matpes-e52-pool-100-task.json"
+    development_vault = full_pool_root / "matpes-e52-pool-100-vault.json"
     development_crossfit = full_pool_root / "matpes-e52-pool-100-crossfit.json"
     secondary_crossfit = (
         split_manifest_root / "matpes-e52-secondary-confirmation-crossfit.json"
     )
-    required = (task, vault, development_crossfit, secondary_crossfit)
+    required = (development_task, development_vault, development_crossfit, secondary_crossfit)
     missing = [str(path) for path in required if not path.is_file()]
     if missing:
         raise FileNotFoundError("missing frozen E53 input(s): " + ", ".join(missing))
 
     specifications: list[tuple[str, int, Path, Path, bool]]
     if stage == "development":
+        task = development_task
+        vault = development_vault
         specifications = [
             (
                 "development_crossfit",
@@ -124,6 +128,12 @@ def build_units(
             for fold in range(5)
         ]
     else:
+        if secondary_task is None or secondary_vault is None:
+            raise ValueError("secondary stage requires an explicit secondary task and vault")
+        if not secondary_task.is_file() or not secondary_vault.is_file():
+            raise FileNotFoundError("explicit E53 secondary task or vault is missing")
+        task = secondary_task
+        vault = secondary_vault
         specifications = [
             (
                 "secondary_heldout_matpes_rerun",
@@ -207,6 +217,8 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--full-pool-root", type=Path, required=True)
     parser.add_argument("--split-manifest-root", type=Path, required=True)
+    parser.add_argument("--secondary-task", type=Path)
+    parser.add_argument("--secondary-vault", type=Path)
     parser.add_argument("--output-root", type=Path, required=True)
     parser.add_argument(
         "--runner",
@@ -223,6 +235,8 @@ def main() -> None:
     units = build_units(
         full_pool_root=args.full_pool_root,
         split_manifest_root=args.split_manifest_root,
+        secondary_task=args.secondary_task,
+        secondary_vault=args.secondary_vault,
         output_root=args.output_root,
         runner=args.runner,
         stage=args.stage,

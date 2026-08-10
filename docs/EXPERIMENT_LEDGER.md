@@ -2146,3 +2146,27 @@ dataset validation. External outputs are rooted at
 `matpes_e53_objective_isolation_20260810` and remain outside Git. This entry is
 registration only until completion counts, hashes, rosters, fit/query
 disjointness, prefix consistency, and frozen summaries pass.
+
+E53-A completed as five development units with zero failures: each unit has 46
+query and 184 fit systems, exact fit/query disjointness, manifest-matched query
+rosters, MC1024, the frozen three-policy roster, and valid `B=1..6` prefixes.
+The 230 query systems are unique. The development objective and rank-summary
+SHA-256 values are respectively
+`753839ccfd671cacddf3b6e58926ab97e099dc22b473e288859d773ac094517c`
+and
+`d9ee5af2926bc97a05b212c0bc5b2f9aa56e0344845ed652542ff80472db0793`.
+
+The first E53-B launch stopped before any system trace or outcome evaluation:
+the secondary cross-fit manifest expects task SHA-256
+`f43c1ab99995e229edd95b47c834f9e9b439d04fc3de0a369cc6d79f7f74d0df`,
+but the launcher supplied the E52 pool-rebuild task with SHA-256
+`2a2361ac91dd9fec209cafebbf868466eda17e725124ae482f2922154f69b3c5`.
+The failure marker remains at the original E53 root. The registered recovery
+uses a new external root,
+`matpes_e53_objective_isolation_secondary_recovery_20260810`, and the explicit
+original all-eligible task plus oracle vault, whose SHA-256 values are
+`f43c1ab99995e229edd95b47c834f9e9b439d04fc3de0a369cc6d79f7f74d0df`
+and
+`a272d3a2ce6286443ae6fce35726a688751a37284e3df362c5d1f70e2fcb9952`.
+This is an input-identity recovery only; policies, posterior count, seed,
+estimands, inference, and the 94/230 query/fit rosters remain frozen.

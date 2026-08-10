@@ -136,6 +136,9 @@ fit once on all 230 development systems and run the same three-policy `B=6`
 protocol on the complementary 94 systems. That stage is a secondary held-out
 MatPES rerun under the frozen current protocol. It is neither untouched nor
 external, and its outcomes cannot be used to alter E53 methods or analysis.
+The secondary launcher requires explicit original all-eligible task and vault
+paths; it must not reuse the E52 pool-rebuild task, whose identity differs from
+the frozen secondary cross-fit manifest.
 
 Observed-path theory diagnostics may summarize consecutive-state membership
 drift, rank preservation, and existing two-step headroom. They are weighted by
