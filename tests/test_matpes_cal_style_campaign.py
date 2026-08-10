@@ -37,7 +37,7 @@ def _strategy(selected: list[str], positives: set[str]) -> dict[str, object]:
     }
 
 
-def _unit(path: Path, *, fold: int, system: str) -> None:
+def _unit(path: Path, *, fold: int, system: str, transport_element_support: bool = True) -> None:
     ids = [f"{system}-{index}" for index in range(6)]
     payload = {
         "task_sha256": "task",
@@ -58,6 +58,7 @@ def _unit(path: Path, *, fold: int, system: str) -> None:
         "systems": {
             system: {
                 "budget": 6,
+                "transport_element_support": transport_element_support,
                 "strategies": {
                     "posterior_mean_target_margin": _strategy(ids, set()),
                     "delta_hull_active_search": _strategy(ids, {ids[0], ids[1]}),
@@ -147,3 +148,25 @@ def test_cal_summary_rejects_missing_diagnostic(tmp_path: Path) -> None:
             expected_secondary_system_count=None,
             randomization_draws=1_000,
         )
+
+
+def test_cal_summary_retains_unsupported_systems_as_a_reported_subset(tmp_path: Path) -> None:
+    development = tmp_path / "development"
+    for fold in range(5):
+        _unit(
+            development / f"fold{fold + 1}-b6.json",
+            fold=fold,
+            system=f"S{fold}",
+            transport_element_support=fold != 0,
+        )
+
+    result = summarize(
+        development_root=development,
+        secondary_path=None,
+        output=tmp_path / "summary.json",
+        expected_development_system_count=5,
+        expected_secondary_system_count=None,
+        randomization_draws=1_000,
+    )
+
+    assert result["panels"]["development"]["transport_element_supported_system_count"] == 4

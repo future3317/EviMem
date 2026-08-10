@@ -125,8 +125,6 @@ def _load_panel(
                 raise ValueError(f"chemical system occurs twice: {system}")
             if int(system_payload.get("budget", -1)) != 6:
                 raise ValueError(f"wrong system budget for {system}")
-            if not system_payload.get("transport_element_support", True):
-                raise ValueError(f"CAL system lacks transport element support: {system}")
             strategies = system_payload.get("strategies", {})
             if set(strategies) != set(POLICIES):
                 raise ValueError(f"system has the wrong E54 policy roster: {system}")
@@ -137,6 +135,9 @@ def _load_panel(
                 )
                 for policy in POLICIES
             }
+            rows[str(system)]["transport_element_support"] = bool(
+                system_payload.get("transport_element_support", True)
+            )
             rows[str(system)]["cal_diagnostics"] = _cal_rounds(
                 strategies["cal_style_hull_entropy"], system=str(system)
             )
@@ -233,6 +234,10 @@ def _summarize_panel(
         integrated[name] = inference.model_dump(mode="json")
     return {
         "system_count": len(systems),
+        "transport_element_supported_system_count": sum(
+            bool(panel["rows"][system]["transport_element_support"])
+            for system in systems
+        ),
         "system_set_sha256": hashlib.sha256("\n".join(systems).encode()).hexdigest(),
         "task_sha256": panel["task_sha256"],
         "vault_sha256": panel["vault_sha256"],
