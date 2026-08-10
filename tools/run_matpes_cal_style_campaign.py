@@ -52,6 +52,7 @@ def _command(
     fold_index: int,
     posterior_sample_count: int,
     fantasy_count: int,
+    hull_candidate_workers: int,
     selection_timeout_seconds: float,
 ) -> tuple[str, ...]:
     return (
@@ -75,6 +76,8 @@ def _command(
         str(posterior_sample_count),
         "--fantasy-count",
         str(fantasy_count),
+        "--hull-candidate-workers",
+        str(hull_candidate_workers),
         "--hull-backend",
         "fixed_composition",
         "--transport-family",
@@ -101,6 +104,7 @@ def build_units(
     stage: str,
     posterior_sample_count: int = 200,
     fantasy_count: int = 10,
+    hull_candidate_workers: int = 1,
     selection_timeout_seconds: float = 7200.0,
 ) -> list[Unit]:
     """Build one explicitly selected E54 stage without opening outcomes."""
@@ -110,7 +114,7 @@ def build_units(
         raise ValueError("E54 outputs must remain outside Git")
     if stage not in {"development", "secondary"}:
         raise ValueError("E54 stage must be development or secondary")
-    if posterior_sample_count < 4 or fantasy_count < 1:
+    if posterior_sample_count < 4 or fantasy_count < 1 or hull_candidate_workers < 1:
         raise ValueError("E54 numerical settings are too small")
 
     development_task = full_pool_root / "matpes-e52-pool-100-task.json"
@@ -168,6 +172,7 @@ def build_units(
             "seed": SEED,
             "posterior_sample_count": posterior_sample_count,
             "fantasy_count": fantasy_count,
+            "hull_candidate_workers": hull_candidate_workers,
             "hull_backend": "fixed_composition",
             "policies": POLICIES,
             "secondary_is_untouched": secondary_is_untouched,
@@ -183,6 +188,7 @@ def build_units(
                     fold_index=fold,
                     posterior_sample_count=posterior_sample_count,
                     fantasy_count=fantasy_count,
+                    hull_candidate_workers=hull_candidate_workers,
                     selection_timeout_seconds=selection_timeout_seconds,
                 ),
                 output=output,
@@ -201,11 +207,18 @@ def _validate_existing(unit: Unit, payload: dict[str, Any]) -> None:
     if tuple(payload.get("active_policies", ())) != POLICIES:
         raise ValueError(f"existing output has wrong policy roster: {unit.output}")
     config = payload.get("config", {})
-    for key in ("query_budget", "posterior_sample_count", "fantasy_count", "hull_backend"):
+    for key in (
+        "query_budget",
+        "posterior_sample_count",
+        "fantasy_count",
+        "hull_candidate_workers",
+        "hull_backend",
+    ):
         if config.get(key) != {
             "query_budget": 6,
             "posterior_sample_count": unit.identity["posterior_sample_count"],
             "fantasy_count": unit.identity["fantasy_count"],
+            "hull_candidate_workers": unit.identity["hull_candidate_workers"],
             "hull_backend": "fixed_composition",
         }[key]:
             raise ValueError(f"existing output has wrong {key}: {unit.output}")
@@ -257,6 +270,7 @@ def main() -> None:
     parser.add_argument("--stage", choices=("development", "secondary"), default="development")
     parser.add_argument("--posterior-sample-count", type=int, default=200)
     parser.add_argument("--fantasy-count", type=int, default=10)
+    parser.add_argument("--hull-candidate-workers", type=int, default=1)
     parser.add_argument("--max-workers", type=int, default=5)
     parser.add_argument("--selection-timeout-seconds", type=float, default=7200.0)
     args = parser.parse_args()
@@ -272,6 +286,7 @@ def main() -> None:
         stage=args.stage,
         posterior_sample_count=args.posterior_sample_count,
         fantasy_count=args.fantasy_count,
+        hull_candidate_workers=args.hull_candidate_workers,
         selection_timeout_seconds=args.selection_timeout_seconds,
     )
     failures: list[str] = []
