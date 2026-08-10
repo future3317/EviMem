@@ -274,6 +274,7 @@ def _protocol_transport_fixture():
         "independent_confirmation_source_rollout",
         "conformal_source_rollout_delta_hull",
         "protocol_hull_knowledge_gradient",
+        "cal_style_hull_entropy",
     ),
 )
 def test_protocol_hull_policy_requires_disjoint_transport_model(policy_name: str) -> None:
@@ -332,7 +333,11 @@ def test_conformal_source_rollout_high_threshold_is_source_fallback(
 
 @pytest.mark.parametrize(
     "policy_name",
-    ("protocol_hull_knowledge_gradient", "protocol_hull_risk_reduction"),
+    (
+        "protocol_hull_knowledge_gradient",
+        "protocol_hull_risk_reduction",
+        "cal_style_hull_entropy",
+    ),
 )
 def test_protocol_hull_policy_drives_only_authorized_reveals(
     tmp_path: Path,
@@ -364,6 +369,11 @@ def test_protocol_hull_policy_drives_only_authorized_reveals(
     assert len(result.selected_pair_ids) == 2
     assert result.selected_pair_ids == result.revealed_pair_ids
     assert result.selected_pair_ids == vault.revealed_pair_ids
+    if policy_name == "cal_style_hull_entropy":
+        diagnostics = runner.policy.last_selection_diagnostics
+        assert diagnostics is not None
+        assert diagnostics["kind"] == "cal_style_hull_entropy"
+        assert diagnostics["wall_time_seconds"] >= 0.0
 
 
 def test_delta_hull_fixed_composition_backend_is_action_equivalent(

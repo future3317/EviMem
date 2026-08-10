@@ -6,6 +6,7 @@ import argparse
 import hashlib
 import json
 import sys
+import time
 from pathlib import Path
 
 import numpy as np
@@ -30,6 +31,7 @@ from matmem.protocol_acquisition import (
     independent_confirmation_source_rollout,
     independent_world_confirmation_source_rollout,
     matched_local_hull_probability,
+    protocol_hull_entropy,
     protocol_hull_knowledge_gradient,
     protocol_hull_risk_reduction,
     safe_hull_ens,
@@ -130,6 +132,7 @@ def select(
         "conformal_source_rollout_delta_hull",
         "protocol_hull_knowledge_gradient",
         "protocol_hull_risk_reduction",
+        "cal_style_hull_entropy",
     }:
         query_features = np.asarray(
             [row["source_environment_embedding"] for row in queries], dtype=float
@@ -172,6 +175,7 @@ def select(
             "constrained_dual_horizon_source_rollout",
             "independent_confirmation_source_rollout",
             "conformal_source_rollout_delta_hull",
+            "cal_style_hull_entropy",
         } or policy.startswith("protocol_hull_"):
             if transport_model is None:
                 raise ValueError("protocol hull policy has no frozen transport model")
@@ -813,6 +817,48 @@ def select(
                                 "fantasy_count": result.fantasy_count,
                             }
                         )
+                elif policy == "cal_style_hull_entropy":
+                    result = protocol_hull_entropy(
+                        posterior,
+                        **hull_arguments,
+                    )
+                    values = result.scores
+                    if diagnostics is not None:
+                        query_ids = tuple(str(row["pair_id"]) for row in queries)
+                        diagnostics.update(
+                            {
+                                "diagnostic_schema_version": 1,
+                                "kind": "cal_style_hull_entropy",
+                                "candidate_pair_ids": query_ids,
+                                "cal_scores": {
+                                    pair_id: float(value)
+                                    for pair_id, value in zip(
+                                        query_ids, result.scores, strict=True
+                                    )
+                                },
+                                "expected_entropy_reductions": {
+                                    pair_id: float(value)
+                                    for pair_id, value in zip(
+                                        query_ids,
+                                        result.expected_entropy_reductions,
+                                        strict=True,
+                                    )
+                                },
+                                "current_entropy": result.current_entropy,
+                                "expected_conditional_entropies": {
+                                    pair_id: float(value)
+                                    for pair_id, value in zip(
+                                        query_ids,
+                                        result.expected_conditional_entropies,
+                                        strict=True,
+                                    )
+                                },
+                                "evaluation_composition_count": result.evaluation_composition_count,
+                                "posterior_sample_count": result.posterior_sample_count,
+                                "fantasy_count": result.fantasy_count,
+                                "relative_ridge": result.relative_ridge,
+                            }
+                        )
                 else:
                     result = protocol_hull_knowledge_gradient(
                         posterior,
@@ -963,6 +1009,7 @@ def main() -> None:
             "conformal_source_rollout_delta_hull",
             "protocol_hull_knowledge_gradient",
             "protocol_hull_risk_reduction",
+            "cal_style_hull_entropy",
         ),
         required=True,
     )
@@ -988,6 +1035,7 @@ def main() -> None:
             else FrozenProtocolRidgeTransport.model_validate(model_payload)
         )
         diagnostics: dict[str, object] = {}
+        started = time.perf_counter()
         selected_pair_id = select(
             payload,
             policy=args.policy,
@@ -1003,6 +1051,9 @@ def main() -> None:
             hull_backend=args.hull_backend,
             diagnostics=diagnostics,
         )
+        if args.policy == "cal_style_hull_entropy":
+            diagnostics["wall_time_seconds"] = time.perf_counter() - started
+            diagnostics["state_candidate_count"] = len(payload.get("queries", ()))
         print(
             json.dumps(
                 {

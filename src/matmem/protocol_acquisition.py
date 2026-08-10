@@ -36,6 +36,7 @@ from .posterior import (
     _sample_gaussian_from_factor,
 )
 from .selective_planning import selective_gate
+from .utils import _normalized_composition_key
 
 
 class ProtocolHullKnowledgeGradientResult(BaseModel):
@@ -191,6 +192,111 @@ class SelectiveDeltaHullResult(BaseModel):
     rollout_posterior_sample_count: int | None = Field(default=None, gt=0)
     rollout_horizon: int = Field(ge=1)
     fallback_reason: str | None = None
+
+
+class ProtocolHullEntropyResult(BaseModel):
+    """CAL-style expected information gain for the joint random hull."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    scores: tuple[float, ...]
+    expected_entropy_reductions: tuple[float, ...]
+    current_entropy: float
+    expected_conditional_entropies: tuple[float, ...]
+    evaluation_composition_count: int = Field(gt=0)
+    posterior_sample_count: int = Field(gt=1)
+    fantasy_count: int = Field(gt=0)
+    relative_ridge: float = Field(gt=0)
+
+
+def _unique_query_composition_grid(
+    query_compositions: Sequence[dict[str, float]],
+) -> tuple[dict[str, float], ...]:
+    """Return the deterministic unique reduced-composition query grid."""
+
+    if not query_compositions:
+        raise ValueError("hull entropy requires a nonempty query pool")
+    keys = {
+        _normalized_composition_key(composition) for composition in query_compositions
+    }
+    return tuple(
+        {element: float(amount) for element, amount in key}
+        for key in sorted(keys)
+    )
+
+
+def _gaussian_hull_entropy(
+    hull_values: np.ndarray,
+    *,
+    relative_ridge: float = 1e-10,
+) -> float:
+    """Return Gaussian differential entropy for sampled hull vectors."""
+
+    values = np.asarray(hull_values, dtype=np.float64)
+    if values.ndim != 2 or values.shape[0] < 2 or values.shape[1] < 1:
+        raise ValueError("hull entropy requires at least two sampled vectors")
+    if not np.isfinite(values).all():
+        raise ValueError("hull entropy samples must be finite")
+    if not math.isfinite(relative_ridge) or relative_ridge <= 0:
+        raise ValueError("hull entropy ridge must be finite and positive")
+    centered = values - np.mean(values, axis=0, keepdims=True)
+    covariance = centered.T @ centered / values.shape[0]
+    covariance = 0.5 * (covariance + covariance.T)
+    scale = max(float(np.max(np.abs(covariance))), np.finfo(np.float64).tiny)
+    covariance += (relative_ridge * scale) * np.eye(values.shape[1])
+    sign, logdet = np.linalg.slogdet(covariance)
+    if sign <= 0 or not math.isfinite(float(logdet)):
+        raise ValueError("hull entropy covariance has non-positive log determinant")
+    dimension = values.shape[1]
+    return float(
+        0.5 * dimension * math.log(2.0 * math.pi * math.e)
+        + 0.5 * logdet
+    )
+
+
+def _condition_gaussian_on_scalar(
+    mean: np.ndarray,
+    covariance: np.ndarray,
+    *,
+    index: int,
+    outcome: float,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Condition a joint Gaussian on one noiseless scalar observation."""
+
+    mean_array = np.asarray(mean, dtype=np.float64).reshape(-1)
+    covariance_array = np.asarray(covariance, dtype=np.float64)
+    if (
+        covariance_array.ndim != 2
+        or covariance_array.shape != (len(mean_array), len(mean_array))
+        or not np.isfinite(mean_array).all()
+        or not np.isfinite(covariance_array).all()
+        or not math.isfinite(float(outcome))
+    ):
+        raise ValueError("Gaussian conditioning inputs must be finite and square")
+    if index < 0 or index >= len(mean_array):
+        raise ValueError("Gaussian conditioning index is out of range")
+    covariance_array = 0.5 * (covariance_array + covariance_array.T)
+    variance = float(covariance_array[index, index])
+    if variance < -1e-12:
+        raise ValueError("Gaussian conditioning variance must be non-negative")
+    if variance <= 1e-15:
+        if not math.isclose(float(outcome), float(mean_array[index]), abs_tol=1e-8):
+            raise ValueError("zero-variance Gaussian cannot condition on a new outcome")
+        conditional_mean = mean_array.copy()
+        conditional_covariance = covariance_array.copy()
+    else:
+        cross = covariance_array[:, index].copy()
+        conditional_mean = mean_array + cross * (
+            (float(outcome) - mean_array[index]) / variance
+        )
+        conditional_covariance = covariance_array - np.outer(cross, cross) / variance
+        conditional_covariance = 0.5 * (
+            conditional_covariance + conditional_covariance.T
+        )
+    conditional_mean[index] = float(outcome)
+    conditional_covariance[index, :] = 0.0
+    conditional_covariance[:, index] = 0.0
+    return conditional_mean, conditional_covariance
 
 
 class DualHorizonSourceRolloutResult(BaseModel):
@@ -690,6 +796,114 @@ def delta_hull_active_search(
         scores=tuple(float(value) for value in probabilities),
         final_stability_probabilities=tuple(float(value) for value in probabilities),
         posterior_sample_count=posterior_sample_count,
+    )
+
+
+def protocol_hull_entropy(
+    posterior: ProtocolTargetEnergyPosterior,
+    *,
+    query_compositions: Sequence[dict[str, float]],
+    reference_compositions: Sequence[dict[str, float]],
+    reference_energies: np.ndarray,
+    costs: np.ndarray,
+    posterior_sample_count: int = 200,
+    fantasy_count: int = 10,
+    relative_ridge: float = 1e-10,
+    seed: int = 0,
+) -> ProtocolHullEntropyResult:
+    """Score actions by expected reduction in joint completed-hull entropy.
+
+    This is a matched-posterior CAL-style objective.  It uses the existing
+    complete-pool hull backend and Gaussian conditioning, not an independent
+    surrogate or a sum of marginal membership entropies.
+    """
+
+    mean = np.asarray(posterior.mean, dtype=np.float64)
+    covariance = np.asarray(posterior.covariance, dtype=np.float64)
+    item_costs = np.asarray(costs, dtype=np.float64).reshape(-1)
+    size = len(mean)
+    if len(query_compositions) != size or len(item_costs) != size:
+        raise ValueError("hull entropy inputs disagree")
+    if np.any(~np.isfinite(item_costs)) or np.any(item_costs <= 0):
+        raise ValueError("hull entropy query costs must be finite and positive")
+    if not np.allclose(item_costs, item_costs[0], atol=1e-12):
+        raise ValueError("hull entropy requires equal query costs")
+    if posterior_sample_count < 4 or fantasy_count < 1:
+        raise ValueError("hull entropy Monte Carlo settings are too small")
+    if not math.isfinite(relative_ridge) or relative_ridge <= 0:
+        raise ValueError("hull entropy ridge must be finite and positive")
+    if len(reference_compositions) != len(np.asarray(reference_energies).reshape(-1)):
+        raise ValueError("hull entropy reference arrays disagree")
+
+    evaluation_compositions = _unique_query_composition_grid(query_compositions)
+    actual_sample_count = int(posterior_sample_count)
+    if len(evaluation_compositions) >= 200:
+        actual_sample_count = max(actual_sample_count, len(evaluation_compositions) + 32)
+    current_samples = _sample_gaussian(
+        mean,
+        covariance,
+        sample_count=actual_sample_count,
+        seed=seed,
+    )
+    current_hulls = _final_hull_values(
+        query_compositions=query_compositions,
+        sampled_query_energies=current_samples,
+        reference_compositions=reference_compositions,
+        reference_energies=reference_energies,
+        evaluation_compositions=evaluation_compositions,
+    )
+    current_entropy = _gaussian_hull_entropy(
+        current_hulls,
+        relative_ridge=relative_ridge,
+    )
+    expected_entropies = np.empty(size, dtype=np.float64)
+    for query_index in range(size):
+        variance = float(covariance[query_index, query_index])
+        if variance <= 1e-15:
+            expected_entropies[query_index] = current_entropy
+            continue
+        fantasy_energies = _sample_gaussian(
+            np.asarray((mean[query_index],), dtype=np.float64),
+            np.asarray(((variance,),), dtype=np.float64),
+            sample_count=fantasy_count,
+            seed=seed + 9001,
+        )[:, 0]
+        conditional_entropy_sum = 0.0
+        for fantasy_index, outcome in enumerate(fantasy_energies):
+            conditional_mean, conditional_covariance = _condition_gaussian_on_scalar(
+                mean,
+                covariance,
+                index=query_index,
+                outcome=float(outcome),
+            )
+            conditional_samples = _sample_gaussian(
+                conditional_mean,
+                conditional_covariance,
+                sample_count=actual_sample_count,
+                seed=seed + 104729 * (fantasy_index + 1),
+            )
+            conditional_hulls = _final_hull_values(
+                query_compositions=query_compositions,
+                sampled_query_energies=conditional_samples,
+                reference_compositions=reference_compositions,
+                reference_energies=reference_energies,
+                evaluation_compositions=evaluation_compositions,
+            )
+            conditional_entropy_sum += _gaussian_hull_entropy(
+                conditional_hulls,
+                relative_ridge=relative_ridge,
+            )
+        expected_entropies[query_index] = conditional_entropy_sum / fantasy_count
+    reductions = current_entropy - expected_entropies
+    return ProtocolHullEntropyResult(
+        scores=tuple(float(value) for value in reductions),
+        expected_entropy_reductions=tuple(float(value) for value in reductions),
+        current_entropy=float(current_entropy),
+        expected_conditional_entropies=tuple(float(value) for value in expected_entropies),
+        evaluation_composition_count=len(evaluation_compositions),
+        posterior_sample_count=actual_sample_count,
+        fantasy_count=fantasy_count,
+        relative_ridge=relative_ridge,
     )
 
 

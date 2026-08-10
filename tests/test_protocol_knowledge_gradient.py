@@ -14,8 +14,11 @@ from matmem.posterior import (
     protocol_target_energy_posterior,
 )
 from matmem.protocol_acquisition import (
+    _condition_gaussian_on_scalar,
+    _gaussian_hull_entropy,
     _simultaneous_paired_lower_bounds,
     _source_rollout_rewards,
+    _unique_query_composition_grid,
     conformal_one_deviation_source_rollout,
     constrained_dual_horizon_source_rollout,
     delta_hull_active_search,
@@ -27,6 +30,7 @@ from matmem.protocol_acquisition import (
     independent_world_confirmation_source_rollout,
     matched_local_hull_probability,
     posterior_rank_diagnostics,
+    protocol_hull_entropy,
     protocol_hull_knowledge_gradient,
     protocol_hull_risk_reduction,
     safe_hull_ens,
@@ -42,6 +46,125 @@ from matmem.protocol_knowledge_gradient import (
 from matmem.transport import FrozenProtocolRidgeTransport
 
 
+def test_cal_grid_deduplicates_normalized_query_compositions() -> None:
+    grid = _unique_query_composition_grid(
+        (
+            {"A": 1.0, "B": 1.0},
+            {"B": 2.0, "A": 2.0},
+            {"A": 3.0, "B": 1.0},
+        )
+    )
+    assert grid == (
+        {"A": 0.5, "B": 0.5},
+        {"A": 0.75, "B": 0.25},
+    )
+
+
+def test_cal_joint_hull_entropy_uses_ridge_for_rank_deficient_vectors() -> None:
+    hull_values = np.asarray(
+        (
+            (0.0, 0.0),
+            (1.0, 0.0),
+            (2.0, 0.0),
+        )
+    )
+    entropy = _gaussian_hull_entropy(hull_values, relative_ridge=1e-10)
+    assert np.isfinite(entropy)
+    assert entropy == _gaussian_hull_entropy(hull_values, relative_ridge=1e-10)
+
+
+def test_cal_gaussian_conditioning_matches_scalar_normal_formula() -> None:
+    conditional_mean, conditional_covariance = _condition_gaussian_on_scalar(
+        np.asarray((1.0, 2.0)),
+        np.asarray(((4.0, 2.0), (2.0, 3.0))),
+        index=0,
+        outcome=3.0,
+    )
+    np.testing.assert_allclose(conditional_mean, (3.0, 3.0))
+    np.testing.assert_allclose(conditional_covariance, ((0.0, 0.0), (0.0, 2.0)))
+
+
+def _cal_test_posterior() -> ProtocolTargetEnergyPosterior:
+    return ProtocolTargetEnergyPosterior(
+        mean=(-0.40, -0.25),
+        covariance=((0.04, 0.012), (0.012, 0.03)),
+        system_offset_mean=0.0,
+        system_offset_variance=0.0,
+        history_count=0,
+    )
+
+
+def test_cal_entropy_uses_query_grid_and_is_deterministic() -> None:
+    result = protocol_hull_entropy(
+        _cal_test_posterior(),
+        query_compositions=(
+            {"A": 0.5, "B": 0.5},
+            {"A": 0.25, "B": 0.75},
+        ),
+        reference_compositions=({"A": 1.0}, {"B": 1.0}),
+        reference_energies=np.zeros(2),
+        costs=np.ones(2),
+        posterior_sample_count=8,
+        fantasy_count=2,
+        seed=19,
+    )
+    repeat = protocol_hull_entropy(
+        _cal_test_posterior(),
+        query_compositions=(
+            {"A": 0.5, "B": 0.5},
+            {"A": 0.25, "B": 0.75},
+        ),
+        reference_compositions=({"A": 1.0}, {"B": 1.0}),
+        reference_energies=np.zeros(2),
+        costs=np.ones(2),
+        posterior_sample_count=8,
+        fantasy_count=2,
+        seed=19,
+    )
+    assert result.evaluation_composition_count == 2
+    assert result == repeat
+    assert all(np.isfinite(value) for value in result.scores)
+
+
+def test_cal_entropy_zero_variance_candidate_has_zero_information_gain() -> None:
+    posterior = ProtocolTargetEnergyPosterior(
+        mean=(-0.4, -0.25),
+        covariance=((0.0, 0.0), (0.0, 0.03)),
+        system_offset_mean=0.0,
+        system_offset_variance=0.0,
+        history_count=0,
+    )
+    result = protocol_hull_entropy(
+        posterior,
+        query_compositions=(
+            {"A": 0.5, "B": 0.5},
+            {"A": 0.25, "B": 0.75},
+        ),
+        reference_compositions=({"A": 1.0}, {"B": 1.0}),
+        reference_energies=np.zeros(2),
+        costs=np.ones(2),
+        posterior_sample_count=8,
+        fantasy_count=2,
+        seed=19,
+    )
+    assert result.expected_entropy_reductions[0] == pytest.approx(0.0, abs=1e-12)
+
+
+def test_cal_entropy_rejects_nonuniform_costs() -> None:
+    with pytest.raises(ValueError, match="equal query costs"):
+        protocol_hull_entropy(
+            _cal_test_posterior(),
+            query_compositions=(
+                {"A": 0.5, "B": 0.5},
+                {"A": 0.25, "B": 0.75},
+            ),
+            reference_compositions=({"A": 1.0}, {"B": 1.0}),
+            reference_energies=np.zeros(2),
+            costs=np.asarray((1.0, 2.0)),
+            posterior_sample_count=8,
+            fantasy_count=2,
+            seed=19,
+        )
 def _ic_rollout(
     *,
     selected: int,

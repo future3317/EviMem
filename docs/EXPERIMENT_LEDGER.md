@@ -2186,3 +2186,27 @@ The secondary Delta-Hull-minus-Local-prob trapezoidal `B=1..6` effect is
 effect is positive with `p<1e-4`. This completes E53 as a matched-adjudicator
 development result with a secondary within-MatPES rerun; it does not establish
 cross-dataset or untouched external validation.
+
+## E54 -- CAL-style hull-entropy matched baseline (registered 2026-08-10)
+
+E54 is registered in `docs/CAL_STYLE_HULL_ENTROPY_PROTOCOL_V1.md`. It adds a
+matched-posterior `cal_style_hull_entropy` policy to the objective-first
+comparison roster alongside posterior-mean target-margin and Delta-Hull. CAL
+uses the joint Gaussian entropy of the sampled complete-pool hull vector over
+unique visible query compositions; it is not marginal membership entropy, an
+independent GP, or a new planning method.
+
+The frozen run uses one `B=6` secure closed-loop trajectory per five
+cross-fitted development folds, with `B=1..6` prefix utilities, posterior
+sample count 200 (increased only when required by the registered grid rule),
+10 Gaussian fantasies, relative ridge `1e-10`, and the fixed-composition hull
+backend. The campaign summary is exact-system paired inference and audits
+task/vault/cross-fit hashes, policy roster, fold and fit/query disjointness,
+trajectory completeness, failure markers, and CAL diagnostics.
+
+The 230-system development campaign must pass its full audit before the
+explicitly authorized 94-system rerun is opened. The latter is a secondary
+held-out MatPES rerun under the frozen protocol; prior exposure is documented,
+so it is not external, untouched, pristine, or independent-dataset
+validation. Raw outputs remain outside Git, and no paper claim is updated
+until the registered summaries pass.

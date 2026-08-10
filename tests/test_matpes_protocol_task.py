@@ -56,6 +56,7 @@ def test_delta_hull_runner_requires_frozen_protocol_transport() -> None:
     assert _requires_protocol_transport("constrained_dual_horizon_source_rollout")
     assert _requires_protocol_transport("conformal_source_rollout_delta_hull")
     assert _requires_protocol_transport("protocol_hull_knowledge_gradient")
+    assert _requires_protocol_transport("cal_style_hull_entropy")
     assert not _requires_protocol_transport("source_margin")
 
 
