@@ -14,6 +14,7 @@ from tools.build_matpes_protocol_task import (
 from tools.run_matpes_protocol_closed_loop_exploratory import (
     ExperimentConfig,
     _requires_protocol_transport,
+    _selection_timeout_seconds_for_policy,
 )
 from tools.run_matpes_protocol_closed_loop_exploratory import (
     run as run_closed_loop,
@@ -58,6 +59,11 @@ def test_delta_hull_runner_requires_frozen_protocol_transport() -> None:
     assert _requires_protocol_transport("protocol_hull_knowledge_gradient")
     assert _requires_protocol_transport("cal_style_hull_entropy")
     assert not _requires_protocol_transport("source_margin")
+
+
+def test_cal_policy_uses_long_selection_timeout() -> None:
+    assert _selection_timeout_seconds_for_policy("cal_style_hull_entropy", 7200.0) == 7200.0
+    assert _selection_timeout_seconds_for_policy("posterior_mean_target_margin", 7200.0) == 30.0
 
 
 def _release(root: Path, *, stem: str, functional: str, target: bool) -> None:

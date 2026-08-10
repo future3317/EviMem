@@ -66,6 +66,35 @@ DEFAULT_POLICIES = tuple(policy.value for policy in MATPES_DEFAULTS.policies)
 # Backward-compatible alias used by test_matpes_protocol_task.
 _requires_protocol_transport = requires_protocol_transport
 
+_LONG_SELECTION_TIMEOUT_POLICIES = {
+    ProtocolPolicy.UNGATED_SOURCE_ROLLOUT.value,
+    ProtocolPolicy.SOURCE_ROLLOUT_DELTA_HULL.value,
+    ProtocolPolicy.DELTA_HULL_ANCHORED_ROLLOUT.value,
+    ProtocolPolicy.DIAGONAL_IC_SARR.value,
+    ProtocolPolicy.INDEPENDENT_MC_IC_SARR.value,
+    ProtocolPolicy.CONSTRAINED_DUAL_HORIZON_SOURCE_ROLLOUT.value,
+    ProtocolPolicy.INDEPENDENT_CONFIRMATION_SOURCE_ROLLOUT.value,
+    ProtocolPolicy.CONFORMAL_SOURCE_ROLLOUT_DELTA_HULL.value,
+    ProtocolPolicy.PROTOCOL_HULL_KNOWLEDGE_GRADIENT.value,
+    ProtocolPolicy.PROTOCOL_HULL_RISK_REDUCTION.value,
+    ProtocolPolicy.CAL_STYLE_HULL_ENTROPY.value,
+    ProtocolPolicy.HULL_ENS.value,
+    ProtocolPolicy.SAFE_HULL_ENS.value,
+}
+
+
+def _selection_timeout_seconds_for_policy(
+    policy_name: str,
+    rollout_selection_timeout_seconds: float,
+) -> float:
+    """Use the long timeout for policies whose posterior action is expensive."""
+
+    return (
+        rollout_selection_timeout_seconds
+        if policy_name in _LONG_SELECTION_TIMEOUT_POLICIES
+        else 30.0
+    )
+
 
 @dataclass(frozen=True)
 class ExperimentConfig:
@@ -633,24 +662,9 @@ def run(
                 hull_candidate_workers=config.hull_candidate_workers,
                 conformal_threshold=config.conformal_threshold,
                 hull_backend=config.hull_backend,
-                selection_timeout_seconds=(
-                    config.rollout_selection_timeout_seconds
-                    if policy_name
-                    in {
-                        ProtocolPolicy.UNGATED_SOURCE_ROLLOUT.value,
-                        ProtocolPolicy.SOURCE_ROLLOUT_DELTA_HULL.value,
-                        ProtocolPolicy.DELTA_HULL_ANCHORED_ROLLOUT.value,
-                        ProtocolPolicy.DIAGONAL_IC_SARR.value,
-                        ProtocolPolicy.INDEPENDENT_MC_IC_SARR.value,
-                        ProtocolPolicy.CONSTRAINED_DUAL_HORIZON_SOURCE_ROLLOUT.value,
-                        ProtocolPolicy.INDEPENDENT_CONFIRMATION_SOURCE_ROLLOUT.value,
-                        ProtocolPolicy.CONFORMAL_SOURCE_ROLLOUT_DELTA_HULL.value,
-                        ProtocolPolicy.PROTOCOL_HULL_KNOWLEDGE_GRADIENT.value,
-                        ProtocolPolicy.PROTOCOL_HULL_RISK_REDUCTION.value,
-                        ProtocolPolicy.HULL_ENS.value,
-                        ProtocolPolicy.SAFE_HULL_ENS.value,
-                    }
-                    else 30.0
+                selection_timeout_seconds=_selection_timeout_seconds_for_policy(
+                    policy_name,
+                    config.rollout_selection_timeout_seconds,
                 ),
             )
             log_path = trace_dir / f"{system}__{policy_name}.jsonl"
