@@ -14,6 +14,7 @@ from matmem.posterior import (
     protocol_target_energy_posterior,
 )
 from matmem.protocol_acquisition import (
+    _cal_hull_values,
     _condition_gaussian_on_scalar,
     _gaussian_hull_entropy,
     _simultaneous_paired_lower_bounds,
@@ -147,6 +148,39 @@ def test_cal_entropy_accepts_the_frozen_fixed_composition_backend() -> None:
         fixed_template=fixed_template,
     )
     assert result.evaluation_composition_count == 2
+
+
+def test_cal_fixed_backend_is_invariant_to_query_order() -> None:
+    first = (
+        {"A": 0.25, "B": 0.75},
+        {"A": 0.5, "B": 0.5},
+    )
+    second = tuple(reversed(first))
+    references = ({"A": 1.0}, {"B": 1.0})
+    samples = np.asarray(((-0.25, -0.40), (-0.20, -0.45), (-0.30, -0.35)))
+    first_values = _cal_hull_values(
+        query_compositions=first,
+        sampled_query_energies=samples,
+        reference_compositions=references,
+        reference_energies=np.zeros(2),
+        evaluation_compositions=first,
+        fixed_template=FixedCompositionHullTemplate.from_compositions(
+            query_compositions=first,
+            reference_compositions=references,
+        ),
+    )
+    second_values = _cal_hull_values(
+        query_compositions=second,
+        sampled_query_energies=samples[:, ::-1],
+        reference_compositions=references,
+        reference_energies=np.zeros(2),
+        evaluation_compositions=second,
+        fixed_template=FixedCompositionHullTemplate.from_compositions(
+            query_compositions=second,
+            reference_compositions=references,
+        ),
+    )
+    np.testing.assert_allclose(first_values, second_values[:, ::-1])
 
 
 def test_cal_entropy_zero_variance_candidate_has_zero_information_gain() -> None:

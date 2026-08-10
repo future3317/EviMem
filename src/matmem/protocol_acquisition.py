@@ -334,8 +334,14 @@ def _cal_hull_values(
     groups: dict[tuple[tuple[str, float], ...], list[int]] = {}
     for index, composition in enumerate(query_compositions):
         groups.setdefault(_normalized_composition_key(composition), []).append(index)
+    ordered_keys = tuple(
+        _normalized_composition_key(composition)
+        for composition in evaluation_compositions
+    )
+    if any(key not in groups for key in ordered_keys):
+        raise ValueError("CAL evaluation grid is not covered by query compositions")
     grouped_samples = np.column_stack(
-        [np.min(samples[:, indices], axis=1) for indices in groups.values()]
+        [np.min(samples[:, groups[key]], axis=1) for key in ordered_keys]
     )
     envelope = _CausalHullEnvelope.build(
         query_compositions=evaluation_compositions,
