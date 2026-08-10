@@ -299,6 +299,59 @@ def _condition_gaussian_on_scalar(
     return conditional_mean, conditional_covariance
 
 
+def _cal_hull_values(
+    *,
+    query_compositions: Sequence[dict[str, float]],
+    sampled_query_energies: np.ndarray,
+    reference_compositions: Sequence[dict[str, float]],
+    reference_energies: np.ndarray,
+    evaluation_compositions: Sequence[dict[str, float]],
+    fixed_template: FixedCompositionHullTemplate | None,
+) -> np.ndarray:
+    """Evaluate the CAL hull vector with the registered backend."""
+
+    if fixed_template is None:
+        return _final_hull_values(
+            query_compositions=query_compositions,
+            sampled_query_energies=sampled_query_energies,
+            reference_compositions=reference_compositions,
+            reference_energies=reference_energies,
+            evaluation_compositions=evaluation_compositions,
+        )
+    expected_template = FixedCompositionHullTemplate.from_compositions(
+        query_compositions=query_compositions,
+        reference_compositions=reference_compositions,
+        numerical_tolerance=fixed_template.numerical_tolerance,
+    )
+    if expected_template != fixed_template:
+        raise ValueError("CAL fixed-composition template does not match inputs")
+    samples = np.asarray(sampled_query_energies, dtype=np.float64)
+    if samples.ndim != 2 or samples.shape[1] != len(query_compositions):
+        raise ValueError("CAL fixed-composition samples disagree with query grid")
+    reference_values = np.asarray(reference_energies, dtype=np.float64).reshape(-1)
+    if len(reference_values) != len(reference_compositions):
+        raise ValueError("CAL fixed-composition references disagree")
+    groups: dict[tuple[tuple[str, float], ...], list[int]] = {}
+    for index, composition in enumerate(query_compositions):
+        groups.setdefault(_normalized_composition_key(composition), []).append(index)
+    grouped_samples = np.column_stack(
+        [np.min(samples[:, indices], axis=1) for indices in groups.values()]
+    )
+    envelope = _CausalHullEnvelope.build(
+        query_compositions=evaluation_compositions,
+        reference_compositions=reference_compositions,
+        selected_query_indices=range(len(evaluation_compositions)),
+        tolerance=fixed_template.numerical_tolerance,
+    )
+    active_energies = np.column_stack(
+        [
+            np.broadcast_to(reference_values, (len(samples), len(reference_values))),
+            grouped_samples,
+        ]
+    )
+    return envelope.competing_hull_energies(active_energies)
+
+
 class DualHorizonSourceRolloutResult(BaseModel):
     """Source-rollout action values under terminal and causal horizons.
 
@@ -810,6 +863,7 @@ def protocol_hull_entropy(
     fantasy_count: int = 10,
     relative_ridge: float = 1e-10,
     seed: int = 0,
+    fixed_template: FixedCompositionHullTemplate | None = None,
 ) -> ProtocolHullEntropyResult:
     """Score actions by expected reduction in joint completed-hull entropy.
 
@@ -845,12 +899,13 @@ def protocol_hull_entropy(
         sample_count=actual_sample_count,
         seed=seed,
     )
-    current_hulls = _final_hull_values(
+    current_hulls = _cal_hull_values(
         query_compositions=query_compositions,
         sampled_query_energies=current_samples,
         reference_compositions=reference_compositions,
         reference_energies=reference_energies,
         evaluation_compositions=evaluation_compositions,
+        fixed_template=fixed_template,
     )
     current_entropy = _gaussian_hull_entropy(
         current_hulls,
@@ -882,12 +937,13 @@ def protocol_hull_entropy(
                 sample_count=actual_sample_count,
                 seed=seed + 104729 * (fantasy_index + 1),
             )
-            conditional_hulls = _final_hull_values(
+            conditional_hulls = _cal_hull_values(
                 query_compositions=query_compositions,
                 sampled_query_energies=conditional_samples,
                 reference_compositions=reference_compositions,
                 reference_energies=reference_energies,
                 evaluation_compositions=evaluation_compositions,
+                fixed_template=fixed_template,
             )
             conditional_entropy_sum += _gaussian_hull_entropy(
                 conditional_hulls,

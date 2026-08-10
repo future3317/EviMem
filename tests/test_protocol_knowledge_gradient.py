@@ -126,6 +126,29 @@ def test_cal_entropy_uses_query_grid_and_is_deterministic() -> None:
     assert all(np.isfinite(value) for value in result.scores)
 
 
+def test_cal_entropy_accepts_the_frozen_fixed_composition_backend() -> None:
+    query_compositions = (
+        {"A": 0.5, "B": 0.5},
+        {"A": 0.25, "B": 0.75},
+    )
+    fixed_template = FixedCompositionHullTemplate.from_compositions(
+        query_compositions=query_compositions,
+        reference_compositions=({"A": 1.0}, {"B": 1.0}),
+    )
+    result = protocol_hull_entropy(
+        _cal_test_posterior(),
+        query_compositions=query_compositions,
+        reference_compositions=({"A": 1.0}, {"B": 1.0}),
+        reference_energies=np.zeros(2),
+        costs=np.ones(2),
+        posterior_sample_count=8,
+        fantasy_count=2,
+        seed=19,
+        fixed_template=fixed_template,
+    )
+    assert result.evaluation_composition_count == 2
+
+
 def test_cal_entropy_zero_variance_candidate_has_zero_information_gain() -> None:
     posterior = ProtocolTargetEnergyPosterior(
         mean=(-0.4, -0.25),

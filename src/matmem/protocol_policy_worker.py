@@ -820,6 +820,7 @@ def select(
                 elif policy == "cal_style_hull_entropy":
                     result = protocol_hull_entropy(
                         posterior,
+                        fixed_template=fixed_template,
                         **hull_arguments,
                     )
                     values = result.scores
