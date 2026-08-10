@@ -2170,3 +2170,19 @@ and
 `a272d3a2ce6286443ae6fce35726a688751a37284e3df362c5d1f70e2fcb9952`.
 This is an input-identity recovery only; policies, posterior count, seed,
 estimands, inference, and the 94/230 query/fit rosters remain frozen.
+
+The E53-B recovery completed with 94 query systems, all 230 development systems
+in the transport fit, zero fit/query overlap, the frozen three-policy roster,
+MC1024, six unique decisions per policy and system, valid `B=1..6` prefixes,
+and zero failures. The secondary raw JSON SHA-256 is
+`f1c5d43a3d6fbe0154b548fe70027d07d68b1dd90785ea723f0bb58725d1e10a`.
+The audited combined development/secondary summary is external at
+`matpes_e53_objective_isolation_secondary_recovery_20260810/combined-summary.json`
+with SHA-256
+`054b6b9b7e20ccbf9ecc3e219355fdf239c3446d8752ca094210eb7e409c5090`.
+The secondary Delta-Hull-minus-Local-prob trapezoidal `B=1..6` effect is
+`+6.7819` confirmations per system (95% inverted sign-randomization interval
+`[+5.6522,+7.9070]`, `p<1e-4`, 78/11/5 wins/ties/losses). Every per-budget
+effect is positive with `p<1e-4`. This completes E53 as a matched-adjudicator
+development result with a secondary within-MatPES rerun; it does not establish
+cross-dataset or untouched external validation.
