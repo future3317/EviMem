@@ -334,8 +334,15 @@ def _cal_hull_values(
     groups: dict[tuple[tuple[str, float], ...], list[int]] = {}
     for index, composition in enumerate(query_compositions):
         groups.setdefault(_normalized_composition_key(composition), []).append(index)
+    # The grid was already normalized and rounded by
+    # ``_unique_query_composition_grid``.  Re-normalizing those rounded values
+    # can change ternary/quaternary keys in the last decimal place.
     ordered_keys = tuple(
-        _normalized_composition_key(composition)
+        tuple(
+            (str(element), round(float(amount), 12))
+            for element, amount in sorted(composition.items())
+            if float(amount) > 0
+        )
         for composition in evaluation_compositions
     )
     if any(key not in groups for key in ordered_keys):
