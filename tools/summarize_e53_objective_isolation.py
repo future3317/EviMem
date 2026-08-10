@@ -70,7 +70,7 @@ def _load_panel(paths: list[Path], *, expected_system_count: int) -> dict[str, A
             if int(system_payload.get("budget", -1)) != 6:
                 raise ValueError(f"wrong system budget for {system}")
             strategies = system_payload.get("strategies", {})
-            if tuple(strategies) != POLICIES:
+            if set(strategies) != set(POLICIES):
                 raise ValueError(f"system has the wrong E53 policy roster: {system}")
             rows[str(system)] = {
                 policy: np.asarray(

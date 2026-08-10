@@ -39,7 +39,7 @@ def _unit(path: Path, *, fold: int, system: str, local_positive: bool) -> None:
         "fold": fold,
     }
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload), encoding="utf-8")
+    path.write_text(json.dumps(payload, sort_keys=True), encoding="utf-8")
 
 
 def test_e53_summary_reports_absolute_prefixes_and_matched_contrasts(tmp_path: Path) -> None:
