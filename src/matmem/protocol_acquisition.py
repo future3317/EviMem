@@ -13,6 +13,7 @@ import json
 import math
 from collections.abc import Iterable, Sequence
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass
 
 import numpy as np
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -299,6 +300,60 @@ def _condition_gaussian_on_scalar(
     return conditional_mean, conditional_covariance
 
 
+@dataclass(frozen=True, slots=True)
+class _CalHullRuntimePlan:
+    """Read-only fixed CAL geometry for one entropy-selection state."""
+
+    fixed_template: FixedCompositionHullTemplate
+    grouped_query_indices: tuple[np.ndarray, ...]
+    envelope: _CausalHullEnvelope
+
+    @classmethod
+    def from_inputs(
+        cls,
+        *,
+        query_compositions: Sequence[dict[str, float]],
+        reference_compositions: Sequence[dict[str, float]],
+        evaluation_compositions: Sequence[dict[str, float]],
+        fixed_template: FixedCompositionHullTemplate,
+    ) -> _CalHullRuntimePlan:
+        expected_template = FixedCompositionHullTemplate.from_compositions(
+            query_compositions=query_compositions,
+            reference_compositions=reference_compositions,
+            numerical_tolerance=fixed_template.numerical_tolerance,
+        )
+        if expected_template != fixed_template:
+            raise ValueError("CAL fixed-composition template does not match inputs")
+        groups: dict[tuple[tuple[str, float], ...], list[int]] = {}
+        for index, composition in enumerate(query_compositions):
+            groups.setdefault(_normalized_composition_key(composition), []).append(index)
+        # The grid was already normalized and rounded by
+        # ``_unique_query_composition_grid``. Re-normalizing those rounded
+        # values can change ternary/quaternary keys in the last decimal place.
+        ordered_keys = tuple(
+            tuple(
+                (str(element), round(float(amount), 12))
+                for element, amount in sorted(composition.items())
+                if float(amount) > 0
+            )
+            for composition in evaluation_compositions
+        )
+        if any(key not in groups for key in ordered_keys):
+            raise ValueError("CAL evaluation grid is not covered by query compositions")
+        return cls(
+            fixed_template=fixed_template,
+            grouped_query_indices=tuple(
+                np.asarray(groups[key], dtype=np.int64) for key in ordered_keys
+            ),
+            envelope=_CausalHullEnvelope.build(
+                query_compositions=evaluation_compositions,
+                reference_compositions=reference_compositions,
+                selected_query_indices=range(len(evaluation_compositions)),
+                tolerance=fixed_template.numerical_tolerance,
+            ),
+        )
+
+
 def _cal_hull_values(
     *,
     query_compositions: Sequence[dict[str, float]],
@@ -307,6 +362,7 @@ def _cal_hull_values(
     reference_energies: np.ndarray,
     evaluation_compositions: Sequence[dict[str, float]],
     fixed_template: FixedCompositionHullTemplate | None,
+    runtime_plan: _CalHullRuntimePlan | None = None,
 ) -> np.ndarray:
     """Evaluate the CAL hull vector with the registered backend."""
 
@@ -318,43 +374,26 @@ def _cal_hull_values(
             reference_energies=reference_energies,
             evaluation_compositions=evaluation_compositions,
         )
-    expected_template = FixedCompositionHullTemplate.from_compositions(
-        query_compositions=query_compositions,
-        reference_compositions=reference_compositions,
-        numerical_tolerance=fixed_template.numerical_tolerance,
-    )
-    if expected_template != fixed_template:
-        raise ValueError("CAL fixed-composition template does not match inputs")
     samples = np.asarray(sampled_query_energies, dtype=np.float64)
     if samples.ndim != 2 or samples.shape[1] != len(query_compositions):
         raise ValueError("CAL fixed-composition samples disagree with query grid")
     reference_values = np.asarray(reference_energies, dtype=np.float64).reshape(-1)
     if len(reference_values) != len(reference_compositions):
         raise ValueError("CAL fixed-composition references disagree")
-    groups: dict[tuple[tuple[str, float], ...], list[int]] = {}
-    for index, composition in enumerate(query_compositions):
-        groups.setdefault(_normalized_composition_key(composition), []).append(index)
-    # The grid was already normalized and rounded by
-    # ``_unique_query_composition_grid``.  Re-normalizing those rounded values
-    # can change ternary/quaternary keys in the last decimal place.
-    ordered_keys = tuple(
-        tuple(
-            (str(element), round(float(amount), 12))
-            for element, amount in sorted(composition.items())
-            if float(amount) > 0
+    plan = (
+        _CalHullRuntimePlan.from_inputs(
+            query_compositions=query_compositions,
+            reference_compositions=reference_compositions,
+            evaluation_compositions=evaluation_compositions,
+            fixed_template=fixed_template,
         )
-        for composition in evaluation_compositions
+        if runtime_plan is None
+        else runtime_plan
     )
-    if any(key not in groups for key in ordered_keys):
-        raise ValueError("CAL evaluation grid is not covered by query compositions")
+    if plan.fixed_template != fixed_template:
+        raise ValueError("CAL fixed-composition runtime plan does not match template")
     grouped_samples = np.column_stack(
-        [np.min(samples[:, groups[key]], axis=1) for key in ordered_keys]
-    )
-    envelope = _CausalHullEnvelope.build(
-        query_compositions=evaluation_compositions,
-        reference_compositions=reference_compositions,
-        selected_query_indices=range(len(evaluation_compositions)),
-        tolerance=fixed_template.numerical_tolerance,
+        [np.min(samples[:, indices], axis=1) for indices in plan.grouped_query_indices]
     )
     active_energies = np.column_stack(
         [
@@ -362,7 +401,7 @@ def _cal_hull_values(
             grouped_samples,
         ]
     )
-    return envelope.competing_hull_energies(active_energies)
+    return plan.envelope.competing_hull_energies(active_energies)
 
 
 class DualHorizonSourceRolloutResult(BaseModel):
@@ -908,6 +947,16 @@ def protocol_hull_entropy(
         raise ValueError("hull entropy reference arrays disagree")
 
     evaluation_compositions = _unique_query_composition_grid(query_compositions)
+    runtime_plan = (
+        None
+        if fixed_template is None
+        else _CalHullRuntimePlan.from_inputs(
+            query_compositions=query_compositions,
+            reference_compositions=reference_compositions,
+            evaluation_compositions=evaluation_compositions,
+            fixed_template=fixed_template,
+        )
+    )
     actual_sample_count = int(posterior_sample_count)
     if len(evaluation_compositions) >= 200:
         actual_sample_count = max(actual_sample_count, len(evaluation_compositions) + 32)
@@ -924,6 +973,7 @@ def protocol_hull_entropy(
         reference_energies=reference_energies,
         evaluation_compositions=evaluation_compositions,
         fixed_template=fixed_template,
+        runtime_plan=runtime_plan,
     )
     current_entropy = _gaussian_hull_entropy(
         current_hulls,
@@ -960,6 +1010,7 @@ def protocol_hull_entropy(
                 reference_energies=reference_energies,
                 evaluation_compositions=evaluation_compositions,
                 fixed_template=fixed_template,
+                runtime_plan=runtime_plan,
             )
             conditional_entropy_sum += _gaussian_hull_entropy(
                 conditional_hulls,

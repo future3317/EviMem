@@ -15,6 +15,7 @@ from matmem.posterior import (
 )
 from matmem.protocol_acquisition import (
     _cal_hull_values,
+    _CalHullRuntimePlan,
     _condition_gaussian_on_scalar,
     _gaussian_hull_entropy,
     _simultaneous_paired_lower_bounds,
@@ -148,6 +149,49 @@ def test_cal_entropy_accepts_the_frozen_fixed_composition_backend() -> None:
         fixed_template=fixed_template,
     )
     assert result.evaluation_composition_count == 2
+
+
+def test_cal_runtime_plan_matches_rebuilt_fixed_backend_hull_values() -> None:
+    query_compositions = (
+        {"A": 1.0, "B": 1.0},
+        {"A": 2.0, "B": 2.0},
+        {"A": 3.0, "B": 1.0},
+    )
+    references = ({"A": 1.0}, {"B": 1.0})
+    evaluation_compositions = _unique_query_composition_grid(query_compositions)
+    template = FixedCompositionHullTemplate.from_compositions(
+        query_compositions=query_compositions,
+        reference_compositions=references,
+    )
+    samples = np.asarray(
+        ((-0.35, -0.40, -0.28), (-0.31, -0.38, -0.27), (-0.33, -0.36, -0.30))
+    )
+
+    runtime_plan = _CalHullRuntimePlan.from_inputs(
+        query_compositions=query_compositions,
+        reference_compositions=references,
+        evaluation_compositions=evaluation_compositions,
+        fixed_template=template,
+    )
+    baseline = _cal_hull_values(
+        query_compositions=query_compositions,
+        sampled_query_energies=samples,
+        reference_compositions=references,
+        reference_energies=np.zeros(2),
+        evaluation_compositions=evaluation_compositions,
+        fixed_template=template,
+    )
+    planned = _cal_hull_values(
+        query_compositions=query_compositions,
+        sampled_query_energies=samples,
+        reference_compositions=references,
+        reference_energies=np.zeros(2),
+        evaluation_compositions=evaluation_compositions,
+        fixed_template=template,
+        runtime_plan=runtime_plan,
+    )
+
+    np.testing.assert_allclose(planned, baseline, rtol=0.0, atol=0.0)
 
 
 def test_cal_entropy_candidate_parallelism_preserves_fixed_backend_scores() -> None:
