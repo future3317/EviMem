@@ -821,6 +821,7 @@ def select(
                     result = protocol_hull_entropy(
                         posterior,
                         fixed_template=fixed_template,
+                        candidate_workers=hull_candidate_workers,
                         **hull_arguments,
                     )
                     values = result.scores
@@ -857,6 +858,7 @@ def select(
                                 "evaluation_composition_count": result.evaluation_composition_count,
                                 "posterior_sample_count": result.posterior_sample_count,
                                 "fantasy_count": result.fantasy_count,
+                                "candidate_workers": hull_candidate_workers,
                                 "relative_ridge": result.relative_ridge,
                             }
                         )

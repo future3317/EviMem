@@ -877,6 +877,7 @@ def protocol_hull_entropy(
     relative_ridge: float = 1e-10,
     seed: int = 0,
     fixed_template: FixedCompositionHullTemplate | None = None,
+    candidate_workers: int = 1,
 ) -> ProtocolHullEntropyResult:
     """Score actions by expected reduction in joint completed-hull entropy.
 
@@ -897,6 +898,10 @@ def protocol_hull_entropy(
         raise ValueError("hull entropy requires equal query costs")
     if posterior_sample_count < 4 or fantasy_count < 1:
         raise ValueError("hull entropy Monte Carlo settings are too small")
+    if isinstance(candidate_workers, bool) or not isinstance(candidate_workers, int):
+        raise ValueError("hull entropy candidate_workers must be a positive integer")
+    if candidate_workers < 1:
+        raise ValueError("hull entropy candidate_workers must be a positive integer")
     if not math.isfinite(relative_ridge) or relative_ridge <= 0:
         raise ValueError("hull entropy ridge must be finite and positive")
     if len(reference_compositions) != len(np.asarray(reference_energies).reshape(-1)):
@@ -924,12 +929,10 @@ def protocol_hull_entropy(
         current_hulls,
         relative_ridge=relative_ridge,
     )
-    expected_entropies = np.empty(size, dtype=np.float64)
-    for query_index in range(size):
+    def evaluate_candidate(query_index: int) -> tuple[int, float]:
         variance = float(covariance[query_index, query_index])
         if variance <= 1e-15:
-            expected_entropies[query_index] = current_entropy
-            continue
+            return query_index, current_entropy
         fantasy_energies = _sample_gaussian(
             np.asarray((mean[query_index],), dtype=np.float64),
             np.asarray(((variance,),), dtype=np.float64),
@@ -962,7 +965,20 @@ def protocol_hull_entropy(
                 conditional_hulls,
                 relative_ridge=relative_ridge,
             )
-        expected_entropies[query_index] = conditional_entropy_sum / fantasy_count
+        return query_index, conditional_entropy_sum / fantasy_count
+
+    expected_entropies = np.empty(size, dtype=np.float64)
+    candidate_indices = tuple(range(size))
+    if candidate_workers == 1 or size == 1:
+        evaluated = map(evaluate_candidate, candidate_indices)
+    else:
+        with ThreadPoolExecutor(
+            max_workers=min(candidate_workers, size),
+            thread_name_prefix="cal-hull-entropy-candidate",
+        ) as executor:
+            evaluated = tuple(executor.map(evaluate_candidate, candidate_indices))
+    for query_index, expected_entropy in evaluated:
+        expected_entropies[query_index] = expected_entropy
     reductions = current_entropy - expected_entropies
     return ProtocolHullEntropyResult(
         scores=tuple(float(value) for value in reductions),

@@ -150,6 +150,49 @@ def test_cal_entropy_accepts_the_frozen_fixed_composition_backend() -> None:
     assert result.evaluation_composition_count == 2
 
 
+def test_cal_entropy_candidate_parallelism_preserves_fixed_backend_scores() -> None:
+    """Parallel CAL candidates must retain the serial deterministic objective."""
+
+    query_compositions = (
+        {"A": 0.5, "B": 0.5},
+        {"A": 0.25, "B": 0.75},
+        {"A": 0.75, "B": 0.25},
+    )
+    fixed_template = FixedCompositionHullTemplate.from_compositions(
+        query_compositions=query_compositions,
+        reference_compositions=({"A": 1.0}, {"B": 1.0}),
+    )
+    kwargs = dict(
+        query_compositions=query_compositions,
+        reference_compositions=({"A": 1.0}, {"B": 1.0}),
+        reference_energies=np.zeros(2),
+        costs=np.ones(3),
+        posterior_sample_count=8,
+        fantasy_count=2,
+        seed=19,
+        fixed_template=fixed_template,
+    )
+    posterior = ProtocolTargetEnergyPosterior(
+        mean=(-0.40, -0.25, -0.32),
+        covariance=((0.04, 0.012, 0.008), (0.012, 0.03, 0.006), (0.008, 0.006, 0.02)),
+        system_offset_mean=0.0,
+        system_offset_variance=0.0,
+        history_count=0,
+    )
+
+    serial = protocol_hull_entropy(posterior, candidate_workers=1, **kwargs)
+    parallel = protocol_hull_entropy(posterior, candidate_workers=2, **kwargs)
+
+    np.testing.assert_allclose(parallel.scores, serial.scores, rtol=0.0, atol=0.0)
+    np.testing.assert_allclose(
+        parallel.expected_conditional_entropies,
+        serial.expected_conditional_entropies,
+        rtol=0.0,
+        atol=0.0,
+    )
+    assert int(np.argmax(parallel.scores)) == int(np.argmax(serial.scores))
+
+
 def test_cal_fixed_backend_is_invariant_to_query_order() -> None:
     first = (
         {"A": 0.25, "B": 0.75},
