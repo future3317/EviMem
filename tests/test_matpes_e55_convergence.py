@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from threading import Barrier
 
 import pytest
 
@@ -18,6 +20,8 @@ from tools.run_matpes_e55_convergence import (
     DELTA_WORKERS,
     SEED,
     _run_unit,
+    _runner_manifest,
+    _write_failure,
     _write_top_level_manifest,
     build_units,
 )
@@ -334,7 +338,6 @@ def test_e55_rejects_altered_runner_and_malformed_delta_crossfit_topology(tmp_pa
             runner=altered,
             stages=("delta",),
         )
-
     crossfit = full_pool_root / "matpes-e52-pool-100-crossfit.json"
     payload = json.loads(crossfit.read_text(encoding="utf-8"))
     payload["folds"][1]["query_systems"][0] = payload["folds"][0]["query_systems"][0]
@@ -351,3 +354,96 @@ def test_e55_rejects_altered_runner_and_malformed_delta_crossfit_topology(tmp_pa
             runner=Path(launcher.__file__).with_name("run_matpes_protocol_closed_loop_exploratory.py"),
             stages=("delta",),
         )
+
+
+def test_e55_cal_runner_manifest_reuses_exact_content_and_preserves_conflict(
+    tmp_path: Path,
+) -> None:
+    full_pool_root, cal_manifest, task, _ = _write_inputs(tmp_path)
+    cal = json.loads(cal_manifest.read_text(encoding="utf-8"))
+    path = tmp_path / "outputs" / "cal-runner-manifests" / "fold1.json"
+    barrier = Barrier(2)
+
+    def write_exact() -> Path:
+        barrier.wait()
+        return _runner_manifest(
+            path=path,
+            task_sha256=_sha256(task),
+            source_manifest_sha256=_sha256(cal_manifest),
+            fold=cal["folds"][0],
+        )
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        assert list(executor.map(lambda _: write_exact(), range(2))) == [path, path]
+    original = path.read_bytes()
+    with pytest.raises(ValueError, match="wrong identity"):
+        _runner_manifest(
+            path=path,
+            task_sha256=_sha256(task),
+            source_manifest_sha256="conflicting-manifest",
+            fold=cal["folds"][0],
+        )
+    assert path.read_bytes() == original
+    assert full_pool_root.is_dir()
+
+
+def test_e55_competing_top_level_manifest_writes_create_once_and_exactly_reuse(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    units = _units(tmp_path, stages=("delta",))
+    path = tmp_path / "outputs" / "e55-unit-manifest.json"
+    original_write = launcher._write_json_exclusive
+    created = []
+    barrier = Barrier(2)
+
+    def counted_write(target: Path, payload: dict[str, object]) -> None:
+        try:
+            original_write(target, payload)
+        except FileExistsError:
+            raise
+        else:
+            if target == path:
+                created.append(target)
+
+    monkeypatch.setattr(launcher, "_write_json_exclusive", counted_write)
+
+    def write_manifest() -> None:
+        barrier.wait()
+        _write_top_level_manifest(path, units)
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        list(executor.map(lambda _: write_manifest(), range(2)))
+
+    assert created == [path]
+    original = path.read_bytes()
+    conflicting_units = list(units)
+    conflicting_identity = dict(conflicting_units[0].identity)
+    conflicting_identity["seed"] = 0
+    conflicting_units[0] = launcher.Unit(
+        command=conflicting_units[0].command,
+        output=conflicting_units[0].output,
+        log=conflicting_units[0].log,
+        identity=conflicting_identity,
+    )
+    with pytest.raises(ValueError, match="wrong identity"):
+        _write_top_level_manifest(path, conflicting_units)
+    assert path.read_bytes() == original
+
+
+def test_e55_competing_failure_marker_writes_preserve_the_first_payload(tmp_path: Path) -> None:
+    unit = _units(tmp_path, stages=("delta",))[0]
+    barrier = Barrier(2)
+
+    def write_failure(reason: str) -> None:
+        barrier.wait()
+        _write_failure(unit, 1, reason)
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        list(executor.map(write_failure, ("first contender", "second contender")))
+
+    path = unit.output.with_suffix(".failure.json")
+    original = path.read_bytes()
+    payload = json.loads(original)
+    assert payload["reason"] in {"first contender", "second contender"}
+    _write_failure(unit, 1, "later contender")
+    assert path.read_bytes() == original
