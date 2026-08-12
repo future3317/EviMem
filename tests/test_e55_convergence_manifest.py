@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import itertools
 import json
 from pathlib import Path
 
@@ -86,6 +87,52 @@ def _rewrite_crossfit(path: Path, mutate: object) -> None:
     path.write_text(json.dumps(crossfit), encoding="utf-8")
 
 
+def _write_46_system_fixture(tmp_path: Path) -> tuple[Path, Path, list[str]]:
+    all_elements = tuple("ABCDEFGHIJKL")
+    all_systems = [
+        "-".join(elements)
+        for size in (2, 3)
+        for elements in itertools.combinations(all_elements, size)
+    ][:230]
+    query_by_fold = [all_systems[index : index + 46] for index in range(0, 230, 46)]
+    primary_systems = query_by_fold[0]
+    task_rows = [
+        {"chemical_system": system, "pair_id": f"{system}-{index}"}
+        for system_index, system in enumerate(all_systems)
+        for index in range(12 + system_index)
+    ]
+    eligible = [system for systems in query_by_fold for system in systems]
+    folds = []
+    for fold_index, query_systems in enumerate(query_by_fold):
+        fit_systems = [system for system in eligible if system not in query_systems]
+        folds.append(
+            {
+                "fold_index": fold_index,
+                "query_systems": query_systems,
+                "fit_systems": fit_systems,
+            }
+        )
+    task_path = tmp_path / "task-46.json"
+    task_path.write_text(
+        json.dumps({"release_id": "fixture-46", "development_pairs": task_rows}),
+        encoding="utf-8",
+    )
+    crossfit_path = tmp_path / "crossfit-46.json"
+    crossfit_path.write_text(
+        json.dumps(
+            {
+                "release_id": "fixture-46",
+                "task_sha256": hashlib.sha256(task_path.read_bytes()).hexdigest(),
+                "eligible_systems": eligible,
+                "fold_count": 5,
+                "folds": folds,
+            }
+        ),
+        encoding="utf-8",
+    )
+    return task_path, crossfit_path, primary_systems
+
+
 def test_manifest_selects_one_deterministic_supported_system_per_tercile(
     tmp_path: Path,
 ) -> None:
@@ -134,6 +181,40 @@ def test_manifest_selects_one_deterministic_supported_system_per_tercile(
         first_fold["candidate_count_strata"][name]["candidate_count_range"]
         for name in ("low", "middle", "high")
     ] == [[3, 5], [6, 8], [9, 11]]
+
+
+def test_manifest_uses_exact_nondivisible_46_system_terciles_and_hash_winners(
+    tmp_path: Path,
+) -> None:
+    task_path, crossfit_path, primary_systems = _write_46_system_fixture(tmp_path)
+
+    result = build(task_path, crossfit_path, tmp_path / "manifest.json")
+    primary_fold = result["folds"][0]
+    ordered = sorted(
+        primary_systems,
+        key=lambda system: (12 + primary_systems.index(system), system),
+    )
+    expected_bins = {
+        "low": ordered[:15],
+        "middle": ordered[15:30],
+        "high": ordered[30:46],
+    }
+
+    assert [len(expected_bins[name]) for name in ("low", "middle", "high")] == [
+        15,
+        15,
+        16,
+    ]
+    for bin_name in ("low", "middle", "high"):
+        stratum = primary_fold["candidate_count_strata"][bin_name]
+        assert stratum["ordered_systems"] == expected_bins[bin_name]
+        expected_winner = min(
+            expected_bins[bin_name],
+            key=lambda system: hashlib.sha256(
+                f"fixture-46||e55-cal-convergence-v1||0||{bin_name}||{system}".encode()
+            ).hexdigest(),
+        )
+        assert stratum["selected_system"] == expected_winner
 
 
 def test_manifest_preserves_each_original_fit_roster_and_fit_element_support(

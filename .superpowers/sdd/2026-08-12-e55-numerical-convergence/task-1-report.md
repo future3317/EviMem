@@ -135,3 +135,46 @@ All checks passed!
 - Unrelated dirty files remain untouched and unstaged.
 
 Fix-round commit: `b4edad5` is the preceding Task 1 implementation commit; this fix round is committed separately after the verified changes above.
+
+## Fix Round 2
+
+Added a focused non-divisible tercile regression test using a 46-system fold in a readable five-fold 230-system fixture. The test independently asserts the exact frozen integer boundaries `15/15/16` and recomputes the lowest SHA-256 winner for each bin from `release_id || e55-cal-convergence-v1 || fold_index || bin || system`.
+
+### TDD verification
+
+The deliberately boundary-sensitive RED assertion first expected `16/15/15`; the unchanged production implementation failed on the bin boundary comparison, confirming the test would detect the incorrect partition. Production code was not modified.
+
+Final focused test command:
+
+```text
+conda run --no-capture-output -n llm pytest -q tests/test_e55_convergence_manifest.py
+```
+
+Final test output:
+
+```text
+...........                                                              [100%]
+11 passed in 0.22s
+```
+
+Ruff command:
+
+```text
+conda run --no-capture-output -n llm ruff check tools/build_e55_convergence_manifest.py tests/test_e55_convergence_manifest.py
+```
+
+Ruff output:
+
+```text
+All checks passed!
+```
+
+### Self-review and concerns
+
+- Production code is unchanged in this round.
+- The new fixture has 46 query systems in the primary fold and 46 systems in each of five folds, matching the real 15/15/16 non-divisible case while retaining fit-element support.
+- The test checks exact ordered bins and independently recomputes each expected SHA-256 winner.
+- Unrelated dirty files remain untouched and unstaged.
+- A concurrent Conda invocation briefly hit a temporary lock; sequential pytest and Ruff verification passed afterward.
+
+Fix-round-2 commit: pending final commit.
