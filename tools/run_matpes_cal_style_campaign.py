@@ -123,13 +123,12 @@ def build_units(
     secondary_crossfit = (
         split_manifest_root / "matpes-e52-secondary-confirmation-crossfit.json"
     )
-    required = (development_task, development_vault, development_crossfit, secondary_crossfit)
-    missing = [str(path) for path in required if not path.is_file()]
-    if missing:
-        raise FileNotFoundError("missing frozen E54 input(s): " + ", ".join(missing))
-
     specifications: list[tuple[str, int, Path, Path, bool]]
     if stage == "development":
+        required = (development_task, development_vault, development_crossfit)
+        missing = [str(path) for path in required if not path.is_file()]
+        if missing:
+            raise FileNotFoundError("missing frozen E54 development input(s): " + ", ".join(missing))
         task = development_task
         vault = development_vault
         specifications = [
@@ -145,8 +144,10 @@ def build_units(
     else:
         if secondary_task is None or secondary_vault is None:
             raise ValueError("secondary stage requires an explicit secondary task and vault")
-        if not secondary_task.is_file() or not secondary_vault.is_file():
-            raise FileNotFoundError("explicit E54 secondary task or vault is missing")
+        required = (secondary_task, secondary_vault, secondary_crossfit)
+        missing = [str(path) for path in required if not path.is_file()]
+        if missing:
+            raise FileNotFoundError("missing frozen E54 secondary input(s): " + ", ".join(missing))
         task = secondary_task
         vault = secondary_vault
         specifications = [

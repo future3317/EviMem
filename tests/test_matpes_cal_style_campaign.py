@@ -115,6 +115,36 @@ def test_cal_campaign_builds_five_b6_development_units(tmp_path: Path) -> None:
     assert all("10" in unit.command for unit in units)
 
 
+def test_cal_campaign_builds_secondary_with_only_explicit_secondary_inputs(
+    tmp_path: Path,
+) -> None:
+    secondary_task = tmp_path / "secondary" / "all-eligible-task.json"
+    secondary_vault = tmp_path / "secondary" / "all-eligible-vault.json"
+    split_manifest = tmp_path / "split"
+    _write_input(secondary_task)
+    _write_input(secondary_vault)
+    _write_input(split_manifest / "matpes-e52-secondary-confirmation-crossfit.json")
+
+    units = build_units(
+        full_pool_root=tmp_path / "absent-development-inputs",
+        split_manifest_root=split_manifest,
+        secondary_task=secondary_task,
+        secondary_vault=secondary_vault,
+        output_root=tmp_path / "outputs",
+        runner=Path("runner.py"),
+        stage="secondary",
+        posterior_sample_count=200,
+        fantasy_count=10,
+        hull_candidate_workers=8,
+        selection_timeout_seconds=21600.0,
+    )
+
+    assert len(units) == 1
+    assert units[0].identity["stage"] == "secondary_heldout_matpes_rerun"
+    assert units[0].identity["hull_candidate_workers"] == 8
+    assert str(secondary_task) in units[0].command
+
+
 def test_cal_summary_reports_prefixes_contrasts_and_runtime_metadata(tmp_path: Path) -> None:
     development = tmp_path / "development"
     for fold in range(5):
