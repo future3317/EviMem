@@ -30,17 +30,28 @@ def _set_sha256(values: set[str]) -> str:
     return hashlib.sha256("".join(f"{value}\n" for value in sorted(values)).encode()).hexdigest()
 
 
+def _assert_outside_git(path: Path) -> None:
+    current = path.resolve()
+    while True:
+        if current.name == ".git" or (current / ".git").exists():
+            raise ValueError("E55 convergence manifests must remain outside Git")
+        parent = current.parent
+        if parent == current:
+            return
+        current = parent
+
+
 def _fit_systems(fold: dict[str, Any], eligible: set[str]) -> list[str]:
     query_systems = {str(value) for value in fold["query_systems"]}
-    supplied = fold.get("fit_systems")
-    fit_systems = (
-        {str(value) for value in supplied}
-        if supplied is not None
-        else eligible - query_systems
-    )
-    if fit_systems != eligible - query_systems:
+    if "fit_systems" not in fold:
+        raise ValueError("every fold must explicitly provide fit_systems")
+    supplied = fold["fit_systems"]
+    fit_systems = [str(value) for value in supplied]
+    if len(fit_systems) != len(set(fit_systems)):
+        raise ValueError("fold fit_systems must be unique")
+    if set(fit_systems) != eligible - query_systems:
         raise ValueError("fold fit roster is not the original query complement")
-    return sorted(fit_systems)
+    return fit_systems
 
 
 def _tercile_boundaries(system_count: int) -> tuple[int, int]:
@@ -53,9 +64,7 @@ def build(
     output: Path,
 ) -> dict[str, Any]:
     """Build a write-once, five-fold CAL convergence manifest."""
-    repo_root = Path(__file__).resolve().parents[1]
-    if output.resolve().is_relative_to(repo_root):
-        raise ValueError("E55 convergence manifests must remain outside Git")
+    _assert_outside_git(output)
     if output.exists():
         raise FileExistsError(f"refusing to overwrite {output}")
 
@@ -66,6 +75,10 @@ def build(
         raise ValueError("development cross-fit manifest does not match task")
     if int(crossfit.get("fold_count", 0)) != 5 or len(crossfit.get("folds", [])) != 5:
         raise ValueError("E55 convergence requires five development folds")
+    source_folds = crossfit["folds"]
+    fold_indices = [int(fold["fold_index"]) for fold in source_folds]
+    if len(fold_indices) != 5 or set(fold_indices) != set(range(5)):
+        raise ValueError("E55 convergence requires fold indices {0,1,2,3,4}")
 
     rows_by_system: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for row in task.get("development_pairs", []):
@@ -76,23 +89,35 @@ def build(
 
     eligible_values = crossfit.get("eligible_systems")
     if eligible_values is None:
-        eligible = set(rows_by_system)
-    else:
-        eligible = {str(value) for value in eligible_values}
-    if len(eligible) != len(set(eligible_values or ())):
+        raise ValueError("cross-fit must explicitly provide eligible_systems")
+    eligible_list = [str(value) for value in eligible_values]
+    if len(eligible_list) != len(set(eligible_list)):
         raise ValueError("development systems must be unique")
+    eligible = set(eligible_list)
     if set(rows_by_system) != eligible:
         raise ValueError("task and cross-fit development systems differ")
     release_id = str(crossfit.get("release_id", task.get("release_id", "")))
     if release_id != str(task.get("release_id", release_id)):
         raise ValueError("task and cross-fit release IDs differ")
 
+    query_sets = [
+        {str(value) for value in fold["query_systems"]} for fold in source_folds
+    ]
+    if any(
+        len(set(str(value) for value in fold["query_systems"]))
+        != len(fold["query_systems"])
+        for fold in source_folds
+    ):
+        raise ValueError("fold query systems must be unique")
+    if any(left & right for index, left in enumerate(query_sets) for right in query_sets[index + 1 :]):
+        raise ValueError("original query systems must be pairwise disjoint")
+    if set().union(*query_sets) != eligible:
+        raise ValueError("original query systems must cover eligible_systems exactly")
+
     folds: list[dict[str, Any]] = []
-    for source_fold in sorted(crossfit["folds"], key=lambda value: int(value["fold_index"])):
+    for source_fold in sorted(source_folds, key=lambda value: int(value["fold_index"])):
         fold_index = int(source_fold["fold_index"])
         query_systems = [str(value) for value in source_fold["query_systems"]]
-        if len(query_systems) != len(set(query_systems)):
-            raise ValueError(f"fold {fold_index} query systems must be unique")
         if not set(query_systems) <= eligible:
             raise ValueError(f"fold {fold_index} contains an unknown query system")
         fit_systems = _fit_systems(source_fold, eligible)
@@ -145,6 +170,9 @@ def build(
                 "candidate_count_strata": strata,
             }
         )
+    selected_systems = [system for fold in folds for system in fold["query_systems"]]
+    if len(selected_systems) != 15 or len(set(selected_systems)) != 15:
+        raise ValueError("E55 convergence must select 15 unique systems")
 
     result: dict[str, Any] = {
         "schema_version": 1,
@@ -154,7 +182,7 @@ def build(
         "task_sha256": task_sha256,
         "development_crossfit_sha256": _sha256(development_crossfit_path),
         "eligible_system_count": len(eligible),
-        "eligible_systems": sorted(eligible),
+        "eligible_systems": eligible_list,
         "fold_count": 5,
         "folds": folds,
         "selected_system_set_sha256": _set_sha256(
