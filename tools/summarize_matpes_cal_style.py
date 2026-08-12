@@ -78,6 +78,42 @@ def _cal_rounds(strategy: dict[str, Any], *, system: str) -> list[dict[str, Any]
     return [dict(item) for item in diagnostics]
 
 
+def _is_common_fallback(
+    strategies: dict[str, dict[str, Any]], *, system: str
+) -> bool:
+    """Recognize the deterministic unsupported-element fallback exactly.
+
+    Unsupported transport elements are deliberately routed to the shared
+    source-margin fallback before any posterior/CAL computation.  It is safe
+    to retain those systems in utility summaries only when every policy has
+    made the same six decisions and therefore has identical utility prefixes.
+    """
+    selected: list[tuple[str, ...]] = []
+    utilities: list[tuple[float, ...]] = []
+    for policy in POLICIES:
+        strategy = strategies[policy]
+        rounds = strategy.get("policy_decision_rounds", [])
+        if len(rounds) != 6:
+            return False
+        if policy == CAL_KIND and any(
+            event.get("selection_diagnostics", {}).get("kind") == CAL_KIND
+            for event in rounds
+        ):
+            return False
+        try:
+            selected.append(
+                tuple(str(pair_id) for pair_id in strategy["selected_pair_ids"])
+            )
+            utilities.append(
+                tuple(_prefix_utility(strategy, budget) for budget in range(1, 7))
+            )
+        except (KeyError, TypeError, ValueError):
+            return False
+    return selected[0] == selected[1] == selected[2] and (
+        utilities[0] == utilities[1] == utilities[2]
+    )
+
+
 def _load_panel(
     paths: list[Path],
     *,
@@ -128,6 +164,21 @@ def _load_panel(
             strategies = system_payload.get("strategies", {})
             if set(strategies) != set(POLICIES):
                 raise ValueError(f"system has the wrong E54 policy roster: {system}")
+            transport_element_support = bool(
+                system_payload.get("transport_element_support", True)
+            )
+            if transport_element_support:
+                cal_diagnostics = _cal_rounds(
+                    strategies["cal_style_hull_entropy"], system=str(system)
+                )
+                common_fallback = False
+            else:
+                if not _is_common_fallback(strategies, system=str(system)):
+                    raise ValueError(
+                        f"unsupported system is not a common fallback: {system}"
+                    )
+                cal_diagnostics = []
+                common_fallback = True
             rows[str(system)] = {
                 policy: np.asarray(
                     [_prefix_utility(strategies[policy], budget) for budget in range(1, 7)],
@@ -135,12 +186,9 @@ def _load_panel(
                 )
                 for policy in POLICIES
             }
-            rows[str(system)]["transport_element_support"] = bool(
-                system_payload.get("transport_element_support", True)
-            )
-            rows[str(system)]["cal_diagnostics"] = _cal_rounds(
-                strategies["cal_style_hull_entropy"], system=str(system)
-            )
+            rows[str(system)]["transport_element_support"] = transport_element_support
+            rows[str(system)]["common_fallback"] = common_fallback
+            rows[str(system)]["cal_diagnostics"] = cal_diagnostics
 
         if payload.get("transport_fit_and_query_systems_disjoint") is not True:
             raise ValueError(f"E54 unit does not attest fit/query disjointness: {path}")
@@ -194,19 +242,9 @@ def _runtime_summary(diagnostics: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
-def _summarize_panel(
-    panel: dict[str, Any], *, randomization_draws: int, seed: int
-) -> dict[str, Any]:
-    systems = sorted(panel["rows"])
-    arrays = {
-        policy: np.column_stack([panel["rows"][system][policy] for system in systems])
-        for policy in POLICIES
-    }
-    diagnostics = [
-        diagnostic
-        for system in systems
-        for diagnostic in panel["rows"][system]["cal_diagnostics"]
-    ]
+def _summarize_effects(
+    arrays: dict[str, np.ndarray], *, randomization_draws: int, seed: int
+) -> tuple[dict[str, Any], dict[str, Any]]:
     budgets: dict[str, Any] = {}
     for budget_index, budget in enumerate(range(1, 7)):
         contrasts = {}
@@ -232,12 +270,55 @@ def _summarize_panel(
             seed=seed + 100,
         )
         integrated[name] = inference.model_dump(mode="json")
+    return budgets, integrated
+
+
+def _summarize_panel(
+    panel: dict[str, Any], *, randomization_draws: int, seed: int
+) -> dict[str, Any]:
+    systems = sorted(panel["rows"])
+    arrays = {
+        policy: np.column_stack([panel["rows"][system][policy] for system in systems])
+        for policy in POLICIES
+    }
+    diagnostics = [
+        diagnostic
+        for system in systems
+        for diagnostic in panel["rows"][system]["cal_diagnostics"]
+    ]
+    budgets, integrated = _summarize_effects(
+        arrays, randomization_draws=randomization_draws, seed=seed
+    )
+    supported_systems = [
+        system
+        for system in systems
+        if bool(panel["rows"][system]["transport_element_support"])
+    ]
+    if not supported_systems:
+        raise ValueError("E54 panel has no transport-supported CAL systems")
+    supported_arrays = {
+        policy: np.column_stack(
+            [panel["rows"][system][policy] for system in supported_systems]
+        )
+        for policy in POLICIES
+    }
+    supported_budgets, supported_integrated = _summarize_effects(
+        supported_arrays, randomization_draws=randomization_draws, seed=seed
+    )
+    common_fallback_systems = [
+        system for system in systems if panel["rows"][system]["common_fallback"]
+    ]
     return {
         "system_count": len(systems),
         "transport_element_supported_system_count": sum(
             bool(panel["rows"][system]["transport_element_support"])
             for system in systems
         ),
+        "cal_executed_transport_supported_system_count": len(supported_systems),
+        "common_fallback_system_count": len(common_fallback_systems),
+        "common_fallback_system_set_sha256": hashlib.sha256(
+            "\n".join(common_fallback_systems).encode()
+        ).hexdigest(),
         "system_set_sha256": hashlib.sha256("\n".join(systems).encode()).hexdigest(),
         "task_sha256": panel["task_sha256"],
         "vault_sha256": panel["vault_sha256"],
@@ -245,6 +326,14 @@ def _summarize_panel(
         "input_sha256": panel["input_sha256"],
         "budgets": budgets,
         "integrated_budget_effects": integrated,
+        "transport_supported_sensitivity": {
+            "system_count": len(supported_systems),
+            "system_set_sha256": hashlib.sha256(
+                "\n".join(supported_systems).encode()
+            ).hexdigest(),
+            "budgets": supported_budgets,
+            "integrated_budget_effects": supported_integrated,
+        },
         "cal_diagnostics": _runtime_summary(diagnostics),
     }
 

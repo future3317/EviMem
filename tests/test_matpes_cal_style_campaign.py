@@ -14,7 +14,9 @@ def _write_input(path: Path, payload: object | None = None) -> None:
     path.write_text(json.dumps(payload if payload is not None else {}) + "\n", encoding="utf-8")
 
 
-def _strategy(selected: list[str], positives: set[str]) -> dict[str, object]:
+def _strategy(
+    selected: list[str], positives: set[str], *, cal_diagnostics: bool = True
+) -> dict[str, object]:
     return {
         "selected_pair_ids": selected,
         "oracle_pool_final_labels_by_pair_id": {
@@ -22,15 +24,22 @@ def _strategy(selected: list[str], positives: set[str]) -> dict[str, object]:
         },
         "policy_decision_rounds": [
             {
-                "selection_diagnostics": {
-                    "kind": "cal_style_hull_entropy",
-                    "wall_time_seconds": 0.25 + index,
-                    "state_candidate_count": 4 + index,
-                    "evaluation_composition_count": 3,
-                    "posterior_sample_count": 200,
-                    "fantasy_count": 10,
-                    "relative_ridge": 1e-10,
-                }
+                "selection_diagnostics": (
+                    {
+                        "kind": "cal_style_hull_entropy",
+                        "wall_time_seconds": 0.25 + index,
+                        "state_candidate_count": 4 + index,
+                        "evaluation_composition_count": 3,
+                        "posterior_sample_count": 200,
+                        "fantasy_count": 10,
+                        "relative_ridge": 1e-10,
+                    }
+                    if cal_diagnostics
+                    else {
+                        "wall_time_seconds": 0.25 + index,
+                        "state_candidate_count": 4 + index,
+                    }
+                )
             }
             for index in range(6)
         ],
@@ -63,7 +72,9 @@ def _unit(path: Path, *, fold: int, system: str, transport_element_support: bool
                     "posterior_mean_target_margin": _strategy(ids, set()),
                     "delta_hull_active_search": _strategy(ids, {ids[0], ids[1]}),
                     "cal_style_hull_entropy": _strategy(
-                        ids, {ids[0]} if fold < 3 else set()
+                        ids,
+                        {ids[0]} if fold < 3 else set(),
+                        cal_diagnostics=transport_element_support,
                     ),
                 },
             }
@@ -159,6 +170,16 @@ def test_cal_summary_retains_unsupported_systems_as_a_reported_subset(tmp_path: 
             system=f"S{fold}",
             transport_element_support=fold != 0,
         )
+    path = development / "fold1-b6.json"
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    strategies = payload["systems"]["S0"]["strategies"]
+    shared_ids = strategies["cal_style_hull_entropy"]["selected_pair_ids"]
+    for policy in POLICIES:
+        strategies[policy]["selected_pair_ids"] = shared_ids
+        strategies[policy]["oracle_pool_final_labels_by_pair_id"] = {
+            pair_id: pair_id == shared_ids[0] for pair_id in shared_ids
+        }
+    path.write_text(json.dumps(payload), encoding="utf-8")
 
     result = summarize(
         development_root=development,
@@ -169,4 +190,60 @@ def test_cal_summary_retains_unsupported_systems_as_a_reported_subset(tmp_path: 
         randomization_draws=1_000,
     )
 
-    assert result["panels"]["development"]["transport_element_supported_system_count"] == 4
+    panel = result["panels"]["development"]
+    assert panel["transport_element_supported_system_count"] == 4
+    assert panel["common_fallback_system_count"] == 1
+
+
+def test_cal_summary_accepts_only_common_unsupported_fallbacks(tmp_path: Path) -> None:
+    development = tmp_path / "development"
+    for fold in range(5):
+        _unit(
+            development / f"fold{fold + 1}-b6.json",
+            fold=fold,
+            system=f"S{fold}",
+            transport_element_support=fold != 0,
+        )
+    path = development / "fold1-b6.json"
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    strategies = payload["systems"]["S0"]["strategies"]
+    shared_ids = strategies["cal_style_hull_entropy"]["selected_pair_ids"]
+    shared_labels = {pair_id: pair_id == shared_ids[0] for pair_id in shared_ids}
+    for policy in POLICIES:
+        strategies[policy]["selected_pair_ids"] = shared_ids
+        strategies[policy]["oracle_pool_final_labels_by_pair_id"] = shared_labels
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+    result = summarize(
+        development_root=development,
+        secondary_path=None,
+        output=tmp_path / "summary.json",
+        expected_development_system_count=5,
+        expected_secondary_system_count=None,
+        randomization_draws=1_000,
+    )
+
+    panel = result["panels"]["development"]
+    assert panel["common_fallback_system_count"] == 1
+    assert panel["cal_diagnostics"]["state_count"] == 24
+
+
+def test_cal_summary_rejects_unsupported_noncommon_fallback(tmp_path: Path) -> None:
+    development = tmp_path / "development"
+    for fold in range(5):
+        _unit(
+            development / f"fold{fold + 1}-b6.json",
+            fold=fold,
+            system=f"S{fold}",
+            transport_element_support=fold != 0,
+        )
+
+    with pytest.raises(ValueError, match="common fallback"):
+        summarize(
+            development_root=development,
+            secondary_path=None,
+            output=tmp_path / "summary.json",
+            expected_development_system_count=5,
+            expected_secondary_system_count=None,
+            randomization_draws=1_000,
+        )
