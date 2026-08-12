@@ -494,10 +494,12 @@ def test_e55_atomic_json_publication_exposes_parseable_payload_immediately_after
     with ThreadPoolExecutor(max_workers=1) as executor:
         future = executor.submit(_write_json_exclusive, path, payload)
         after_link.wait()
-        allow_cleanup.wait()
+        try:
+            assert json.loads(path.read_text(encoding="utf-8")) == payload
+        finally:
+            allow_cleanup.wait()
         future.result()
 
-    assert json.loads(path.read_text(encoding="utf-8")) == payload
     assert not list(tmp_path.glob(".published.json.*.tmp"))
 
 
