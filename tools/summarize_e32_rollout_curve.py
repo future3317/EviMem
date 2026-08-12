@@ -252,12 +252,6 @@ def _rows(payloads: list[dict[str, Any]], policy: str) -> tuple[dict[str, dict[s
     return rows, unsupported
 
 
-def _area(curve: np.ndarray) -> np.ndarray:
-    if curve.shape[0] != 6:
-        raise ValueError("expected independent B=1 through B=6 artifacts")
-    return 0.5 * curve[0] + curve[1:5].sum(axis=0) + 0.5 * curve[5]
-
-
 def summarize_e32(input_root: Path, output: Path) -> dict[str, Any]:
     if output.exists():
         raise FileExistsError(f"refusing to overwrite {output}")
@@ -266,7 +260,7 @@ def summarize_e32(input_root: Path, output: Path) -> dict[str, Any]:
     unsupported_counts: dict[int, int] = {}
     fold_rosters: dict[int, tuple[str, ...]] = {}
     fold_fit_rosters: dict[int, set[str]] = {}
-    for budget in range(1, 7):
+    for budget in range(2, 7):
         payloads = []
         budget_rosters: list[set[str]] = []
         for fold in range(5):
@@ -295,23 +289,17 @@ def summarize_e32(input_root: Path, output: Path) -> dict[str, Any]:
             raise ValueError("E32 requires 230 unique systems with paired policy identities")
         by_budget[budget] = {"delta": delta, "rollout": rollout}
         unsupported_counts[budget] = unsupported
-    systems = sorted(by_budget[1]["delta"])
+    systems = sorted(by_budget[2]["delta"])
     if any(set(rows["delta"]) != set(systems) or set(rows["rollout"]) != set(systems) for rows in by_budget.values()):
         raise ValueError("E32 system roster changes across independent budgets")
     budgets: dict[str, Any] = {}
-    delta_t: list[np.ndarray] = []
-    rollout_t: list[np.ndarray] = []
-    for budget in range(1, 7):
+    for budget in range(2, 7):
         delta = by_budget[budget]["delta"]
         rollout = by_budget[budget]["rollout"]
         delta_values = np.asarray([float(delta[system]["oracle_pool_confirmed_discoveries"]) for system in systems])
         rollout_values = np.asarray([float(rollout[system]["oracle_pool_confirmed_discoveries"]) for system in systems])
         delta_runtime = np.asarray([float(delta[system]["wall_seconds"]) for system in systems])
         rollout_runtime = np.asarray([float(rollout[system]["wall_seconds"]) for system in systems])
-        delta_t.append(delta_values)
-        rollout_t.append(rollout_values)
-        if budget == 1:
-            continue
         disagreements = np.asarray(
             [
                 np.any(np.asarray(delta[system]["selected_pair_ids"], dtype=object) != np.asarray(rollout[system]["selected_pair_ids"], dtype=object))
@@ -341,8 +329,6 @@ def summarize_e32(input_root: Path, output: Path) -> dict[str, Any]:
                 "paired_mean_difference_rollout_minus_delta": float((rollout_runtime - delta_runtime).mean()),
             },
         }
-    delta_area = _area(np.stack(delta_t))
-    rollout_area = _area(np.stack(rollout_t))
     result = {
         "schema_version": 1,
         "status": "complete_e32_read_only_rollout_curve",
@@ -360,7 +346,6 @@ def summarize_e32(input_root: Path, output: Path) -> dict[str, Any]:
             "statistical_unit": "exact_chemical_system",
         },
         "budgets": budgets,
-        "integrated_b0_to_b6_terminal_T": _paired(rollout_area - delta_area),
     }
     _write_json_exclusive(output, result)
     return result

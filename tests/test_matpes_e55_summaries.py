@@ -771,13 +771,19 @@ def test_e55_score_and_rank_availability_counts_are_separate(tmp_path: Path) -> 
     assert diagnostics["rank_available"] is True
 
 
-def test_e32_summary_reads_independent_budget_artifacts_and_integrates_before_inference(
+def test_e32_summary_reads_only_independent_b2_to_b6_artifacts(
     tmp_path: Path,
 ) -> None:
     tool = _load_tool("summarize_e32_rollout_curve")
-    result = tool.summarize_e32(_write_e32_root(tmp_path), tmp_path / "e32-summary.json")
+    root = _write_e32_root(tmp_path)
+    for fold in range(1, 6):
+        (root / f"e32-fold{fold}-b1-main.json").unlink()
+    result = tool.summarize_e32(root, tmp_path / "e32-summary.json")
 
     assert sorted(result["budgets"]) == ["2", "3", "4", "5", "6"]
+    assert all("-b1-" not in path for path in result["input_sha256"])
+    assert len(result["input_sha256"]) == 27
+    assert "integrated_b0_to_b6_terminal_T" not in result
     assert result["system_count"] == 230
     assert result["inference"] == {
         "bootstrap_replicates": 20_000,
@@ -790,7 +796,18 @@ def test_e32_summary_reads_independent_budget_artifacts_and_integrates_before_in
     assert budget_two["paired_terminal_T"]["paired_mean_difference"] == pytest.approx(195 / 230)
     assert budget_two["action_disagreement"]["systems_with_any_disagreement"] == 195
     assert budget_two["runtime"]["population"] == "per_system_policy_wall_seconds_from_traces"
-    assert result["integrated_b0_to_b6_terminal_T"]["paired_mean_difference"] == pytest.approx(5 * 195 / 230)
+
+
+def test_e32_summary_rejects_b2_identity_mismatch(tmp_path: Path) -> None:
+    tool = _load_tool("summarize_e32_rollout_curve")
+    root = _write_e32_root(tmp_path)
+    path = root / "e32-fold1-b2-main.json"
+    payload: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
+    payload["config"]["seed"] = 0
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="wrong E32 frozen identity: seed"):
+        tool.summarize_e32(root, tmp_path / "e32-summary.json")
 
 
 @pytest.mark.parametrize("change", ["count", "overlap"])
