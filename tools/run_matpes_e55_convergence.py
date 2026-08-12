@@ -131,30 +131,57 @@ def _read_crossfit(path: Path, task_sha256: str, *, label: str) -> dict[str, Any
     return payload
 
 
-def _validate_delta_crossfit(payload: dict[str, Any]) -> None:
+def _fit_systems(
+    fold: dict[str, Any],
+    eligible: set[str],
+    *,
+    label: str,
+    expected_fit_systems: set[str] | None = None,
+) -> list[str]:
+    query_systems = {str(system) for system in fold["query_systems"]}
+    expected = (
+        eligible - query_systems
+        if expected_fit_systems is None
+        else set(expected_fit_systems)
+    )
+    if "fit_systems" in fold:
+        fit_systems = [str(system) for system in fold["fit_systems"]]
+        if len(fit_systems) != len(expected) or len(set(fit_systems)) != len(expected):
+            raise ValueError(f"{label} require {len(expected)} unique fit systems")
+        if set(fit_systems) != expected:
+            raise ValueError(f"{label} fit systems are not the query complement")
+        return fit_systems
+    if "fit_system_count" not in fold:
+        raise ValueError(f"{label} without fit_systems require fit_system_count")
+    if int(fold["fit_system_count"]) != len(expected):
+        raise ValueError(f"{label} fit_system_count is not the query complement count")
+    return sorted(expected)
+
+
+def _validate_delta_crossfit(payload: dict[str, Any]) -> dict[int, list[str]]:
     eligible = [str(system) for system in payload.get("eligible_systems", ())]
     if len(eligible) != 230 or len(set(eligible)) != 230:
         raise ValueError("E52 Delta cross-fit requires 230 explicit unique eligible systems")
     eligible_set = set(eligible)
     folds = sorted(payload["folds"], key=lambda fold: int(fold["fold_index"]))
     query_sets: list[set[str]] = []
+    fit_by_fold: dict[int, list[str]] = {}
     for fold in folds:
         query_systems = [str(system) for system in fold.get("query_systems", ())]
-        fit_systems = [str(system) for system in fold.get("fit_systems", ())]
         if len(query_systems) != 46 or len(set(query_systems)) != 46:
             raise ValueError("E52 Delta folds require 46 unique query systems")
-        if len(fit_systems) != 184 or len(set(fit_systems)) != 184:
-            raise ValueError("E52 Delta folds require 184 unique fit systems")
         query_set = set(query_systems)
         if not query_set <= eligible_set:
             raise ValueError("E52 Delta fold query systems are outside eligible systems")
-        if set(fit_systems) != eligible_set - query_set:
-            raise ValueError("E52 Delta fit systems are not the query complement")
+        fit_by_fold[int(fold["fold_index"])] = _fit_systems(
+            fold, eligible_set, label="E52 Delta folds"
+        )
         query_sets.append(query_set)
     if any(left & right for index, left in enumerate(query_sets) for right in query_sets[index + 1 :]):
         raise ValueError("E52 Delta query folds must be pairwise disjoint")
     if set().union(*query_sets) != eligible_set:
         raise ValueError("E52 Delta query folds must cover eligible systems exactly")
+    return fit_by_fold
 
 
 def _runner_manifest(
@@ -162,15 +189,18 @@ def _runner_manifest(
     path: Path,
     task_sha256: str,
     source_manifest_sha256: str,
+    fit_systems: list[str],
     fold: dict[str, Any],
 ) -> Path:
     """Write the one-fold runner manifest preserving E55's original fit roster."""
     query_systems = [str(system) for system in fold["query_systems"]]
-    fit_systems = [str(system) for system in fold["fit_systems"]]
-    if len(query_systems) != 3 or len(fit_systems) != 184:
+    if len(query_systems) != 3:
         raise ValueError("E55 CAL folds require three query and 184 fit systems")
-    if len(set(query_systems)) != 3 or len(set(fit_systems)) != 184:
+    if len(set(query_systems)) != 3:
         raise ValueError("E55 CAL fold systems must be unique")
+    fit_systems = [str(system) for system in fit_systems]
+    if len(fit_systems) != 184 or len(set(fit_systems)) != 184:
+        raise ValueError("E55 CAL folds require three query and 184 fit systems")
     if set(query_systems) & set(fit_systems):
         raise ValueError("E55 CAL fit and query rosters overlap")
     payload = {
@@ -289,7 +319,7 @@ def build_units(
     development = _read_crossfit(
         development_crossfit, task_sha256, label="E52 development cross-fit manifest"
     )
-    _validate_delta_crossfit(development)
+    delta_fit_by_fold = _validate_delta_crossfit(development)
     cal = _read_crossfit(cal_manifest, task_sha256, label="E55 CAL manifest")
     development_sha256 = _sha256(development_crossfit)
     cal_sha256 = _sha256(cal_manifest)
@@ -302,7 +332,7 @@ def build_units(
         for fold in development_folds:
             fold_index = int(fold["fold_index"])
             query_systems = [str(system) for system in fold["query_systems"]]
-            fit_systems = [str(system) for system in fold["fit_systems"]]
+            fit_systems = delta_fit_by_fold[fold_index]
             if len(query_systems) != 46 or len(fit_systems) != 184:
                 raise ValueError("E52 Delta folds require 46 query and 184 fit systems")
             for sample_count in DELTA_POSTERIOR_SAMPLE_COUNTS:
@@ -331,16 +361,25 @@ def build_units(
                     )
                 )
     if "cal" in stages:
+        cal_eligible = {str(system) for system in cal["eligible_systems"]}
         for fold in sorted(cal["folds"], key=lambda value: int(value["fold_index"])):
             fold_index = int(fold["fold_index"])
+            if not set(str(system) for system in fold["query_systems"]) <= cal_eligible:
+                raise ValueError("E55 CAL fold query systems are outside eligible systems")
+            fit_systems = _fit_systems(
+                fold,
+                cal_eligible,
+                label="E55 CAL folds",
+                expected_fit_systems=set(delta_fit_by_fold[fold_index]),
+            )
             runner_crossfit = _runner_manifest(
                 path=output_root / "cal-runner-manifests" / f"fold{fold_index + 1}.json",
                 task_sha256=task_sha256,
                 source_manifest_sha256=cal_sha256,
+                fit_systems=fit_systems,
                 fold=fold,
             )
             query_systems = [str(system) for system in fold["query_systems"]]
-            fit_systems = [str(system) for system in fold["fit_systems"]]
             for sample_count in CAL_POSTERIOR_SAMPLE_COUNTS:
                 for fantasy_count in CAL_FANTASY_COUNTS:
                     output = output_root / "cal" / (

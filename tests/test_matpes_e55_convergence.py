@@ -21,6 +21,7 @@ from tools.run_matpes_e55_convergence import (
     SEED,
     _run_unit,
     _runner_manifest,
+    _validate_delta_crossfit,
     _write_failure,
     _write_json_exclusive,
     _write_top_level_manifest,
@@ -80,6 +81,7 @@ def _write_inputs(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
             {
                 "task_sha256": _sha256(task),
                 "development_crossfit_sha256": _sha256(crossfit),
+                "eligible_systems": systems,
                 "fold_count": 5,
                 "folds": cal_folds,
             }
@@ -160,6 +162,98 @@ def test_e55_builds_exact_delta_and_cal_grids_with_frozen_identity(tmp_path: Pat
     assert all(unit.identity["selection_timeout_seconds"] == CAL_SELECTION_TIMEOUT_SECONDS for unit in cal_units)
     assert all("delta-fold" in unit.output.name and "-m" in unit.output.name for unit in delta_units)
     assert all("cal-fold" in unit.output.name and "-m" in unit.output.name and "-k" in unit.output.name for unit in cal_units)
+
+
+def test_e55_accepts_count_only_delta_fit_rosters_and_derives_units(
+    tmp_path: Path,
+) -> None:
+    full_pool_root, cal_manifest, task, _ = _write_inputs(tmp_path)
+    crossfit = full_pool_root / "matpes-e52-pool-100-crossfit.json"
+    payload = json.loads(crossfit.read_text(encoding="utf-8"))
+    eligible = set(payload["eligible_systems"])
+    for fold in payload["folds"]:
+        fold.pop("fit_systems")
+        fold["fit_system_count"] = len(eligible) - len(fold["query_systems"])
+    crossfit.write_text(json.dumps(payload), encoding="utf-8")
+    cal = json.loads(cal_manifest.read_text(encoding="utf-8"))
+    cal["development_crossfit_sha256"] = _sha256(crossfit)
+    cal_manifest.write_text(json.dumps(cal), encoding="utf-8")
+
+    _validate_delta_crossfit(payload)
+    units = build_units(
+        full_pool_root=full_pool_root,
+        cal_manifest=cal_manifest,
+        output_root=tmp_path / "outputs",
+        runner=Path(launcher.__file__).with_name("run_matpes_protocol_closed_loop_exploratory.py"),
+        stages=("delta",),
+    )
+
+    assert all(
+        unit.identity["fit_systems"]
+        == sorted(eligible - set(unit.identity["query_systems"]))
+        for unit in units
+    )
+    source = json.loads(crossfit.read_text(encoding="utf-8"))
+    assert all("fit_systems" not in fold for fold in source["folds"])
+    assert _sha256(task) == source["task_sha256"]
+
+
+def test_e55_runner_manifest_consumes_derived_count_only_fit_roster(
+    tmp_path: Path,
+) -> None:
+    full_pool_root, cal_manifest, task, _ = _write_inputs(tmp_path)
+    crossfit_path = full_pool_root / "matpes-e52-pool-100-crossfit.json"
+    crossfit = json.loads(crossfit_path.read_text(encoding="utf-8"))
+    eligible = set(crossfit["eligible_systems"])
+    for fold in crossfit["folds"]:
+        fold.pop("fit_systems")
+        fold["fit_system_count"] = len(eligible) - len(fold["query_systems"])
+    crossfit_path.write_text(json.dumps(crossfit), encoding="utf-8")
+    cal = json.loads(cal_manifest.read_text(encoding="utf-8"))
+    for fold in cal["folds"]:
+        fold.pop("fit_systems")
+        fold["fit_system_count"] = 184
+    cal["development_crossfit_sha256"] = _sha256(crossfit_path)
+    cal_manifest.write_text(json.dumps(cal), encoding="utf-8")
+
+    units = build_units(
+        full_pool_root=full_pool_root,
+        cal_manifest=cal_manifest,
+        output_root=tmp_path / "outputs",
+        runner=Path(launcher.__file__).with_name("run_matpes_protocol_closed_loop_exploratory.py"),
+        stages=("cal",),
+    )
+
+    assert all(unit.identity["fit_system_count"] == 184 for unit in units)
+    assert all(
+        set(unit.identity["fit_systems"])
+        == set(eligible)
+        - set(crossfit["folds"][unit.identity["fold_index"]]["query_systems"])
+        for unit in units
+    )
+    assert all("fit_systems" not in fold for fold in cal["folds"])
+    assert _sha256(task) == crossfit["task_sha256"]
+
+
+@pytest.mark.parametrize("fit_count", [None, 183])
+def test_e55_rejects_missing_or_wrong_count_only_fit_roster(
+    tmp_path: Path, fit_count: int | None
+) -> None:
+    _, _, _, _ = _write_inputs(tmp_path)
+    payload = json.loads(
+        (tmp_path / "e52" / "matpes-e52-pool-100-crossfit.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    for fold in payload["folds"]:
+        fold.pop("fit_systems")
+        if fit_count is None:
+            fold.pop("fit_system_count", None)
+        else:
+            fold["fit_system_count"] = fit_count
+
+    with pytest.raises(ValueError, match="fit_system_count"):
+        _validate_delta_crossfit(payload)
 
 
 def test_e55_stage_filtering_deduplicates_and_rejects_unknown_stages(tmp_path: Path) -> None:
@@ -371,6 +465,7 @@ def test_e55_cal_runner_manifest_reuses_exact_content_and_preserves_conflict(
             path=path,
             task_sha256=_sha256(task),
             source_manifest_sha256=_sha256(cal_manifest),
+            fit_systems=[str(system) for system in cal["folds"][0]["fit_systems"]],
             fold=cal["folds"][0],
         )
 
@@ -382,6 +477,7 @@ def test_e55_cal_runner_manifest_reuses_exact_content_and_preserves_conflict(
             path=path,
             task_sha256=_sha256(task),
             source_manifest_sha256="conflicting-manifest",
+            fit_systems=[str(system) for system in cal["folds"][0]["fit_systems"]],
             fold=cal["folds"][0],
         )
     assert path.read_bytes() == original
