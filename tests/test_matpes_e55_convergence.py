@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+from tools import run_matpes_e55_convergence as launcher
 from tools.run_matpes_e55_convergence import (
     CAL_FANTASY_COUNTS,
     CAL_POSTERIOR_SAMPLE_COUNTS,
@@ -90,7 +91,7 @@ def _units(tmp_path: Path, *, stages: tuple[str, ...] = ("delta", "cal")):
         full_pool_root=full_pool_root,
         cal_manifest=cal_manifest,
         output_root=tmp_path / "outputs",
-        runner=Path("runner.py"),
+        runner=Path(launcher.__file__).with_name("run_matpes_protocol_closed_loop_exploratory.py"),
         stages=stages,
     )
 
@@ -102,7 +103,7 @@ def test_e55_builds_exact_delta_and_cal_grids_with_frozen_identity(tmp_path: Pat
         full_pool_root=full_pool_root,
         cal_manifest=cal_manifest,
         output_root=tmp_path / "outputs",
-        runner=Path("runner.py"),
+        runner=Path(launcher.__file__).with_name("run_matpes_protocol_closed_loop_exploratory.py"),
         stages=("delta", "cal"),
     )
 
@@ -137,6 +138,11 @@ def test_e55_builds_exact_delta_and_cal_grids_with_frozen_identity(tmp_path: Pat
     assert all(unit.identity["transport_family"] == "hierarchical_matern52_frozen_structure" for unit in units)
     assert all(unit.identity["task_sha256"] == _sha256(task) for unit in units)
     assert all(unit.identity["vault_sha256"] == _sha256(vault) for unit in units)
+    canonical_runner = Path(launcher.__file__).with_name(
+        "run_matpes_protocol_closed_loop_exploratory.py"
+    )
+    assert all(unit.identity["runner_path"] == str(canonical_runner.resolve()) for unit in units)
+    assert all(unit.identity["runner_sha256"] == _sha256(canonical_runner) for unit in units)
     assert all(unit.identity["query_system_count"] == 46 for unit in delta_units)
     assert all(unit.identity["fit_system_count"] == 184 for unit in delta_units)
     assert all(unit.identity["query_system_count"] == 3 for unit in cal_units)
@@ -168,13 +174,41 @@ def test_e55_rejects_output_under_a_git_worktree(tmp_path: Path) -> None:
             full_pool_root=full_pool_root,
             cal_manifest=cal_manifest,
             output_root=git_root / "outputs",
-            runner=Path("runner.py"),
+            runner=Path(launcher.__file__).with_name("run_matpes_protocol_closed_loop_exploratory.py"),
             stages=("delta",),
         )
 
 
 def _valid_output(unit) -> dict[str, object]:
+    systems = {}
+    for system in unit.identity["query_systems"]:
+        selected = [f"{system}-pair-{round_index}" for round_index in range(1, 7)]
+        systems[system] = {
+            "budget": 6,
+            "transport_element_support": True,
+            "strategies": {
+                unit.identity["policy"]: {
+                    "selected_pair_ids": selected,
+                    "policy_decision_rounds": [
+                        {"round_index": round_index} for round_index in range(1, 7)
+                    ],
+                    "trace_checksum": f"trace-{system}",
+                    "event_log_sha256": f"event-{system}",
+                    "wall_seconds": 1.0,
+                    "final_causal_confirmed_discoveries": 2,
+                    "oracle_pool_confirmed_discoveries": 2,
+                    "oracle_pool_discovery_ceiling": 3,
+                    "oracle_pool_discovery_gap_to_ceiling": 1,
+                    "invalidated_causal_discoveries_by_oracle_pool_hull": 0,
+                    "oracle_pool_final_labels_by_pair_id": {
+                        pair_id: True for pair_id in selected
+                    },
+                }
+            },
+        }
     return {
+        "status": "exploratory_development_systems_only_not_confirmatory",
+        "script_sha256": unit.identity["runner_sha256"],
         "task_sha256": unit.identity["task_sha256"],
         "oracle_vault_sha256": unit.identity["vault_sha256"],
         "active_policies": [unit.identity["policy"]],
@@ -196,6 +230,7 @@ def _valid_output(unit) -> dict[str, object]:
             "crossfit_manifest_sha256": unit.identity["runner_crossfit_manifest_sha256"],
             "crossfit_fold_index": 0,
         },
+        "systems": systems,
     }
 
 
@@ -211,17 +246,108 @@ def test_e55_resume_requires_complete_existing_output_identity(tmp_path: Path) -
     unit.output.write_text(json.dumps(invalid), encoding="utf-8")
     with pytest.raises(ValueError, match="posterior_sample_count"):
         _run_unit(unit)
+    failure = unit.output.with_suffix(".failure.json")
+    assert failure.is_file()
+    assert "posterior_sample_count" in json.loads(failure.read_text(encoding="utf-8"))["reason"]
 
 
-def test_e55_refuses_terminal_failures_and_overwriting_top_level_manifest(tmp_path: Path) -> None:
+def test_e55_resume_rejects_output_with_altered_runner_hash(tmp_path: Path) -> None:
+    unit = _units(tmp_path, stages=("delta",))[0]
+    unit.output.parent.mkdir(parents=True)
+    payload = _valid_output(unit)
+    payload["script_sha256"] = "not-the-canonical-runner"
+    unit.output.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="script_sha256"):
+        _run_unit(unit)
+
+    assert unit.output.with_suffix(".failure.json").is_file()
+
+
+def test_e55_refuses_terminal_failures_and_reuses_only_exact_top_level_manifest(
+    tmp_path: Path,
+) -> None:
     units = _units(tmp_path, stages=("delta",))
     unit = units[0]
     unit.output.parent.mkdir(parents=True)
-    unit.output.with_suffix(".failure.json").write_text("{}\n", encoding="utf-8")
+    unit.output.with_suffix(".failure.json").write_text(
+        json.dumps({"status": "failed_incomplete", "identity": unit.identity}),
+        encoding="utf-8",
+    )
     with pytest.raises(RuntimeError, match="already failed"):
         _run_unit(unit)
 
     manifest = tmp_path / "outputs" / "e55-unit-manifest.json"
     _write_top_level_manifest(manifest, units)
-    with pytest.raises(FileExistsError, match="overwrite"):
+    _write_top_level_manifest(manifest, units)
+    payload = json.loads(manifest.read_text(encoding="utf-8"))
+    payload["units"][0]["identity"]["seed"] = 0
+    manifest.write_text(json.dumps(payload), encoding="utf-8")
+    with pytest.raises(ValueError, match="wrong identity"):
         _write_top_level_manifest(manifest, units)
+
+
+def test_e55_main_resumes_only_the_exact_existing_top_level_manifest(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    full_pool_root, cal_manifest, _, _ = _write_inputs(tmp_path)
+    output_root = tmp_path / "outputs"
+    units = build_units(
+        full_pool_root=full_pool_root,
+        cal_manifest=cal_manifest,
+        output_root=output_root,
+        runner=Path(launcher.__file__).with_name("run_matpes_protocol_closed_loop_exploratory.py"),
+        stages=("delta",),
+    )
+    _write_top_level_manifest(output_root / "e55-unit-manifest.json", units)
+    seen = []
+    monkeypatch.setattr(launcher, "_run_unit", lambda unit: seen.append(unit) or "skipped")
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "run_matpes_e55_convergence.py",
+            "--full-pool-root",
+            str(full_pool_root),
+            "--cal-manifest",
+            str(cal_manifest),
+            "--output-root",
+            str(output_root),
+            "--stages",
+            "delta",
+        ],
+    )
+
+    launcher.main()
+
+    assert len(seen) == 25
+
+
+def test_e55_rejects_altered_runner_and_malformed_delta_crossfit_topology(tmp_path: Path) -> None:
+    full_pool_root, cal_manifest, _, _ = _write_inputs(tmp_path)
+    altered = tmp_path / "altered-runner.py"
+    altered.write_text("print('not canonical')\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="canonical runner"):
+        build_units(
+            full_pool_root=full_pool_root,
+            cal_manifest=cal_manifest,
+            output_root=tmp_path / "outputs-a",
+            runner=altered,
+            stages=("delta",),
+        )
+
+    crossfit = full_pool_root / "matpes-e52-pool-100-crossfit.json"
+    payload = json.loads(crossfit.read_text(encoding="utf-8"))
+    payload["folds"][1]["query_systems"][0] = payload["folds"][0]["query_systems"][0]
+    eligible = set(payload["eligible_systems"])
+    payload["folds"][1]["fit_systems"] = sorted(
+        eligible - set(payload["folds"][1]["query_systems"])
+    )
+    crossfit.write_text(json.dumps(payload), encoding="utf-8")
+    with pytest.raises(ValueError, match="pairwise disjoint"):
+        build_units(
+            full_pool_root=full_pool_root,
+            cal_manifest=cal_manifest,
+            output_root=tmp_path / "outputs-b",
+            runner=Path(launcher.__file__).with_name("run_matpes_protocol_closed_loop_exploratory.py"),
+            stages=("delta",),
+        )
