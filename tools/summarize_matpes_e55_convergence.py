@@ -5,6 +5,8 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -33,6 +35,23 @@ FROZEN_IDENTITY_FIELDS = (
 )
 
 
+def _write_json_exclusive(path: Path, payload: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    descriptor, name = tempfile.mkstemp(
+        prefix=f".{path.name}.", suffix=".tmp", dir=path.parent, text=True
+    )
+    temporary = Path(name)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+            json.dump(payload, handle, indent=2, sort_keys=True)
+            handle.write("\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.link(temporary, path)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
 def _sha256(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:
@@ -51,6 +70,204 @@ def _quantiles(values: list[float]) -> dict[str, Any]:
         "median": float(np.median(array)),
         "iqr": [float(np.quantile(array, 0.25)), float(np.quantile(array, 0.75))],
     }
+
+
+def _option(command: list[str], name: str) -> str:
+    if command.count(name) != 1:
+        raise ValueError(f"E55 command must contain exactly one {name}")
+    index = command.index(name)
+    if index + 1 == len(command):
+        raise ValueError(f"E55 command lacks value for {name}")
+    return str(command[index + 1])
+
+
+def _json_source(path: Path, label: str) -> dict[str, Any]:
+    if not path.is_file():
+        raise ValueError(f"missing E55 {label} path: {path}")
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as error:
+        raise ValueError(f"invalid E55 {label}: {path}") from error
+    if not isinstance(payload, dict):
+        raise ValueError(f"invalid E55 {label}: {path}")
+    return payload
+
+
+def _source_folds(
+    payload: dict[str, Any],
+    *,
+    count: int,
+    label: str,
+    eligible: set[str] | None = None,
+    expected_fit_by_fold: dict[int, set[str]] | None = None,
+) -> dict[int, tuple[set[str], set[str]]]:
+    folds = payload.get("folds")
+    if payload.get("fold_count") != 5 or not isinstance(folds, list) or len(folds) != 5:
+        raise ValueError(f"E55 {label} must contain five folds")
+    result = {}
+    query_sets = []
+    for fold in folds:
+        index = int(fold.get("fold_index", -1))
+        query = {str(system) for system in fold.get("query_systems", ())}
+        if "fit_systems" in fold:
+            fit = {str(system) for system in fold["fit_systems"]}
+        elif expected_fit_by_fold is not None and fold.get("fit_system_count") == len(
+            expected_fit_by_fold.get(index, set())
+        ):
+            fit = expected_fit_by_fold[index]
+        elif eligible is not None and fold.get("fit_system_count") == len(eligible) - len(query):
+            fit = eligible - query
+        else:
+            fit = set()
+        if index in result or len(query) != count or len(fit) != 184:
+            raise ValueError(f"E55 {label} has wrong query systems or fit roster")
+        result[index] = (query, fit)
+        query_sets.append(query)
+    if set(result) != set(range(5)) or any(
+        left & right
+        for position, left in enumerate(query_sets)
+        for right in query_sets[position + 1 :]
+    ):
+        raise ValueError(f"E55 {label} query systems overlap across folds")
+    return result
+
+
+def _audit_sources(
+    input_root: Path, units: list[dict[str, Any]]
+) -> tuple[dict[str, str], dict[str, dict[int, tuple[set[str], set[str]]]]]:
+    task_paths: set[Path] = set()
+    vault_paths: set[Path] = set()
+    runner_paths: set[Path] = set()
+    delta_crossfit_paths: set[Path] = set()
+    identities: list[dict[str, Any]] = []
+    for unit in units:
+        identity = unit.get("identity")
+        command = unit.get("command")
+        if not isinstance(identity, dict) or not isinstance(command, list) or len(command) < 2:
+            raise ValueError("E55 unit lacks command identity")
+        stage = identity.get("stage")
+        task_path = Path(_option(command, "--task")).resolve()
+        vault_path = Path(_option(command, "--development-vault")).resolve()
+        runner_path = Path(str(command[1])).resolve()
+        crossfit_path = Path(_option(command, "--crossfit-manifest")).resolve()
+        task_paths.add(task_path)
+        vault_paths.add(vault_path)
+        runner_paths.add(runner_path)
+        if stage == "delta":
+            delta_crossfit_paths.add(crossfit_path)
+        expected_options = {
+            "--output": identity.get("output", unit.get("output")),
+            "--query-budget": identity.get("budget"),
+            "--maximum-budget": identity.get("maximum_budget"),
+            "--minimum-candidates": identity.get("minimum_candidates"),
+            "--seed": identity.get("seed"),
+            "--posterior-sample-count": identity.get("posterior_sample_count"),
+            "--fantasy-count": identity.get("fantasy_count"),
+            "--hull-candidate-workers": identity.get("hull_candidate_workers"),
+            "--hull-backend": identity.get("hull_backend"),
+            "--transport-family": identity.get("transport_family"),
+            "--rollout-selection-timeout-seconds": identity.get(
+                "selection_timeout_seconds"
+            ),
+            "--fold-index": identity.get("runner_fold_index", identity.get("fold_index")),
+            "--policies": identity.get("policy"),
+        }
+        for option, expected in expected_options.items():
+            if _option(command, option) != str(expected):
+                raise ValueError(f"E55 command has wrong {option}")
+        if runner_path != Path(str(identity.get("runner_path"))).resolve():
+            raise ValueError("E55 command has wrong runner path")
+        if _sha256(task_path) != identity.get("task_sha256"):
+            raise ValueError("E55 task path/hash mismatch")
+        if _sha256(vault_path) != identity.get("vault_sha256"):
+            raise ValueError("E55 vault path/hash mismatch")
+        if _sha256(runner_path) != identity.get("runner_sha256"):
+            raise ValueError("E55 runner path/hash mismatch")
+        if _sha256(crossfit_path) != identity.get("runner_crossfit_manifest_sha256"):
+            raise ValueError("E55 command cross-fit path/hash mismatch")
+        identities.append(identity)
+    if any(len(paths) != 1 for paths in (task_paths, vault_paths, runner_paths, delta_crossfit_paths)):
+        raise ValueError("E55 source paths change across units")
+    task_path = next(iter(task_paths))
+    crossfit_path = next(iter(delta_crossfit_paths))
+    crossfit = _json_source(crossfit_path, "E52 cross-fit")
+    task_sha256 = _sha256(task_path)
+    if crossfit.get("task_sha256") != task_sha256:
+        raise ValueError("E55 E52 cross-fit does not match task")
+    eligible = {str(system) for system in crossfit.get("eligible_systems", ())}
+    delta_folds = _source_folds(
+        crossfit, count=46, label="E52 cross-fit", eligible=eligible
+    )
+    if len(eligible) != 230 or set().union(*(query for query, _ in delta_folds.values())) != eligible:
+        raise ValueError("E55 E52 cross-fit does not cover 230 unique query systems")
+    if any(fit != eligible - query for query, fit in delta_folds.values()):
+        raise ValueError("E55 E52 cross-fit has wrong fit complement")
+    cal_path = input_root / "e55-cal-manifest.json"
+    cal = _json_source(cal_path, "CAL manifest")
+    if cal.get("task_sha256") != task_sha256 or cal.get(
+        "development_crossfit_sha256"
+    ) != _sha256(crossfit_path):
+        raise ValueError("E55 CAL manifest source hashes mismatch")
+    cal_folds = _source_folds(
+        cal,
+        count=3,
+        label="CAL manifest",
+        expected_fit_by_fold={fold: fit for fold, (_, fit) in delta_folds.items()},
+    )
+    cal_sha256 = _sha256(cal_path)
+    for identity in identities:
+        stage = str(identity["stage"])
+        fold = int(identity["fold_index"])
+        query, fit = (delta_folds if stage == "delta" else cal_folds)[fold]
+        if set(identity.get("query_systems", ())) != query or int(
+            identity.get("query_system_count", -1)
+        ) != len(query):
+            raise ValueError(f"E55 {stage} unit has wrong query systems")
+        if set(identity.get("fit_systems", ())) != fit or int(
+            identity.get("fit_system_count", -1)
+        ) != len(fit):
+            raise ValueError(f"E55 {stage} unit has wrong fit systems")
+        if stage == "delta" and identity.get("crossfit_manifest_sha256") != _sha256(
+            crossfit_path
+        ):
+            raise ValueError("E55 Delta source cross-fit hash mismatch")
+        if stage == "cal" and identity.get("e55_manifest_sha256") != cal_sha256:
+            raise ValueError("E55 CAL manifest hash mismatch")
+        if stage == "cal":
+            runner_path = Path(
+                _option(
+                    next(unit["command"] for unit in units if unit["identity"] is identity),
+                    "--crossfit-manifest",
+                )
+            ).resolve()
+            runner = _json_source(runner_path, "CAL runner manifest")
+            runner_folds = runner.get("folds")
+            if (
+                runner.get("task_sha256") != task_sha256
+                or runner.get("source_e55_manifest_sha256") != cal_sha256
+                or runner.get("fold_count") != 1
+                or not isinstance(runner_folds, list)
+                or len(runner_folds) != 1
+                or int(runner_folds[0].get("fold_index", -1)) != 0
+                or set(runner_folds[0].get("query_systems", ())) != query
+                or set(runner.get("eligible_systems", ())) != query | fit
+            ):
+                raise ValueError("E55 CAL runner manifest content mismatch")
+    return (
+        {
+            "task_path": str(task_path),
+            "task_sha256": task_sha256,
+            "vault_path": str(next(iter(vault_paths))),
+            "vault_sha256": _sha256(next(iter(vault_paths))),
+            "runner_path": str(next(iter(runner_paths))),
+            "runner_sha256": _sha256(next(iter(runner_paths))),
+            "development_crossfit_path": str(crossfit_path),
+            "development_crossfit_sha256": _sha256(crossfit_path),
+            "cal_manifest_path": str(cal_path.resolve()),
+            "cal_manifest_sha256": cal_sha256,
+        },
+        {"delta": delta_folds, "cal": cal_folds},
+    )
 
 
 def _paired(values: list[float]) -> dict[str, Any]:
@@ -166,11 +383,17 @@ def _validate_unit(identity: dict[str, Any], payload: dict[str, Any]) -> dict[st
         if not isinstance(strategies, dict) or set(strategies) != {expected_policy}:
             raise ValueError("wrong E55 policy roster")
         row = strategies[expected_policy]
-        if not isinstance(row.get("selected_pair_ids"), list) or len(row["selected_pair_ids"]) != 6:
+        selected = row.get("selected_pair_ids")
+        if not isinstance(selected, list) or len(selected) != 6 or len(set(selected)) != 6:
             raise ValueError("wrong E55 selected actions")
         rounds = row.get("policy_decision_rounds")
         if not isinstance(rounds, list) or [event.get("round_index") for event in rounds] != list(range(1, 7)):
             raise ValueError("wrong E55 decision rounds")
+        event_actions = [event.get("selected_pair_id") for event in rounds]
+        if event_actions != selected:
+            raise ValueError("E55 event actions do not reconcile with selected_pair_ids")
+        if any(not event.get("pre_reveal_state_checksum") for event in rounds):
+            raise ValueError("E55 decision round lacks pre-reveal state checksum")
         if "oracle_pool_confirmed_discoveries" not in row or "wall_seconds" not in row:
             raise ValueError("missing E55 terminal trace metrics")
         rows[str(system)] = row
@@ -184,11 +407,14 @@ def _matched_diagnostics(
     first_actions: list[float] = []
     errors: list[float] = []
     rank_correlations: list[float] = []
+    score_states = 0
     for system in sorted(current):
         current_events = current[system].get("policy_decision_rounds", [])
         reference_events = reference[system].get("policy_decision_rounds", [])
-        for index, (event, ref_event) in enumerate(zip(current_events, reference_events, strict=False)):
-            if index and current_events[index - 1].get("selected_pair_id") != reference_events[index - 1].get("selected_pair_id"):
+        for index, (event, ref_event) in enumerate(zip(current_events, reference_events, strict=True)):
+            if event.get("pre_reveal_state_checksum") != ref_event.get(
+                "pre_reveal_state_checksum"
+            ):
                 break
             action_agreement = event.get("selected_pair_id") == ref_event.get("selected_pair_id")
             agreements.append(float(action_agreement))
@@ -198,6 +424,7 @@ def _matched_diagnostics(
             ref_vector = _score_vector(ref_event)
             if vector is None or ref_vector is None or vector[0] != ref_vector[0]:
                 continue
+            score_states += 1
             centered = vector[1] - vector[1].mean() - (ref_vector[1] - ref_vector[1].mean())
             errors.extend(np.abs(centered).tolist())
             ranks = _rank(vector[1])
@@ -211,8 +438,10 @@ def _matched_diagnostics(
         "first_action_agreement_rate": None if not first_actions else float(np.mean(first_actions)),
     }
     diagnostics = {
-        "available": bool(errors or rank_correlations),
-        "common_candidate_score_state_count": len(rank_correlations),
+        "score_available": bool(errors),
+        "rank_available": bool(rank_correlations),
+        "score_bearing_state_count": score_states,
+        "rank_comparable_state_count": len(rank_correlations),
         "mean_centered_absolute_score_error": None if not errors else float(np.mean(errors)),
         "mean_spearman_rank_correlation": None if not rank_correlations else float(np.mean(rank_correlations)),
     }
@@ -229,6 +458,7 @@ def summarize_e55(input_root: Path, output: Path) -> dict[str, Any]:
     units = manifest.get("units")
     if not isinstance(units, list) or manifest.get("unit_count") != len(units):
         raise ValueError("wrong E55 manifest unit count")
+    source_audit, _ = _audit_sources(input_root, units)
     expected_grids = {"delta": DELTA_GRID, "cal": CAL_GRID}
     loaded: dict[str, dict[tuple[int, int, int], dict[str, dict[str, Any]]]] = {"delta": {}, "cal": {}}
     frozen_identity: dict[str, Any] | None = None
@@ -238,6 +468,19 @@ def summarize_e55(input_root: Path, output: Path) -> dict[str, Any]:
         if not isinstance(identity, dict):
             raise ValueError("E55 unit lacks identity")
         stage = identity.get("stage")
+        expected_frozen = {
+            "budget": 6,
+            "maximum_budget": 6,
+            "minimum_candidates": 12,
+            "seed": 20260810,
+            "hull_backend": "fixed_composition",
+            "transport_family": "hierarchical_matern52_frozen_structure",
+            "hull_candidate_workers": 1 if stage == "delta" else 8,
+            "selection_timeout_seconds": 7200.0 if stage == "delta" else 21600.0,
+            "policy": POLICIES.get(str(stage)),
+        }
+        if any(identity.get(key) != value for key, value in expected_frozen.items()):
+            raise ValueError("wrong frozen E55 config")
         current_frozen_identity = {key: identity.get(key) for key in FROZEN_IDENTITY_FIELDS}
         if frozen_identity is None:
             frozen_identity = current_frozen_identity
@@ -306,10 +549,10 @@ def summarize_e55(input_root: Path, output: Path) -> dict[str, Any]:
         "input_sha256": input_hashes,
         "unit_counts": {stage: len(rows) for stage, rows in loaded.items()},
         "frozen_identity": frozen_identity,
+        "source_audit": source_audit,
         "stages": stages,
     }
-    output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    _write_json_exclusive(output, result)
     return result
 
 
