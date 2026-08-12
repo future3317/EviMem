@@ -22,6 +22,7 @@ from tools.run_matpes_e55_convergence import (
     _run_unit,
     _runner_manifest,
     _write_failure,
+    _write_json_exclusive,
     _write_top_level_manifest,
     build_units,
 )
@@ -447,3 +448,78 @@ def test_e55_competing_failure_marker_writes_preserve_the_first_payload(tmp_path
     assert payload["reason"] in {"first contender", "second contender"}
     _write_failure(unit, 1, "later contender")
     assert path.read_bytes() == original
+
+
+def test_e55_atomic_json_publication_hides_target_until_link_then_exposes_complete_json(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "published.json"
+    payload = {"complete": [1, 2, 3]}
+    before_link = Barrier(2)
+    allow_link = Barrier(2)
+    original_link = launcher.os.link
+
+    def pause_before_link(source: str, target: str) -> None:
+        before_link.wait()
+        allow_link.wait()
+        original_link(source, target)
+
+    monkeypatch.setattr(launcher.os, "link", pause_before_link)
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        future = executor.submit(_write_json_exclusive, path, payload)
+        before_link.wait()
+        assert not path.exists()
+        allow_link.wait()
+        future.result()
+
+    assert json.loads(path.read_text(encoding="utf-8")) == payload
+    assert not list(tmp_path.glob(".published.json.*.tmp"))
+
+
+def test_e55_atomic_json_publication_exposes_parseable_payload_immediately_after_link(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "published.json"
+    payload = {"complete": [1, 2, 3]}
+    after_link = Barrier(2)
+    allow_cleanup = Barrier(2)
+    original_link = launcher.os.link
+
+    def pause_after_link(source: str, target: str) -> None:
+        original_link(source, target)
+        after_link.wait()
+        allow_cleanup.wait()
+
+    monkeypatch.setattr(launcher.os, "link", pause_after_link)
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        future = executor.submit(_write_json_exclusive, path, payload)
+        after_link.wait()
+        allow_cleanup.wait()
+        future.result()
+
+    assert json.loads(path.read_text(encoding="utf-8")) == payload
+    assert not list(tmp_path.glob(".published.json.*.tmp"))
+
+
+def test_e55_atomic_json_publication_competition_preserves_one_complete_payload(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "published.json"
+    first = {"publisher": "first", "values": list(range(100))}
+    second = {"publisher": "second", "values": list(range(100, 200))}
+    barrier = Barrier(2)
+
+    def publish(payload: dict[str, object]) -> str:
+        barrier.wait()
+        try:
+            _write_json_exclusive(path, payload)
+        except FileExistsError:
+            return "exists"
+        return "created"
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        results = list(executor.map(publish, (first, second)))
+
+    assert sorted(results) == ["created", "exists"]
+    assert json.loads(path.read_text(encoding="utf-8")) in (first, second)
+    assert not list(tmp_path.glob(".published.json.*.tmp"))
