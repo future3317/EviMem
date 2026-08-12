@@ -411,8 +411,8 @@ def _e32_payload(*, budget: int, fold: int, systems: list[str]) -> dict[str, obj
         "script_sha256": "e32-runner",
         "active_policies": list(E32_POLICIES),
         "query_systems": systems,
-        "transport_fit_systems": [f"Fit-{index}" for index in range(184)],
-        "transport_fit_system_count": 184,
+        "transport_fit_systems": [f"Fit-{index}" for index in range(230)],
+        "transport_fit_system_count": 230,
         "transport_fit_and_query_systems_disjoint": True,
         "config": {
             "query_budget": budget,
@@ -483,7 +483,7 @@ def _write_e32_root(tmp_path: Path) -> Path:
     for budget in range(1, 7):
         for fold in range(5):
             systems = all_systems[fold * 46 : (fold + 1) * 46]
-            fit_systems = [system for system in all_systems if system not in systems]
+            fit_systems = [f"Fit-{fold}-{index}" for index in range(230)]
             (root / f"e32-fold{fold + 1}-b{budget}-main.json").write_text(
                 json.dumps(
                     _e32_payload(budget=budget, fold=fold, systems=systems)
@@ -793,6 +793,25 @@ def test_e32_summary_reads_independent_budget_artifacts_and_integrates_before_in
     assert result["integrated_b0_to_b6_terminal_T"]["paired_mean_difference"] == pytest.approx(5 * 195 / 230)
 
 
+@pytest.mark.parametrize("change", ["count", "overlap"])
+def test_e32_summary_rejects_wrong_fit_count_or_query_overlap(
+    tmp_path: Path, change: str
+) -> None:
+    tool = _load_tool("summarize_e32_rollout_curve")
+    root = _write_e32_root(tmp_path)
+    path = root / "e32-fold1-b2-main.json"
+    payload: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
+    if change == "count":
+        payload["transport_fit_systems"] = payload["transport_fit_systems"][:-1]
+        payload["transport_fit_system_count"] = 229
+    else:
+        payload["transport_fit_systems"][0] = payload["query_systems"][0]
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="wrong E32 fit roster"):
+        tool.summarize_e32(root, tmp_path / "e32-summary.json")
+
+
 @pytest.mark.parametrize("fantasy_count", [1, 16])
 def test_e32_summary_rejects_nondefault_fantasy_count(
     tmp_path: Path, fantasy_count: int
@@ -836,8 +855,6 @@ def test_e32_summary_rejects_incomplete_or_nonfrozen_artifacts(
                 budget_payload["systems"]["S046-X"] = budget_payload["systems"].pop(
                     replaced
                 )
-                fit_systems = budget_payload["transport_fit_systems"]
-                fit_systems[fit_systems.index("S046-X")] = replaced
                 budget_path.write_text(json.dumps(budget_payload), encoding="utf-8")
             payload = None
         elif change == "identity":

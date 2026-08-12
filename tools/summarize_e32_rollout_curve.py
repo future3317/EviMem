@@ -192,10 +192,10 @@ def _load(
     fit_systems = payload.get("transport_fit_systems")
     if (
         not isinstance(fit_systems, list)
-        or len(fit_systems) != 184
-        or len(set(fit_systems)) != 184
+        or len(fit_systems) != 230
+        or len(set(fit_systems)) != 230
         or set(fit_systems) & set(query_systems)
-        or payload.get("transport_fit_system_count") != 184
+        or payload.get("transport_fit_system_count") != 230
         or payload.get("transport_fit_and_query_systems_disjoint") is not True
     ):
         raise ValueError("wrong E32 fit roster")
@@ -289,9 +289,6 @@ def summarize_e32(input_root: Path, output: Path) -> dict[str, Any]:
             for right in budget_rosters[position + 1 :]
         ):
             raise ValueError("E32 chemical system occurs twice across folds")
-        all_systems = set().union(*budget_rosters)
-        if any(fold_fit_rosters[fold] != all_systems - budget_rosters[fold] for fold in range(5)):
-            raise ValueError("wrong E32 fit roster: not the 230-system fold complement")
         delta, unsupported = _rows(payloads, "delta_hull_active_search")
         rollout, _ = _rows(payloads, "delta_hull_anchored_rollout")
         if len(delta) != 230 or set(delta) != set(rollout):
