@@ -1,6 +1,6 @@
 # Current paper and experiment contract
 
-**Status (2026-08-09): active.** This is the short operational contract for
+**Status (2026-08-12): active.** This is the short operational contract for
 paper-facing work. `EXPERIMENT_LEDGER.md` remains the immutable provenance
 record, but its historical method-specific stopping rules do not define the
 current paper unless they protect an opened dataset, oracle boundary, or
@@ -145,6 +145,29 @@ drift, rank preservation, and existing two-step headroom. They are weighted by
 exact chemical system and do not convert sufficient theoretical conditions
 into empirically necessary claims.
 
+## E54: matched optimized-object control
+
+E54 compares Delta-Hull with Hull entropy (CAL-style) under the same posterior,
+candidate pool, and completed-pool hull semantics. Hull entropy targets expected
+reduction in whole-hull uncertainty; Delta-Hull targets final membership of
+queried candidates. The frozen five-fold, 230-system development panel is the
+formal estimand. This is a matched optimized-object control within MatPES, not
+an external-validation claim.
+
+## E55: numerical convergence and E32 read-only rollout analysis
+
+E55 is development-only numerical evidence. Delta-Hull is evaluated on the
+frozen five-fold 230-system panel at posterior-world counts 64, 128, 256, 512,
+and 1024. Hull entropy (CAL-style) is evaluated on an outcome-independent
+three-system-per-fold roster at posterior-world counts 100, 200, and 400 and
+fantasy counts 5, 10, and 20. These grids test numerical convergence only; they
+do not authorize policy tuning or a new headline effect.
+
+The complete Delta-Hull-anchored rollout curve is a read-only analysis of the
+independently completed E32 artifacts for budgets 2 through 6. No E32 policy
+trajectory is regenerated, and each budget uses its own frozen closed-loop
+execution rather than a prefix inferred from another horizon.
+
 ## Invariants that remain binding
 
 - Policy-facing code never receives oracle target energies or final labels.
@@ -165,7 +188,7 @@ Hull-ENS recovery details, runtime replays, and selective-planning screens no
 longer govern current method development. They remain available in the ledger
 or their historical protocol documents for provenance. Paper-facing code and
 documentation should prefer one canonical name per policy, one shared runner
-path, and the smallest diagnostic schema needed for E52.
+path, and the smallest diagnostic schema needed for the current paper.
 
 The stopped 90-unit E52 launcher is not resumed. The reduced development run
 contains 15 B=6 objective units (three query-pool fractions by five folds),

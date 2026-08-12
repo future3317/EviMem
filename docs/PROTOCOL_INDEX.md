@@ -6,8 +6,8 @@ records. Evidence dispositions and opened-data boundaries always remain in
 
 ## Current
 
-- `CURRENT_PAPER_EXPERIMENT_CONTRACT.md`: paper identity, policy ladder, E52
-  validation scope, and binding invariants.
+- `CURRENT_PAPER_EXPERIMENT_CONTRACT.md`: paper identity, current E52--E55
+  scope, and binding invariants.
 - `EXPERIMENT_LEDGER.md`: authoritative evidence and provenance history.
 - `DELAYED_STRUCTURED_LABEL_THEORY.md`: theorem and claim matrix.
 - `RAW_RESULTS_MANIFEST.md`: pointers and hashes for external artifacts.
@@ -26,8 +26,16 @@ records. Evidence dispositions and opened-data boundaries always remain in
 - E52-E: clean-room 230-system development rerun followed by a one-time
   94-system secondary held-out rerun; the latter is historically exposed and
   is not an untouched panel.
+- E55: development-only numerical convergence for Delta-Hull and Hull entropy
+  (CAL-style), plus a read-only E32 rollout-curve summary. E55 does not rerun
+  E32 or create an external-validation claim.
 
 ## Completed paper evidence
+
+- E53: matched local-versus-complete-pool adjudicator isolation on the
+  five-fold 230-system development panel and frozen secondary MatPES rerun.
+- E54: matched optimized-object control comparing Delta-Hull with Hull entropy
+  (CAL-style) on the five-fold 230-system development panel.
 
 - `DELAYED_LABEL_FOLLOWUP_PROTOCOL_E32.md` and
   `DELAYED_LABEL_FOLLOWUP_E32A_PARALLEL_RECOVERY.md`.
