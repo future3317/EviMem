@@ -265,6 +265,24 @@ def test_manifest_preserves_each_original_fit_roster_and_fit_element_support(
     assert "Q0-R0" not in result["folds"][0]["query_systems"]
 
 
+def test_manifest_derives_sorted_fit_rosters_when_only_counts_are_supplied(
+    tmp_path: Path,
+) -> None:
+    task_path, crossfit_path, _ = _write_fixture(tmp_path)
+    crossfit = json.loads(crossfit_path.read_text(encoding="utf-8"))
+    eligible = set(crossfit["eligible_systems"])
+    for fold in crossfit["folds"]:
+        fold.pop("fit_systems")
+    crossfit_path.write_text(json.dumps(crossfit), encoding="utf-8")
+
+    result = build(task_path, crossfit_path, tmp_path / "manifest.json")
+
+    for source_fold, manifest_fold in zip(crossfit["folds"], result["folds"]):
+        expected_fit_systems = sorted(eligible - set(source_fold["query_systems"]))
+        assert manifest_fold["fit_systems"] == expected_fit_systems
+        assert manifest_fold["fit_system_count"] == source_fold["fit_system_count"]
+
+
 def test_manifest_rejects_task_hash_mismatch(tmp_path: Path) -> None:
     task_path, crossfit_path, _ = _write_fixture(tmp_path)
     task_path.write_text(
@@ -330,15 +348,36 @@ def test_manifest_rejects_overlapping_original_query_systems(tmp_path: Path) -> 
         build(task_path, crossfit_path, tmp_path / "manifest.json")
 
 
-def test_manifest_rejects_missing_original_fit_roster(tmp_path: Path) -> None:
+def test_manifest_rejects_missing_fit_system_count_without_fit_roster(
+    tmp_path: Path,
+) -> None:
     task_path, crossfit_path, _ = _write_fixture(tmp_path)
 
     _rewrite_crossfit(
         crossfit_path,
-        lambda crossfit: crossfit["folds"][0].pop("fit_systems"),
+        lambda crossfit: (
+            crossfit["folds"][0].pop("fit_systems"),
+            crossfit["folds"][0].pop("fit_system_count"),
+        ),
     )
 
-    with pytest.raises(ValueError, match="fit_systems"):
+    with pytest.raises(ValueError, match="fit_system_count"):
+        build(task_path, crossfit_path, tmp_path / "manifest.json")
+
+
+def test_manifest_rejects_wrong_fit_system_count_without_fit_roster(
+    tmp_path: Path,
+) -> None:
+    task_path, crossfit_path, _ = _write_fixture(tmp_path)
+
+    def wrong_fit_count(crossfit: dict[str, object]) -> None:
+        fold = crossfit["folds"][0]
+        fold.pop("fit_systems")
+        fold["fit_system_count"] = int(fold["fit_system_count"]) + 1
+
+    _rewrite_crossfit(crossfit_path, wrong_fit_count)
+
+    with pytest.raises(ValueError, match="fit_system_count"):
         build(task_path, crossfit_path, tmp_path / "manifest.json")
 
 

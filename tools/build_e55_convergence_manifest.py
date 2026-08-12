@@ -43,13 +43,18 @@ def _assert_outside_git(path: Path) -> None:
 
 def _fit_systems(fold: dict[str, Any], eligible: set[str]) -> list[str]:
     query_systems = {str(value) for value in fold["query_systems"]}
+    expected = eligible - query_systems
     if "fit_systems" not in fold:
-        raise ValueError("every fold must explicitly provide fit_systems")
+        if "fit_system_count" not in fold:
+            raise ValueError("fold without fit_systems must provide fit_system_count")
+        if int(fold["fit_system_count"]) != len(expected):
+            raise ValueError("fold fit_system_count is not the query complement count")
+        return sorted(expected)
     supplied = fold["fit_systems"]
     fit_systems = [str(value) for value in supplied]
     if len(fit_systems) != len(set(fit_systems)):
         raise ValueError("fold fit_systems must be unique")
-    if set(fit_systems) != eligible - query_systems:
+    if set(fit_systems) != expected:
         raise ValueError("fold fit roster is not the original query complement")
     return fit_systems
 
