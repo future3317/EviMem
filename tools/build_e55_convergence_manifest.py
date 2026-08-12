@@ -94,8 +94,8 @@ def build(
     if len(eligible_list) != len(set(eligible_list)):
         raise ValueError("development systems must be unique")
     eligible = set(eligible_list)
-    if set(rows_by_system) != eligible:
-        raise ValueError("task and cross-fit development systems differ")
+    if not eligible <= set(rows_by_system):
+        raise ValueError("task is missing cross-fit eligible systems")
     release_id = str(crossfit.get("release_id", task.get("release_id", "")))
     if release_id != str(task.get("release_id", release_id)):
         raise ValueError("task and cross-fit release IDs differ")

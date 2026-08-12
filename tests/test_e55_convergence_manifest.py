@@ -217,6 +217,30 @@ def test_manifest_uses_exact_nondivisible_46_system_terciles_and_hash_winners(
         assert stratum["selected_system"] == expected_winner
 
 
+def test_manifest_accepts_task_only_systems_but_ignores_them_for_selection(
+    tmp_path: Path,
+) -> None:
+    task_path, crossfit_path, _ = _write_fixture(tmp_path)
+    task = json.loads(task_path.read_text(encoding="utf-8"))
+    task["development_pairs"].append(
+        {"chemical_system": "TASK-ONLY", "pair_id": "TASK-ONLY-0"}
+    )
+    task_path.write_text(json.dumps(task), encoding="utf-8")
+    crossfit = json.loads(crossfit_path.read_text(encoding="utf-8"))
+    crossfit["task_sha256"] = hashlib.sha256(task_path.read_bytes()).hexdigest()
+    crossfit_path.write_text(json.dumps(crossfit), encoding="utf-8")
+
+    result = build(task_path, crossfit_path, tmp_path / "manifest.json")
+
+    eligible = set(crossfit["eligible_systems"])
+    assert result["eligible_system_count"] == len(eligible)
+    assert all(
+        "TASK-ONLY" not in stratum["candidate_counts"]
+        for fold in result["folds"]
+        for stratum in fold["candidate_count_strata"].values()
+    )
+
+
 def test_manifest_preserves_each_original_fit_roster_and_fit_element_support(
     tmp_path: Path,
 ) -> None:
@@ -249,6 +273,24 @@ def test_manifest_rejects_task_hash_mismatch(tmp_path: Path) -> None:
     )
 
     with pytest.raises(ValueError, match="does not match task"):
+        build(task_path, crossfit_path, tmp_path / "manifest.json")
+
+
+def test_manifest_rejects_task_missing_eligible_system(tmp_path: Path) -> None:
+    task_path, crossfit_path, _ = _write_fixture(tmp_path)
+    task = json.loads(task_path.read_text(encoding="utf-8"))
+    crossfit = json.loads(crossfit_path.read_text(encoding="utf-8"))
+    missing_system = crossfit["eligible_systems"][0]
+    task["development_pairs"] = [
+        row
+        for row in task["development_pairs"]
+        if row["chemical_system"] != missing_system
+    ]
+    task_path.write_text(json.dumps(task), encoding="utf-8")
+    crossfit["task_sha256"] = hashlib.sha256(task_path.read_bytes()).hexdigest()
+    crossfit_path.write_text(json.dumps(crossfit), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="missing cross-fit eligible systems"):
         build(task_path, crossfit_path, tmp_path / "manifest.json")
 
 
