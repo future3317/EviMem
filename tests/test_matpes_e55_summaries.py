@@ -420,7 +420,7 @@ def _e32_payload(*, budget: int, fold: int, systems: list[str]) -> dict[str, obj
             "minimum_candidates": 12,
             "seed": 20270720,
             "posterior_sample_count": 128,
-            "fantasy_count": 16,
+            "fantasy_count": 3,
             "rollout_selection_timeout_seconds": 900.0,
             "hull_backend": "fixed_composition",
             "transport_family": "hierarchical_matern52_frozen_structure",
@@ -791,6 +791,21 @@ def test_e32_summary_reads_independent_budget_artifacts_and_integrates_before_in
     assert budget_two["action_disagreement"]["systems_with_any_disagreement"] == 195
     assert budget_two["runtime"]["population"] == "per_system_policy_wall_seconds_from_traces"
     assert result["integrated_b0_to_b6_terminal_T"]["paired_mean_difference"] == pytest.approx(5 * 195 / 230)
+
+
+@pytest.mark.parametrize("fantasy_count", [1, 16])
+def test_e32_summary_rejects_nondefault_fantasy_count(
+    tmp_path: Path, fantasy_count: int
+) -> None:
+    tool = _load_tool("summarize_e32_rollout_curve")
+    root = _write_e32_root(tmp_path)
+    path = root / "e32-fold1-b2-main.json"
+    payload: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
+    payload["config"]["fantasy_count"] = fantasy_count
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="wrong E32 frozen identity: fantasy_count"):
+        tool.summarize_e32(root, tmp_path / "e32-summary.json")
 
 
 @pytest.mark.parametrize(

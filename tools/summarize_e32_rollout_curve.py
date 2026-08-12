@@ -12,6 +12,8 @@ from typing import Any
 
 import numpy as np
 
+from matmem.constants import DEFAULT_FANTASY_COUNT
+
 POLICIES = (
     "source_margin",
     "posterior_mean_target_margin",
@@ -166,7 +168,7 @@ def _load(
         "minimum_candidates": 12,
         "seed": protocol_identity["seed"],
         "posterior_sample_count": protocol_identity["posterior_sample_count"],
-        "fantasy_count": 16,
+        "fantasy_count": DEFAULT_FANTASY_COUNT,
         "rollout_selection_timeout_seconds": 900.0,
         "hull_backend": protocol_identity["hull_backend"],
         "transport_family": protocol_identity["transport_family"],
