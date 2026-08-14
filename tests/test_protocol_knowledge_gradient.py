@@ -21,6 +21,7 @@ from matmem.protocol_acquisition import (
     _simultaneous_paired_lower_bounds,
     _source_rollout_rewards,
     _unique_query_composition_grid,
+    complete_pool_posterior_mean_hull_margin,
     conformal_one_deviation_source_rollout,
     constrained_dual_horizon_source_rollout,
     delta_hull_active_search,
@@ -46,6 +47,61 @@ from matmem.protocol_knowledge_gradient import (
     fit_protocol_ridge_transport,
 )
 from matmem.transport import FrozenProtocolRidgeTransport
+
+
+def test_complete_pool_posterior_mean_margin_uses_leave_one_out_pool() -> None:
+    result = complete_pool_posterior_mean_hull_margin(
+        query_compositions=(
+            {"A": 0.5, "B": 0.5},
+            {"A": 0.25, "B": 0.75},
+        ),
+        posterior_mean=np.asarray((0.1, 0.2)),
+        reference_compositions=({"A": 1.0}, {"B": 1.0}),
+        reference_energies=np.asarray((0.0, 0.0)),
+    )
+
+    assert result == pytest.approx((0.1, 0.2))
+
+
+def test_complete_pool_mean_margin_matches_explicit_leave_one_out_envelopes() -> None:
+    query_compositions = (
+        {"A": 1.0, "B": 0.0, "C": 0.0},
+        {"A": 0.0, "B": 1.0, "C": 0.0},
+        {"A": 0.0, "B": 0.0, "C": 1.0},
+        {"A": 0.5, "B": 0.25, "C": 0.25},
+        {"A": 0.25, "B": 0.5, "C": 0.25},
+    )
+    references = (
+        {"A": 1.0},
+        {"B": 1.0},
+        {"C": 1.0},
+    )
+    means = np.asarray((-0.1, -0.2, -0.3, -0.25, -0.15))
+    result = complete_pool_posterior_mean_hull_margin(
+        query_compositions=query_compositions,
+        posterior_mean=means,
+        reference_compositions=references,
+        reference_energies=np.zeros(3),
+    )
+
+    expected = []
+    for candidate_index in range(len(means)):
+        remaining = tuple(
+            index for index in range(len(means)) if index != candidate_index
+        )
+        envelope = _CausalHullEnvelope.build(
+            query_compositions=query_compositions,
+            reference_compositions=references,
+            selected_query_indices=remaining,
+        )
+        active_energies = np.concatenate(
+            (np.zeros(len(references)), means[list(remaining)])
+        )
+        expected.append(float(envelope.competing_hull_energies(active_energies)[0, candidate_index]))
+
+    np.testing.assert_allclose(
+        np.asarray(result), means - np.asarray(expected), rtol=0.0, atol=1e-12
+    )
 
 
 def test_cal_grid_deduplicates_normalized_query_compositions() -> None:

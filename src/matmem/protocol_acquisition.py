@@ -904,6 +904,63 @@ def delta_hull_active_search(
     )
 
 
+def complete_pool_posterior_mean_hull_margin(
+    *,
+    query_compositions: Sequence[dict[str, float]],
+    posterior_mean: np.ndarray,
+    reference_compositions: Sequence[dict[str, float]],
+    reference_energies: np.ndarray,
+    fixed_template: FixedCompositionHullTemplate | None = None,
+) -> tuple[float, ...]:
+    """Return leave-one-out margins on a posterior-mean complete pool.
+
+    The plug-in pool contains the fixed references and every candidate's
+    posterior-mean energy.  For each candidate, its own mean is omitted from
+    the competing hull before computing its margin.  This is a diagnostic
+    comparator for the complete-pool adjudicator, not a posterior-integrated
+    membership score.
+    """
+
+    means = np.asarray(posterior_mean, dtype=np.float64).reshape(-1)
+    references = np.asarray(reference_energies, dtype=np.float64).reshape(-1)
+    if len(query_compositions) != len(means) or not len(means):
+        raise ValueError("complete-pool mean-hull inputs disagree")
+    if len(reference_compositions) != len(references):
+        raise ValueError("complete-pool mean-hull references disagree")
+    if not np.isfinite(means).all() or not np.isfinite(references).all():
+        raise ValueError("complete-pool mean-hull energies must be finite")
+    template = (
+        FixedCompositionHullTemplate.from_compositions(
+            query_compositions=query_compositions,
+            reference_compositions=reference_compositions,
+        )
+        if fixed_template is None
+        else fixed_template
+    )
+    all_indices = tuple(range(len(means)))
+    envelope = _CausalHullEnvelope.build(
+        query_compositions=query_compositions,
+        reference_compositions=reference_compositions,
+        selected_query_indices=all_indices,
+        tolerance=template.numerical_tolerance,
+    )
+    active_energies = np.concatenate((references, means))
+    margins = np.empty(len(means), dtype=np.float64)
+    positions = envelope.simplex_active_positions
+    simplex_energies = active_energies[positions]
+    for candidate_index in all_indices:
+        weights = envelope.simplex_weights[:, :, candidate_index]
+        candidate_position = positions == len(references) + candidate_index
+        excluded = np.any(candidate_position & (weights > 0.0), axis=1)
+        feasible = envelope.feasible[:, candidate_index] & ~excluded
+        competing_values = np.einsum("sd,sd->s", simplex_energies, weights)
+        competing_values[~feasible] = np.inf
+        if not np.isfinite(competing_values).any():
+            raise ValueError("complete-pool leave-one-out hull is undefined")
+        margins[candidate_index] = means[candidate_index] - np.min(competing_values)
+    return tuple(float(value) for value in margins)
+
+
 def protocol_hull_entropy(
     posterior: ProtocolTargetEnergyPosterior,
     *,

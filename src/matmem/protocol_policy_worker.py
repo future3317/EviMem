@@ -22,6 +22,7 @@ if str(_SRC_ROOT) not in sys.path:
 from matmem.hull_geometry import FixedCompositionHullTemplate
 from matmem.posterior import protocol_target_energy_posterior
 from matmem.protocol_acquisition import (
+    complete_pool_posterior_mean_hull_margin,
     conformal_one_deviation_source_rollout,
     constrained_dual_horizon_source_rollout,
     delta_hull_active_search,
@@ -133,6 +134,7 @@ def select(
         "protocol_hull_knowledge_gradient",
         "protocol_hull_risk_reduction",
         "cal_style_hull_entropy",
+        "complete_pool_posterior_mean_hull_margin",
     }:
         query_features = np.asarray(
             [row["source_environment_embedding"] for row in queries], dtype=float
@@ -176,6 +178,7 @@ def select(
             "independent_confirmation_source_rollout",
             "conformal_source_rollout_delta_hull",
             "cal_style_hull_entropy",
+            "complete_pool_posterior_mean_hull_margin",
         } or policy.startswith("protocol_hull_"):
             if transport_model is None:
                 raise ValueError("protocol hull policy has no frozen transport model")
@@ -255,11 +258,25 @@ def select(
                         )[0]
                     )
                     return str(queries[source_index]["pair_id"])
-                if policy == "posterior_mean_target_margin":
+                if policy in {
+                    "posterior_mean_target_margin",
+                    "complete_pool_posterior_mean_hull_margin",
+                }:
                     posterior_margins = (
                         np.asarray(posterior.mean, dtype=np.float64)
                         - arguments["current_competing_hull_energies"]
                     )
+                    if policy == "complete_pool_posterior_mean_hull_margin":
+                        posterior_margins = np.asarray(
+                            complete_pool_posterior_mean_hull_margin(
+                                query_compositions=hull_arguments["query_compositions"],
+                                posterior_mean=np.asarray(posterior.mean, dtype=np.float64),
+                                reference_compositions=hull_arguments["reference_compositions"],
+                                reference_energies=hull_arguments["reference_energies"],
+                                fixed_template=fixed_template,
+                            ),
+                            dtype=np.float64,
+                        )
                     selected_index = min(
                         range(len(queries)),
                         key=lambda index: (
@@ -271,9 +288,13 @@ def select(
                         diagnostics.update(
                             {
                                 "diagnostic_schema_version": 1,
-                                "kind": "posterior_mean_target_margin",
+                                "kind": policy,
                                 "candidate_pair_ids": tuple(str(row["pair_id"]) for row in queries),
-                                "posterior_mean_target_margins": {
+                                (
+                                    "complete_pool_posterior_mean_hull_margins"
+                                    if policy == "complete_pool_posterior_mean_hull_margin"
+                                    else "posterior_mean_target_margins"
+                                ): {
                                     str(row["pair_id"]): float(posterior_margins[index])
                                     for index, row in enumerate(queries)
                                 },
@@ -1013,6 +1034,7 @@ def main() -> None:
             "protocol_hull_knowledge_gradient",
             "protocol_hull_risk_reduction",
             "cal_style_hull_entropy",
+            "complete_pool_posterior_mean_hull_margin",
         ),
         required=True,
     )

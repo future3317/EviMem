@@ -31,6 +31,7 @@ class ProtocolPolicy(StrEnum):
     PROTOCOL_HULL_KNOWLEDGE_GRADIENT = "protocol_hull_knowledge_gradient"
     PROTOCOL_HULL_RISK_REDUCTION = "protocol_hull_risk_reduction"
     CAL_STYLE_HULL_ENTROPY = "cal_style_hull_entropy"
+    COMPLETE_POOL_POSTERIOR_MEAN_HULL_MARGIN = "complete_pool_posterior_mean_hull_margin"
     RIDGE_MARGIN = "ridge_margin"
     RIDGE_UNCERTAINTY = "ridge_uncertainty"
     RIDGE_PREDICTED_FINAL_MARGIN = "ridge_predicted_final_margin"
@@ -49,6 +50,7 @@ class ProtocolPolicy(StrEnum):
             cls.POSTERIOR_CURRENT_HULL_PROBABILITY,
             cls.MATCHED_LOCAL_HULL_PROBABILITY,
             cls.CAL_STYLE_HULL_ENTROPY,
+            cls.COMPLETE_POOL_POSTERIOR_MEAN_HULL_MARGIN,
             cls.UNGATED_SOURCE_ROLLOUT,
             cls.SOURCE_ROLLOUT_DELTA_HULL,
             cls.DELTA_HULL_ANCHORED_ROLLOUT,

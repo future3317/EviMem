@@ -54,6 +54,7 @@ def _command(
     fantasy_count: int,
     hull_candidate_workers: int,
     selection_timeout_seconds: float,
+    policies: tuple[str, ...],
 ) -> tuple[str, ...]:
     return (
         sys.executable,
@@ -89,7 +90,7 @@ def _command(
         "--fold-index",
         str(fold_index),
         "--policies",
-        *POLICIES,
+        *policies,
     )
 
 
@@ -106,6 +107,8 @@ def build_units(
     fantasy_count: int = 10,
     hull_candidate_workers: int = 1,
     selection_timeout_seconds: float = 7200.0,
+    policies: tuple[str, ...] = POLICIES,
+    protocol: str = PROTOCOL,
 ) -> list[Unit]:
     """Build one explicitly selected E54 stage without opening outcomes."""
 
@@ -114,6 +117,8 @@ def build_units(
         raise ValueError("E54 outputs must remain outside Git")
     if stage not in {"development", "secondary"}:
         raise ValueError("E54 stage must be development or secondary")
+    if not policies or len(set(policies)) != len(policies):
+        raise ValueError("campaign policy roster must be nonempty and unique")
     if posterior_sample_count < 4 or fantasy_count < 1 or hull_candidate_workers < 1:
         raise ValueError("E54 numerical settings are too small")
 
@@ -163,7 +168,7 @@ def build_units(
     units: list[Unit] = []
     for identity_stage, fold, crossfit, output, secondary_is_untouched in specifications:
         identity = {
-            "protocol": PROTOCOL,
+            "protocol": protocol,
             "stage": identity_stage,
             "task_sha256": _sha256(task),
             "vault_sha256": _sha256(vault),
@@ -175,7 +180,7 @@ def build_units(
             "fantasy_count": fantasy_count,
             "hull_candidate_workers": hull_candidate_workers,
             "hull_backend": "fixed_composition",
-            "policies": POLICIES,
+            "policies": policies,
             "secondary_is_untouched": secondary_is_untouched,
         }
         units.append(
@@ -191,6 +196,7 @@ def build_units(
                     fantasy_count=fantasy_count,
                     hull_candidate_workers=hull_candidate_workers,
                     selection_timeout_seconds=selection_timeout_seconds,
+                    policies=policies,
                 ),
                 output=output,
                 log=output.with_suffix(".log"),
@@ -205,7 +211,7 @@ def _validate_existing(unit: Unit, payload: dict[str, Any]) -> None:
         raise ValueError(f"existing output has wrong task identity: {unit.output}")
     if payload.get("oracle_vault_sha256") != unit.identity["vault_sha256"]:
         raise ValueError(f"existing output has wrong vault identity: {unit.output}")
-    if tuple(payload.get("active_policies", ())) != POLICIES:
+    if tuple(payload.get("active_policies", ())) != tuple(unit.identity["policies"]):
         raise ValueError(f"existing output has wrong policy roster: {unit.output}")
     config = payload.get("config", {})
     for key in (
@@ -274,6 +280,8 @@ def main() -> None:
     parser.add_argument("--hull-candidate-workers", type=int, default=1)
     parser.add_argument("--max-workers", type=int, default=5)
     parser.add_argument("--selection-timeout-seconds", type=float, default=7200.0)
+    parser.add_argument("--policies", nargs="+", default=POLICIES)
+    parser.add_argument("--protocol", default=PROTOCOL)
     args = parser.parse_args()
     if args.max_workers < 1:
         raise ValueError("max-workers must be positive")
@@ -289,6 +297,8 @@ def main() -> None:
         fantasy_count=args.fantasy_count,
         hull_candidate_workers=args.hull_candidate_workers,
         selection_timeout_seconds=args.selection_timeout_seconds,
+        policies=tuple(args.policies),
+        protocol=args.protocol,
     )
     failures: list[str] = []
     with ThreadPoolExecutor(max_workers=min(args.max_workers, len(units))) as executor:

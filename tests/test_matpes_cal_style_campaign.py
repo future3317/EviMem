@@ -115,6 +115,35 @@ def test_cal_campaign_builds_five_b6_development_units(tmp_path: Path) -> None:
     assert all("10" in unit.command for unit in units)
 
 
+def test_campaign_can_build_an_independent_single_policy_ablation(tmp_path: Path) -> None:
+    full_pool = tmp_path / "inputs"
+    split_manifest = tmp_path / "split"
+    for name in (
+        "matpes-e52-pool-100-task.json",
+        "matpes-e52-pool-100-vault.json",
+        "matpes-e52-pool-100-crossfit.json",
+    ):
+        _write_input(full_pool / name)
+    _write_input(split_manifest / "matpes-e52-secondary-confirmation-crossfit.json")
+
+    policies = ("complete_pool_posterior_mean_hull_margin",)
+    units = build_units(
+        full_pool_root=full_pool,
+        split_manifest_root=split_manifest,
+        secondary_task=None,
+        secondary_vault=None,
+        output_root=tmp_path / "ablation",
+        runner=Path("runner.py"),
+        stage="development",
+        policies=policies,
+        protocol="E55-complete-pool-mean-hull-margin-v1",
+    )
+
+    assert len(units) == 5
+    assert all(tuple(unit.identity["policies"]) == policies for unit in units)
+    assert all("complete_pool_posterior_mean_hull_margin" in unit.command for unit in units)
+
+
 def test_cal_campaign_builds_secondary_with_only_explicit_secondary_inputs(
     tmp_path: Path,
 ) -> None:

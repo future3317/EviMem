@@ -78,6 +78,7 @@ _LONG_SELECTION_TIMEOUT_POLICIES = {
     ProtocolPolicy.PROTOCOL_HULL_KNOWLEDGE_GRADIENT.value,
     ProtocolPolicy.PROTOCOL_HULL_RISK_REDUCTION.value,
     ProtocolPolicy.CAL_STYLE_HULL_ENTROPY.value,
+    "complete_pool_posterior_mean_hull_margin",
     ProtocolPolicy.HULL_ENS.value,
     ProtocolPolicy.SAFE_HULL_ENS.value,
 }
