@@ -1,5 +1,5 @@
 <div align="center">
-  <h1>EviMem-RL</h1>
+  <h1>Globally Adjudicated Active Search</h1>
   <p><strong>Globally Adjudicated Active Search</strong></p>
   <p>面向全局判定效用与延迟结构化标签的主动搜索研究代码库</p>
   <p>
@@ -14,7 +14,7 @@
 
 > **中文定位**：研究“查询立即得到观测、但最终效用由完整候选池的全局判定器延迟决定”的主动搜索问题。项目聚焦 selected-item utility 与 acquisition objective alignment，而不是堆叠更多规划器或追求无条件的通用最优性。
 >
-> **English positioning**: EviMem-RL is a research codebase for active search with immediate observations and delayed, globally adjudicated utility. Its central theme is objective alignment for selected-item utility under a shared posterior and evaluator, not a claim of universally superior planning.
+> **English positioning**: This repository is a research codebase for active search with immediate observations and delayed, globally adjudicated utility. Its central theme is objective alignment for selected-item utility under a shared posterior and evaluator, not a claim of universally superior planning.
 
 ## Research story | 科研主线
 
