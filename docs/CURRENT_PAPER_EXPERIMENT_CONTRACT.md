@@ -168,6 +168,18 @@ independently completed E32 artifacts for budgets 2 through 6. No E32 policy
 trajectory is regenerated, and each budget uses its own frozen closed-loop
 execution rather than a prefix inferred from another horizon.
 
+The complete-pool posterior-mean hull-margin comparator is a separate
+development-only objective/adjudicator ablation. It uses the same five-fold
+230-system input, B=6 trajectories, seed=20260810, posterior MC=200,
+fixed-composition hull backend, eight candidate workers, and 21600-second
+selection timeout, with the single policy
+`complete_pool_posterior_mean_hull_margin`. Its summary is descriptive for the
+paired development panel (B=1..6 utility prefixes and integrated budget area)
+and does not define a new planner or alter the frozen E53/E54/E55 estimands.
+The summary contract accepts this single-policy roster and validates its
+candidate-level leave-one-out margin diagnostics; no policy trajectory is
+regenerated during summarization.
+
 ## Invariants that remain binding
 
 - Policy-facing code never receives oracle target energies or final labels.

@@ -8,6 +8,9 @@ import pytest
 from tools.run_matpes_cal_style_campaign import POLICIES, build_units
 from tools.summarize_matpes_cal_style import summarize
 
+BASELINE_POLICIES = ("complete_pool_posterior_mean_hull_margin",)
+BASELINE_PROTOCOL = "E55-complete-pool-mean-hull-margin-v1"
+
 
 def _write_input(path: Path, payload: object | None = None) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -77,6 +80,56 @@ def _unit(path: Path, *, fold: int, system: str, transport_element_support: bool
                         cal_diagnostics=transport_element_support,
                     ),
                 },
+            }
+        },
+    }
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, sort_keys=True), encoding="utf-8")
+
+
+def _baseline_unit(path: Path, *, fold: int, system: str) -> None:
+    ids = [f"{system}-{index}" for index in range(6)]
+    strategy = {
+        "selected_pair_ids": ids,
+        "oracle_pool_final_labels_by_pair_id": {
+            pair_id: pair_id == ids[0] for pair_id in ids
+        },
+        "policy_decision_rounds": [
+            {
+                "selection_diagnostics": {
+                    "candidate_pair_ids": ids,
+                    "complete_pool_posterior_mean_hull_margins": {
+                        pair_id: float(index) for index, pair_id in enumerate(ids)
+                    },
+                    "diagnostic_schema_version": 1,
+                    "kind": BASELINE_POLICIES[0],
+                    "selected_pair_id": ids[index],
+                }
+            }
+            for index in range(6)
+        ],
+    }
+    payload = {
+        "task_sha256": "task",
+        "oracle_vault_sha256": "vault",
+        "active_policies": list(BASELINE_POLICIES),
+        "query_systems": [system],
+        "transport_fit_systems": [f"fit-{fold}"],
+        "transport_fit_system_count": 1,
+        "transport_fit_and_query_systems_disjoint": True,
+        "config": {
+            "query_budget": 6,
+            "posterior_sample_count": 200,
+            "fantasy_count": 10,
+            "hull_backend": "fixed_composition",
+            "crossfit_manifest_sha256": "crossfit",
+            "crossfit_fold_index": fold,
+        },
+        "systems": {
+            system: {
+                "budget": 6,
+                "transport_element_support": True,
+                "strategies": {BASELINE_POLICIES[0]: strategy},
             }
         },
     }
@@ -196,6 +249,32 @@ def test_cal_summary_reports_prefixes_contrasts_and_runtime_metadata(tmp_path: P
     assert panel["cal_diagnostics"]["state_count"] == 30
     assert panel["cal_diagnostics"]["posterior_sample_counts"] == [200]
     assert panel["cal_diagnostics"]["fantasy_counts"] == [10]
+
+
+def test_cal_summary_supports_the_single_policy_baseline_contract(tmp_path: Path) -> None:
+    development = tmp_path / "development"
+    for fold in range(5):
+        _baseline_unit(development / f"fold{fold + 1}-b6.json", fold=fold, system=f"S{fold}")
+
+    result = summarize(
+        development_root=development,
+        secondary_path=None,
+        output=tmp_path / "summary.json",
+        expected_development_system_count=5,
+        expected_secondary_system_count=None,
+        expected_policies=BASELINE_POLICIES,
+        protocol=BASELINE_PROTOCOL,
+        randomization_draws=1_000,
+    )
+
+    panel = result["panels"]["development"]
+    policy = BASELINE_POLICIES[0]
+    assert result["status"] == "e55_complete_pool_mean_hull_margin_baseline_complete"
+    assert result["policies"] == list(BASELINE_POLICIES)
+    assert result["protocol"] == BASELINE_PROTOCOL
+    assert panel["budgets"]["1"]["absolute_mean_T"][policy] == 1.0
+    assert panel["integrated_policy_metrics"][policy]["mean_auc"] == 5.0
+    assert panel["baseline_diagnostics"]["state_count"] == 30
 
 
 def test_cal_summary_rejects_missing_diagnostic(tmp_path: Path) -> None:

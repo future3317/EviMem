@@ -1,8 +1,10 @@
-"""Summarize the E54 CAL-style hull-entropy campaign.
+"""Summarize matched MatPES policy panels.
 
 The summary treats an exact chemical system as the resampling unit and refuses
-to report incomplete trajectories, input-identity changes, or missing CAL
-diagnostics. Raw campaign JSON remains outside Git.
+to report incomplete trajectories, input-identity changes, or missing
+policy-specific diagnostics. It supports the E54 three-policy CAL comparison
+and the E55 single-policy complete-pool mean-hull-margin ablation. Raw campaign
+JSON remains outside Git.
 """
 
 from __future__ import annotations
@@ -22,6 +24,9 @@ POLICIES = (
     "delta_hull_active_search",
     "cal_style_hull_entropy",
 )
+BASELINE_POLICIES = ("complete_pool_posterior_mean_hull_margin",)
+E54_PROTOCOL = "E54-cal-style-hull-entropy-v1"
+BASELINE_PROTOCOL = "E55-complete-pool-mean-hull-margin-v1"
 CONTRASTS = {
     "delta_minus_cal": ("delta_hull_active_search", "cal_style_hull_entropy"),
     "delta_minus_target_margin": (
@@ -78,6 +83,33 @@ def _cal_rounds(strategy: dict[str, Any], *, system: str) -> list[dict[str, Any]
     return [dict(item) for item in diagnostics]
 
 
+def _baseline_rounds(strategy: dict[str, Any], *, system: str) -> list[dict[str, Any]]:
+    rounds = strategy.get("policy_decision_rounds", [])
+    diagnostics = [
+        event.get("selection_diagnostics")
+        for event in rounds
+        if event.get("selection_diagnostics", {}).get("kind")
+        == BASELINE_POLICIES[0]
+    ]
+    if len(diagnostics) != 6 or any(item is None for item in diagnostics):
+        raise ValueError(f"missing complete-pool margin diagnostics for {system}")
+    margin_key = "complete_pool_posterior_mean_hull_margins"
+    for diagnostic in diagnostics:
+        if diagnostic.get("diagnostic_schema_version") != 1:
+            raise ValueError(f"wrong baseline diagnostic schema for {system}")
+        candidate_ids = tuple(str(item) for item in diagnostic.get("candidate_pair_ids", ()))
+        margins = diagnostic.get(margin_key)
+        if not candidate_ids or len(set(candidate_ids)) != len(candidate_ids):
+            raise ValueError(f"invalid baseline candidate roster for {system}")
+        if not isinstance(margins, dict) or set(margins) != set(candidate_ids):
+            raise ValueError(f"incomplete baseline margins for {system}")
+        if not all(np.isfinite(float(margins[pair_id])) for pair_id in candidate_ids):
+            raise ValueError(f"non-finite baseline margins for {system}")
+        if str(diagnostic.get("selected_pair_id")) not in candidate_ids:
+            raise ValueError(f"baseline selected ID is outside candidate roster for {system}")
+    return [dict(item) for item in diagnostics]
+
+
 def _is_common_fallback(
     strategies: dict[str, dict[str, Any]], *, system: str
 ) -> bool:
@@ -119,7 +151,11 @@ def _load_panel(
     *,
     expected_system_count: int,
     expected_fold_indices: set[int],
+    policies: tuple[str, ...],
 ) -> dict[str, Any]:
+    if policies not in (POLICIES, BASELINE_POLICIES):
+        raise ValueError(f"unsupported MatPES summary policy contract: {policies}")
+    is_e54 = policies == POLICIES
     rows: dict[str, dict[str, Any]] = {}
     task_hashes: set[str] = set()
     vault_hashes: set[str] = set()
@@ -130,10 +166,10 @@ def _load_panel(
 
     for path in paths:
         if not path.is_file():
-            raise FileNotFoundError(f"missing E54 output: {path}")
+            raise FileNotFoundError(f"missing MatPES output: {path}")
         payload = json.loads(path.read_text(encoding="utf-8"))
-        if tuple(payload.get("active_policies", ())) != POLICIES:
-            raise ValueError(f"unexpected E54 policy roster in {path}")
+        if tuple(payload.get("active_policies", ())) != policies:
+            raise ValueError(f"unexpected MatPES policy roster in {path}")
         config = payload.get("config", {})
         expected_config = {
             "query_budget": 6,
@@ -143,18 +179,18 @@ def _load_panel(
         }
         for key, expected in expected_config.items():
             if config.get(key) != expected:
-                raise ValueError(f"E54 unit has wrong {key}: {path}")
+                raise ValueError(f"MatPES unit has wrong {key}: {path}")
         fold_index = int(config.get("crossfit_fold_index", -1))
         fold_indices.add(fold_index)
         if fold_index not in expected_fold_indices:
-            raise ValueError(f"unexpected E54 fold index in {path}")
+            raise ValueError(f"unexpected MatPES fold index in {path}")
         task_hashes.add(str(payload.get("task_sha256")))
         vault_hashes.add(str(payload.get("oracle_vault_sha256")))
         crossfit_hashes.add(str(config.get("crossfit_manifest_sha256")))
         input_hashes[str(path.resolve())] = _sha256(path)
         query_systems = {str(system) for system in payload.get("query_systems", ())}
         if query_systems_seen & query_systems:
-            raise ValueError("E54 query systems overlap across folds")
+            raise ValueError("MatPES query systems overlap across folds")
         query_systems_seen.update(query_systems)
         for system, system_payload in payload.get("systems", {}).items():
             if system in rows:
@@ -162,12 +198,19 @@ def _load_panel(
             if int(system_payload.get("budget", -1)) != 6:
                 raise ValueError(f"wrong system budget for {system}")
             strategies = system_payload.get("strategies", {})
-            if set(strategies) != set(POLICIES):
-                raise ValueError(f"system has the wrong E54 policy roster: {system}")
+            if set(strategies) != set(policies):
+                raise ValueError(f"system has the wrong MatPES policy roster: {system}")
             transport_element_support = bool(
                 system_payload.get("transport_element_support", True)
             )
-            if transport_element_support:
+            baseline_diagnostics: list[dict[str, Any]] = []
+            if not is_e54:
+                baseline_diagnostics = _baseline_rounds(
+                    strategies[BASELINE_POLICIES[0]], system=str(system)
+                )
+                cal_diagnostics = []
+                common_fallback = False
+            elif transport_element_support:
                 cal_diagnostics = _cal_rounds(
                     strategies["cal_style_hull_entropy"], system=str(system)
                 )
@@ -184,23 +227,24 @@ def _load_panel(
                     [_prefix_utility(strategies[policy], budget) for budget in range(1, 7)],
                     dtype=np.float64,
                 )
-                for policy in POLICIES
+                for policy in policies
             }
             rows[str(system)]["transport_element_support"] = transport_element_support
             rows[str(system)]["common_fallback"] = common_fallback
             rows[str(system)]["cal_diagnostics"] = cal_diagnostics
+            rows[str(system)]["baseline_diagnostics"] = baseline_diagnostics
 
         if payload.get("transport_fit_and_query_systems_disjoint") is not True:
-            raise ValueError(f"E54 unit does not attest fit/query disjointness: {path}")
+            raise ValueError(f"MatPES unit does not attest fit/query disjointness: {path}")
         if set(payload.get("transport_fit_systems", ())) & query_systems:
-            raise ValueError(f"E54 fit/query overlap in {path}")
+            raise ValueError(f"MatPES fit/query overlap in {path}")
 
     if len(rows) != expected_system_count:
-        raise ValueError(f"expected {expected_system_count} E54 systems, found {len(rows)}")
+        raise ValueError(f"expected {expected_system_count} MatPES systems, found {len(rows)}")
     if fold_indices != expected_fold_indices:
-        raise ValueError(f"E54 fold roster is incomplete: {sorted(fold_indices)}")
+        raise ValueError(f"MatPES fold roster is incomplete: {sorted(fold_indices)}")
     if len(task_hashes) != 1 or len(vault_hashes) != 1 or len(crossfit_hashes) != 1:
-        raise ValueError("E54 task/vault/cross-fit identity changes within a panel")
+        raise ValueError("MatPES task/vault/cross-fit identity changes within a panel")
     return {
         "rows": rows,
         "task_sha256": next(iter(task_hashes)),
@@ -242,6 +286,30 @@ def _runtime_summary(diagnostics: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def _baseline_diagnostic_summary(diagnostics: list[dict[str, Any]]) -> dict[str, Any]:
+    return {
+        "state_count": len(diagnostics),
+        "candidate_counts": sorted(
+            {len(item["candidate_pair_ids"]) for item in diagnostics}
+        ),
+        "schema_versions": sorted(
+            {int(item["diagnostic_schema_version"]) for item in diagnostics}
+        ),
+    }
+
+
+def _integrated_policy_metrics(
+    arrays: dict[str, np.ndarray],
+) -> dict[str, dict[str, float]]:
+    return {
+        policy: {
+            "mean_auc": float(np.mean(_auc(values))),
+            "system_count": int(values.shape[1]),
+        }
+        for policy, values in arrays.items()
+    }
+
+
 def _summarize_effects(
     arrays: dict[str, np.ndarray], *, randomization_draws: int, seed: int
 ) -> tuple[dict[str, Any], dict[str, Any]]:
@@ -274,21 +342,43 @@ def _summarize_effects(
 
 
 def _summarize_panel(
-    panel: dict[str, Any], *, randomization_draws: int, seed: int
+    panel: dict[str, Any],
+    *,
+    policies: tuple[str, ...],
+    randomization_draws: int,
+    seed: int,
 ) -> dict[str, Any]:
     systems = sorted(panel["rows"])
     arrays = {
         policy: np.column_stack([panel["rows"][system][policy] for system in systems])
-        for policy in POLICIES
+        for policy in policies
     }
-    diagnostics = [
-        diagnostic
-        for system in systems
-        for diagnostic in panel["rows"][system]["cal_diagnostics"]
-    ]
-    budgets, integrated = _summarize_effects(
-        arrays, randomization_draws=randomization_draws, seed=seed
-    )
+    if policies == POLICIES:
+        diagnostics = [
+            diagnostic
+            for system in systems
+            for diagnostic in panel["rows"][system]["cal_diagnostics"]
+        ]
+        budgets, integrated = _summarize_effects(
+            arrays, randomization_draws=randomization_draws, seed=seed
+        )
+    else:
+        diagnostics = [
+            diagnostic
+            for system in systems
+            for diagnostic in panel["rows"][system]["baseline_diagnostics"]
+        ]
+        budgets = {
+            str(budget): {
+                "absolute_mean_T": {
+                    policy: float(np.mean(values[budget - 1]))
+                    for policy, values in arrays.items()
+                },
+                "contrasts": {},
+            }
+            for budget in range(1, 7)
+        }
+        integrated = {}
     supported_systems = [
         system
         for system in systems
@@ -300,11 +390,15 @@ def _summarize_panel(
         policy: np.column_stack(
             [panel["rows"][system][policy] for system in supported_systems]
         )
-        for policy in POLICIES
+        for policy in policies
     }
-    supported_budgets, supported_integrated = _summarize_effects(
-        supported_arrays, randomization_draws=randomization_draws, seed=seed
-    )
+    if policies == POLICIES:
+        supported_budgets, supported_integrated = _summarize_effects(
+            supported_arrays, randomization_draws=randomization_draws, seed=seed
+        )
+    else:
+        supported_budgets = {}
+        supported_integrated = {}
     common_fallback_systems = [
         system for system in systems if panel["rows"][system]["common_fallback"]
     ]
@@ -326,6 +420,7 @@ def _summarize_panel(
         "input_sha256": panel["input_sha256"],
         "budgets": budgets,
         "integrated_budget_effects": integrated,
+        "integrated_policy_metrics": _integrated_policy_metrics(arrays),
         "transport_supported_sensitivity": {
             "system_count": len(supported_systems),
             "system_set_sha256": hashlib.sha256(
@@ -334,14 +429,17 @@ def _summarize_panel(
             "budgets": supported_budgets,
             "integrated_budget_effects": supported_integrated,
         },
-        "cal_diagnostics": _runtime_summary(diagnostics),
+        "cal_diagnostics": _runtime_summary(diagnostics) if policies == POLICIES else {},
+        "baseline_diagnostics": (
+            _baseline_diagnostic_summary(diagnostics) if policies == BASELINE_POLICIES else {}
+        ),
     }
 
 
 def _assert_no_failures(root: Path) -> None:
     failures = sorted(root.glob("**/*.failure.json"))
     if failures:
-        raise ValueError("E54 failure markers present: " + ", ".join(map(str, failures)))
+        raise ValueError("failure markers present: " + ", ".join(map(str, failures)))
 
 
 def summarize(
@@ -351,13 +449,15 @@ def summarize(
     output: Path,
     expected_development_system_count: int,
     expected_secondary_system_count: int | None,
+    expected_policies: tuple[str, ...] = POLICIES,
+    protocol: str = E54_PROTOCOL,
     randomization_draws: int = 100_000,
 ) -> dict[str, Any]:
     repo_root = Path(__file__).resolve().parents[1]
     if output.resolve().is_relative_to(repo_root):
-        raise ValueError("E54 summaries must remain outside Git")
+        raise ValueError("MatPES summaries must remain outside Git")
     if output.exists():
-        raise FileExistsError(f"refusing to overwrite E54 summary: {output}")
+        raise FileExistsError(f"refusing to overwrite MatPES summary: {output}")
     _assert_no_failures(development_root)
     development_paths = [
         development_root / f"fold{fold + 1}-b6.json" for fold in range(5)
@@ -366,10 +466,15 @@ def summarize(
         development_paths,
         expected_system_count=expected_development_system_count,
         expected_fold_indices=set(range(5)),
+        policies=expected_policies,
     )
+    is_e54 = expected_policies == POLICIES
     panels = {
         "development": _summarize_panel(
-            development, randomization_draws=randomization_draws, seed=20260810
+            development,
+            policies=expected_policies,
+            randomization_draws=randomization_draws,
+            seed=20260810,
         )
     }
     if secondary_path is not None:
@@ -380,18 +485,30 @@ def summarize(
             [secondary_path],
             expected_system_count=expected_secondary_system_count,
             expected_fold_indices={0},
+            policies=expected_policies,
         )
         panels["secondary"] = _summarize_panel(
-            secondary, randomization_draws=randomization_draws, seed=20260811
+            secondary,
+            policies=expected_policies,
+            randomization_draws=randomization_draws,
+            seed=20260811,
         )
     result = {
         "schema_version": 1,
-        "status": "e54_cal_style_hull_entropy_complete",
-        "protocol": "E54-cal-style-hull-entropy-v1",
-        "policies": POLICIES,
+        "status": (
+            "e54_cal_style_hull_entropy_complete"
+            if is_e54
+            else "e55_complete_pool_mean_hull_margin_baseline_complete"
+        ),
+        "protocol": protocol,
+        "policies": list(expected_policies),
         "analysis_unit": "exact_chemical_system",
-        "primary_contrast": "delta_minus_cal",
-        "inference": "paired sign randomization with interval inversion",
+        "primary_contrast": "delta_minus_cal" if is_e54 else None,
+        "inference": (
+            "paired sign randomization with interval inversion"
+            if is_e54
+            else "descriptive paired-system policy summary; no within-baseline contrast"
+        ),
         "trajectory_design": "one B=6 trajectory with B=1..6 prefixes",
         "panels": panels,
     }
@@ -407,6 +524,8 @@ def main() -> None:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--expected-development-systems", type=int, default=230)
     parser.add_argument("--expected-secondary-systems", type=int, default=94)
+    parser.add_argument("--policies", nargs="+", default=list(POLICIES))
+    parser.add_argument("--protocol", default=E54_PROTOCOL)
     parser.add_argument("--randomization-draws", type=int, default=100_000)
     args = parser.parse_args()
     result = summarize(
@@ -417,6 +536,8 @@ def main() -> None:
         expected_secondary_system_count=(
             args.expected_secondary_systems if args.secondary is not None else None
         ),
+        expected_policies=tuple(args.policies),
+        protocol=args.protocol,
         randomization_draws=args.randomization_draws,
     )
     print(json.dumps({"status": result["status"], "panels": list(result["panels"])}))
