@@ -51,20 +51,28 @@ feedback.
 
 ## Theory results in the manuscript
 
-1. **Repeated greedy has no uniform approximation ratio.** For any
-   (eta>0), use a hidden state (Z\sim\mathrm{Unif}\{1,\ldots,K\}),
-   budget two, an information-only candidate (s) with (O_s=Z,Y_s=0),
-   two constant-observation decoys with label probability (2/K), and
-   specialists (g_k) with (Y_{g_k}=1\{Z=k\}). Repeated greedy selects the
-   decoys and obtains (4/K), while querying (s) and then (g_Z) obtains one.
-   Taking (K>4/\eta) makes the ratio smaller than (eta).
+1. **Repeated greedy has no uniform approximation ratio even on binary
+   hulls with facet competition.** For any (eta>0), a one-dimensional
+   binary-composition construction uses fixed reference anchors, distinct
+   specialist/decoy compositions, and state-indexed competitors.  The
+   specialists and decoys have world-invariant self-energies; competitors in
+   other compositions create lower supporting facets that revoke them.
+   With (Z\sim\mathrm{Unif}\{1,\ldots,K\}), budget two, two
+   constant-observation decoys have label probability (2/K), while every
+   specialist and competitor has probability (1/K).  Repeated greedy selects
+   the decoys and obtains (4/K); an always-unstable state-encoding probe
+   followed by the matching specialist obtains one.  Taking (K>4/\eta)
+   makes the ratio smaller than (eta).  The full geometric separation
+   argument is in Appendix A.12 of the manuscript.
 
-2. **Adaptive submodularity fails in general.** With (Z\sim
-   \mathrm{Bernoulli}(1/2)), let (O_a=Z,Y_a=0), and (O_b) be constant
-   with (Y_b=Z). The marginal of selecting (b) is (1/2) before querying
-   (a), but one after observing (O_a=1). The conditional marginal
-   increases, violating adaptive diminishing returns even though terminal
-   utility is additive.
+2. **Adaptive submodularity fails on the same binary hull.** In the
+   (K=2) specialization, the always-unstable state-encoding probe has
+   zero label and the first specialist has label
+   (Y_{g_1}=\mathbf 1\{Z=1\}). The marginal of selecting (g_1) is (1/2)
+   before querying the probe, but one after its observation identifies
+   (Z=1). The conditional marginal increases, violating adaptive diminishing
+   returns even though terminal utility is additive and the specialist's own
+   energy is fixed.
 
 3. **Greedy is optimal in stable regimes and near-optimal under weak
    coupling.** If every legal observation continuation preserves the
@@ -134,8 +142,9 @@ feedback.
    \end{aligned}
    \]
 
-   The terms are, respectively, structural planning headroom, solver/
-   Monte-Carlo regret, and differential posterior model error. An incremental
+   The terms are, respectively, posterior-implied planning headroom, solver/
+   approximation regret, and differential evaluation gap. The last term is
+   model error only if the evaluator distribution is treated as faithful. An incremental
    compute price `lambda(C(hat pi)-C(pi_g))` is a separate declared penalty;
    it is not a target-query cost and does not create a cost-aware claim. This
    identity explains why many action changes can coexist with little realized
@@ -173,6 +182,14 @@ exact I_h(x) term because it stores absolute rather than signed conditional
 hull probabilities; a new instrumented posterior replay would be required.
 The MatPES ties do not prove posterior rank stability, and no solver or gate
 superiority claim is supported.
+
+The exact certificate audit also limits how the theory should be read
+empirically: the weak-coupling bound covers all 1,000 roots, but is at most
+0.01 on only 25.3%; strict full-order rank stability occurs on 25.6% of roots
+and those roots have zero exact DP--greedy gap; positive two-step headroom
+detects only 5/16 roots with a positive full-horizon gap. These are diagnostic
+rates from the frozen finite-world suite, not a posterior-only certificate for
+MatPES.
 
 The next registered method-development line, `E51`, treats the two results
 above as an audit target. It estimates top-two information/headroom with an

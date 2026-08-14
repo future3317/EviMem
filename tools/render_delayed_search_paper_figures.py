@@ -7,54 +7,93 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
+from publication_figure_style import PALETTE, apply_publication_style, finalize_figure
 
 from matmem.controlled_delayed_label_benchmark import controlled_benchmark_grid
 
-INK, BLUE, GREEN, RED, GRAY = "#172033", "#2D6F9F", "#1D7A5B", "#A53A3A", "#6B7C93"
+INK = PALETTE["charcoal"]
+BLUE = PALETTE["blue_main"]
+GREEN = PALETTE["teal"]
+RED = PALETTE["red_strong"]
+GRAY = PALETTE["neutral_dark"]
 
 
 def _save(fig: plt.Figure, path: Path) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(path, bbox_inches="tight", facecolor="white")
-    fig.savefig(path.with_suffix(".png"), dpi=300, bbox_inches="tight", facecolor="white")
-    plt.close(fig)
+    finalize_figure(fig, path)
 
 
 def delayed_adjudication(path: Path) -> None:
-    fig = plt.figure(figsize=(7.0, 3.0), constrained_layout=True)
-    grid = fig.add_gridspec(2, 3, height_ratios=(1.0, 0.72))
-    axes = [fig.add_subplot(grid[0, index]) for index in range(3)]
-    timeline = fig.add_subplot(grid[1, :])
-    xs = np.array([0.0, 0.34, 0.66, 1.0])
-    for axis in axes:
-        axis.set(xlim=(-0.04, 1.04), ylim=(-0.12, 0.16))
-        axis.axis("off")
-        axis.plot([0, 1], [0, 0], color=INK, lw=1.2)
-    axes[0].set_title("1. Initial hull", fontsize=8)
-    axes[0].scatter([0, 1], [0, 0], color=INK, s=18)
-    axes[0].scatter([xs[1], xs[2]], [0.055, 0.035], color=GRAY, s=35)
-    axes[0].text(xs[1], 0.072, "x", ha="center", fontsize=9)
-    axes[0].text(xs[2], 0.052, "y", ha="center", fontsize=9)
-    axes[1].set_title("2. Query $x$", fontsize=8)
-    axes[1].scatter([0, 1, xs[1]], [0, 0, -0.035], color=[INK, INK, BLUE], s=28)
-    axes[1].plot([0, xs[1], 1], [0, -0.035, 0], color=BLUE, lw=1.4)
-    axes[1].text(xs[1], -0.075, "provisional\ndiscovery", ha="center", fontsize=7.5, color=BLUE)
-    axes[2].set_title("3. Complete unqueried target\nenergies + adjudicate", fontsize=7.2)
-    axes[2].scatter([0, 1, xs[1], xs[2]], [0, 0, -0.035, -0.090], color=[INK, INK, GRAY, RED], s=28)
-    axes[2].plot([0, xs[2], 1], [0, -0.090, 0], color=RED, lw=1.4)
-    axes[2].text(xs[1], -0.075, "$x$ invalidated", ha="center", fontsize=7.5, color=RED)
-    axes[2].text(xs[1], 0.105, "$E_T(x)$ observed", ha="center", fontsize=7.0, color=BLUE)
-    axes[2].text(xs[2], -0.115, "$Y_x$", ha="center", fontsize=8.2, color=RED)
-    timeline.axis("off")
-    timeline.set(xlim=(0.0, 1.0), ylim=(0.0, 1.0))
-    steps = ("query $x$", "observe $E_T(x)$", "complete unqueried\ntarget energies", "adjudicate $Y_x$")
-    positions = np.linspace(0.08, 0.92, len(steps))
-    for i, step in enumerate(steps):
-        timeline.text(positions[i], 0.57, step, ha="center", va="center", fontsize=7.0,
-                      bbox={"boxstyle": "round,pad=0.25", "fc": "#EEF3F8", "ec": BLUE, "lw": 0.7})
-        if i < 3:
-            timeline.annotate("", xy=(positions[i + 1] - 0.08, 0.57), xytext=(positions[i] + 0.08, 0.57), arrowprops={"arrowstyle": "->", "lw": 0.8})
-    timeline.text(0.5, 0.13, "The energy observation is immediate; adjudication waits until unqueried target energies are completed.", ha="center", fontsize=7.2, color=INK)
+    apply_publication_style(7.4)
+    fig, axes = plt.subplots(2, 2, figsize=(7.05, 3.85), facecolor="white")
+    ax_a, ax_b, ax_c, ax_d = axes.ravel()
+
+    def box(axis, x, y, text, *, edge=BLUE, fill="#EAF2F8", size=6.3):
+        axis.text(
+            x,
+            y,
+            text,
+            ha="center",
+            va="center",
+            fontsize=size,
+            color=INK,
+            bbox={"boxstyle": "round,pad=0.30", "fc": fill, "ec": edge, "lw": 0.8},
+        )
+
+    ax_a.axis("off")
+    ax_a.set(xlim=(0, 1), ylim=(0, 1))
+    ax_a.text(0.02, 0.94, "a", fontsize=8.5, fontweight="bold", transform=ax_a.transAxes)
+    ax_a.text(0.50, 0.92, "Ordinary active search", ha="center", fontsize=7.2, color=GRAY)
+    ax_a.text(0.50, 0.55, "Delayed structured-label search", ha="center", fontsize=7.2, color=BLUE)
+    box(ax_a, 0.18, 0.78, "query $x$", edge=GRAY, fill="#F3F3F3")
+    box(ax_a, 0.82, 0.78, "observe $Y_x$", edge=GRAY, fill="#F3F3F3")
+    ax_a.annotate("", xy=(0.69, 0.78), xytext=(0.31, 0.78), arrowprops={"arrowstyle": "->", "lw": 0.8, "color": GRAY})
+    box(ax_a, 0.18, 0.38, "query $x$", edge=BLUE)
+    box(ax_a, 0.50, 0.38, "observe $E_T(x)$", edge=BLUE)
+    box(ax_a, 0.82, 0.38, "adjudicate $Y_x$\non complete pool", edge=RED, fill="#F8ECEB", size=5.8)
+    ax_a.annotate("", xy=(0.40, 0.38), xytext=(0.29, 0.38), arrowprops={"arrowstyle": "->", "lw": 0.8, "color": BLUE})
+    ax_a.annotate("", xy=(0.72, 0.38), xytext=(0.61, 0.38), arrowprops={"arrowstyle": "->", "lw": 0.8, "color": RED})
+    ax_a.text(0.50, 0.16, "Immediate numeric observation; delayed globally coupled label", ha="center", fontsize=6.2, color=INK)
+
+    ax_b.set(xlim=(-0.05, 1.05), ylim=(-0.32, 0.16))
+    ax_b.axis("off")
+    ax_b.text(0.02, 0.94, "b", fontsize=8.5, fontweight="bold", transform=ax_b.transAxes)
+    comp = np.array([0.0, 0.34, 0.66, 1.0])
+    ax_b.plot([0, 1], [0, 0], color=INK, lw=1.0)
+    ax_b.scatter([0, 1], [0, 0], color=INK, s=18, zorder=3)
+    ax_b.scatter([comp[1]], [-0.05], color=BLUE, s=32, zorder=4)
+    ax_b.plot([0, comp[1], 1], [0, -0.05, 0], color=BLUE, lw=1.6, ls="--")
+    ax_b.text(comp[1], -0.11, "queried $x$\nprovisional", ha="center", color=BLUE, fontsize=6.2)
+    ax_b.scatter([comp[2]], [-0.16], color=RED, s=32, zorder=4)
+    ax_b.plot([0, comp[2], 1], [0, -0.16, 0], color=RED, lw=1.6)
+    ax_b.text(comp[2], -0.23, "unqueried $y$\nrevokes $x$", ha="center", color=RED, fontsize=6.2)
+    ax_b.text(0.50, 0.10, "provisional hull", ha="center", color=BLUE, fontsize=6.4)
+    ax_b.text(0.50, -0.30, "final complete-pool hull", ha="center", color=RED, fontsize=6.4)
+    ax_b.set_xlabel("composition", labelpad=1)
+
+    ax_c.axis("off")
+    ax_c.set(xlim=(0, 1), ylim=(0, 1))
+    ax_c.text(0.02, 0.94, "c", fontsize=8.5, fontweight="bold", transform=ax_c.transAxes)
+    for y, label, color, fill in ((0.73, "$D$: reveal-time", BLUE, "#EAF2F8"), (0.51, "$F$: selected-history", GRAY, "#F3F3F3"), (0.29, "$T$: complete-pool", RED, "#F8ECEB")):
+        box(ax_c, 0.52, y, label, edge=color, fill=fill)
+    ax_c.annotate("", xy=(0.52, 0.60), xytext=(0.52, 0.69), arrowprops={"arrowstyle": "->", "lw": 0.8, "color": GRAY})
+    ax_c.annotate("", xy=(0.52, 0.38), xytext=(0.52, 0.47), arrowprops={"arrowstyle": "->", "lw": 0.8, "color": GRAY})
+    ax_c.text(0.13, 0.61, "$D-F$\nwithin-campaign", ha="center", va="center", fontsize=6.2, color=GRAY)
+    ax_c.text(0.13, 0.38, "$F-T$\nunqueried competitors", ha="center", va="center", fontsize=6.2, color=RED)
+    ax_c.text(0.50, 0.10, "Reward is $T$; $D$ and $F$ diagnose when\nprovisional discoveries are revoked.", ha="center", fontsize=6.0, color=INK)
+
+    ax_d.axis("off")
+    ax_d.set(xlim=(0, 1), ylim=(0, 1))
+    ax_d.text(0.02, 0.94, "d", fontsize=8.5, fontweight="bold", transform=ax_d.transAxes)
+    box(ax_d, 0.20, 0.53, "Target margin\n(proxy objective)", edge=GRAY, fill="#F3F3F3", size=6.0)
+    box(ax_d, 0.50, 0.53, "Delta-Hull\n(complete-pool greedy)", edge=BLUE, fill="#EAF2F8", size=6.0)
+    box(ax_d, 0.80, 0.53, "Lookahead\n(anchored rollout)", edge=RED, fill="#F8ECEB", size=6.0)
+    ax_d.annotate("", xy=(0.40, 0.53), xytext=(0.30, 0.53), arrowprops={"arrowstyle": "->", "lw": 0.9, "color": BLUE})
+    ax_d.annotate("", xy=(0.70, 0.53), xytext=(0.60, 0.53), arrowprops={"arrowstyle": "->", "lw": 0.9, "color": RED})
+    ax_d.text(0.35, 0.70, "change objective", ha="center", fontsize=6.2, color=BLUE)
+    ax_d.text(0.65, 0.70, "change solver", ha="center", fontsize=6.2, color=RED)
+    ax_d.text(0.50, 0.22, "The study asks whether objective alignment\nmatters more than extra planning.", ha="center", fontsize=6.2, color=INK)
+
+    fig.subplots_adjust(left=0.03, right=0.98, bottom=0.08, top=0.96, wspace=0.16, hspace=0.18)
     _save(fig, path)
 
 
