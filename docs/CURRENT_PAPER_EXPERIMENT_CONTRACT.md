@@ -176,9 +176,13 @@ selection timeout, with the single policy
 `complete_pool_posterior_mean_hull_margin`. Its summary is descriptive for the
 paired development panel (B=1..6 utility prefixes and integrated budget area)
 and does not define a new planner or alter the frozen E53/E54/E55 estimands.
-The summary contract accepts this single-policy roster and validates its
-candidate-level leave-one-out margin diagnostics; no policy trajectory is
-regenerated during summarization.
+For each transport-supported system, the summary contract requires six
+candidate-level leave-one-out margin diagnostic states. Systems without
+transport-element support follow the registered deterministic fallback: their
+six-step utility trajectory is retained, but no margin diagnostics are
+expected. The summary records both the fallback count and diagnostic coverage;
+it does not treat fallback systems as if their diagnostics were observed. No
+policy trajectory is regenerated during summarization.
 
 ## Invariants that remain binding
 

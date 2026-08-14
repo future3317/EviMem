@@ -85,13 +85,12 @@ def _cal_rounds(strategy: dict[str, Any], *, system: str) -> list[dict[str, Any]
 
 def _baseline_rounds(strategy: dict[str, Any], *, system: str) -> list[dict[str, Any]]:
     rounds = strategy.get("policy_decision_rounds", [])
-    diagnostics = [
-        event.get("selection_diagnostics")
-        for event in rounds
-        if event.get("selection_diagnostics", {}).get("kind")
-        == BASELINE_POLICIES[0]
-    ]
-    if len(diagnostics) != 6 or any(item is None for item in diagnostics):
+    diagnostics: list[dict[str, Any]] = []
+    for event in rounds:
+        diagnostic = event.get("selection_diagnostics")
+        if isinstance(diagnostic, dict) and diagnostic.get("kind") == BASELINE_POLICIES[0]:
+            diagnostics.append(diagnostic)
+    if len(diagnostics) != 6:
         raise ValueError(f"missing complete-pool margin diagnostics for {system}")
     margin_key = "complete_pool_posterior_mean_hull_margins"
     for diagnostic in diagnostics:
@@ -108,6 +107,12 @@ def _baseline_rounds(strategy: dict[str, Any], *, system: str) -> list[dict[str,
         if str(diagnostic.get("selected_pair_id")) not in candidate_ids:
             raise ValueError(f"baseline selected ID is outside candidate roster for {system}")
     return [dict(item) for item in diagnostics]
+
+
+def _baseline_fallback_rounds(strategy: dict[str, Any], *, system: str) -> None:
+    rounds = strategy.get("policy_decision_rounds", [])
+    if len(rounds) != 6 or any(event.get("selection_diagnostics") is not None for event in rounds):
+        raise ValueError(f"invalid complete-pool deterministic fallback for {system}")
 
 
 def _is_common_fallback(
@@ -204,10 +209,17 @@ def _load_panel(
                 system_payload.get("transport_element_support", True)
             )
             baseline_diagnostics: list[dict[str, Any]] = []
+            deterministic_fallback = False
             if not is_e54:
-                baseline_diagnostics = _baseline_rounds(
-                    strategies[BASELINE_POLICIES[0]], system=str(system)
-                )
+                if transport_element_support:
+                    baseline_diagnostics = _baseline_rounds(
+                        strategies[BASELINE_POLICIES[0]], system=str(system)
+                    )
+                else:
+                    _baseline_fallback_rounds(
+                        strategies[BASELINE_POLICIES[0]], system=str(system)
+                    )
+                    deterministic_fallback = True
                 cal_diagnostics = []
                 common_fallback = False
             elif transport_element_support:
@@ -222,6 +234,7 @@ def _load_panel(
                     )
                 cal_diagnostics = []
                 common_fallback = True
+                deterministic_fallback = True
             rows[str(system)] = {
                 policy: np.asarray(
                     [_prefix_utility(strategies[policy], budget) for budget in range(1, 7)],
@@ -231,6 +244,7 @@ def _load_panel(
             }
             rows[str(system)]["transport_element_support"] = transport_element_support
             rows[str(system)]["common_fallback"] = common_fallback
+            rows[str(system)]["deterministic_fallback"] = deterministic_fallback
             rows[str(system)]["cal_diagnostics"] = cal_diagnostics
             rows[str(system)]["baseline_diagnostics"] = baseline_diagnostics
 
@@ -286,9 +300,17 @@ def _runtime_summary(diagnostics: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
-def _baseline_diagnostic_summary(diagnostics: list[dict[str, Any]]) -> dict[str, Any]:
+def _baseline_diagnostic_summary(
+    diagnostics: list[dict[str, Any]],
+    *,
+    system_count: int,
+    panel_system_count: int,
+) -> dict[str, Any]:
     return {
         "state_count": len(diagnostics),
+        "system_count": system_count,
+        "panel_system_count": panel_system_count,
+        "coverage_fraction": system_count / panel_system_count,
         "candidate_counts": sorted(
             {len(item["candidate_pair_ids"]) for item in diagnostics}
         ),
@@ -402,6 +424,12 @@ def _summarize_panel(
     common_fallback_systems = [
         system for system in systems if panel["rows"][system]["common_fallback"]
     ]
+    deterministic_fallback_systems = [
+        system for system in systems if panel["rows"][system]["deterministic_fallback"]
+    ]
+    baseline_diagnostic_systems = [
+        system for system in systems if panel["rows"][system]["baseline_diagnostics"]
+    ]
     return {
         "system_count": len(systems),
         "transport_element_supported_system_count": sum(
@@ -410,6 +438,7 @@ def _summarize_panel(
         ),
         "cal_executed_transport_supported_system_count": len(supported_systems),
         "common_fallback_system_count": len(common_fallback_systems),
+        "deterministic_fallback_system_count": len(deterministic_fallback_systems),
         "common_fallback_system_set_sha256": hashlib.sha256(
             "\n".join(common_fallback_systems).encode()
         ).hexdigest(),
@@ -431,7 +460,13 @@ def _summarize_panel(
         },
         "cal_diagnostics": _runtime_summary(diagnostics) if policies == POLICIES else {},
         "baseline_diagnostics": (
-            _baseline_diagnostic_summary(diagnostics) if policies == BASELINE_POLICIES else {}
+            _baseline_diagnostic_summary(
+                diagnostics,
+                system_count=len(baseline_diagnostic_systems),
+                panel_system_count=len(systems),
+            )
+            if policies == BASELINE_POLICIES
+            else {}
         ),
     }
 

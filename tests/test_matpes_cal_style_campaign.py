@@ -277,6 +277,38 @@ def test_cal_summary_supports_the_single_policy_baseline_contract(tmp_path: Path
     assert panel["baseline_diagnostics"]["state_count"] == 30
 
 
+def test_baseline_summary_accepts_deterministic_fallback_without_diagnostics(
+    tmp_path: Path,
+) -> None:
+    development = tmp_path / "development"
+    for fold in range(5):
+        _baseline_unit(development / f"fold{fold + 1}-b6.json", fold=fold, system=f"S{fold}")
+
+    path = development / "fold1-b6.json"
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    system = payload["systems"]["S0"]
+    system["transport_element_support"] = False
+    for event in system["strategies"][BASELINE_POLICIES[0]]["policy_decision_rounds"]:
+        event["selection_diagnostics"] = None
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+    result = summarize(
+        development_root=development,
+        secondary_path=None,
+        output=tmp_path / "summary.json",
+        expected_development_system_count=5,
+        expected_secondary_system_count=None,
+        expected_policies=BASELINE_POLICIES,
+        protocol=BASELINE_PROTOCOL,
+        randomization_draws=1_000,
+    )
+
+    panel = result["panels"]["development"]
+    assert panel["deterministic_fallback_system_count"] == 1
+    assert panel["baseline_diagnostics"]["system_count"] == 4
+    assert panel["baseline_diagnostics"]["state_count"] == 24
+
+
 def test_cal_summary_rejects_missing_diagnostic(tmp_path: Path) -> None:
     development = tmp_path / "development"
     for fold in range(5):
