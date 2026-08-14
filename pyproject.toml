@@ -5,8 +5,9 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "matmem"
 version = "0.2.0"
-description = "Decision-aware calibration coresets and protocol-aware residual memory for materials discovery"
+description = "Oracle-isolated active search with delayed structured labels and convex-hull evaluation"
 readme = "README.md"
+license = { file = "LICENSE" }
 requires-python = ">=3.11"
 dependencies = [
   "pandas>=2.1",
