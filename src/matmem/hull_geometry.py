@@ -25,6 +25,9 @@ if TYPE_CHECKING:
     from pymatgen.entries.computed_entries import ComputedEntry
 
 
+_CAUSAL_HULL_DECOMPOSITION_CHUNK_SIZE = 2048
+
+
 class FixedCompositionHullTemplate(BaseModel):
     """Cached composition geometry for an action-equivalent lower-hull solver.
 
@@ -535,11 +538,21 @@ def _final_hull_values(
 class _CausalHullEnvelope:
     """Cached exact convex decompositions for one active composition set."""
 
-    simplex_active_positions: np.ndarray
-    simplex_weights: np.ndarray
-    feasible: np.ndarray
+    query_active_positions: tuple[np.ndarray, ...]
+    query_weights: tuple[np.ndarray, ...]
     active_count: int
     query_count: int
+    retained_simplex_count: int
+    feasible_nnz: int
+
+    @property
+    def nbytes(self) -> int:
+        """Return bytes held by the compact decomposition arrays."""
+
+        return int(
+            sum(array.nbytes for array in self.query_active_positions)
+            + sum(array.nbytes for array in self.query_weights)
+        )
 
     @classmethod
     def build(
@@ -584,9 +597,13 @@ class _CausalHullEnvelope:
         active_matrix = np.asarray([fractions(value) for value in active_compositions])
         if len(active_matrix) < dimension:
             raise ValueError("causal hull lacks enough active phase compositions")
-        simplex_positions: list[tuple[int, ...]] = []
-        simplex_weights: list[np.ndarray] = []
-        feasible_masks: list[np.ndarray] = []
+        query_positions: list[list[tuple[int, ...]]] = [
+            [] for _ in range(len(query_matrix))
+        ]
+        query_weights: list[list[tuple[float, ...]]] = [
+            [] for _ in range(len(query_matrix))
+        ]
+        retained_simplex_count = 0
         for positions in combinations(range(len(active_matrix)), dimension):
             matrix = active_matrix[np.asarray(positions)].T
             if abs(float(np.linalg.det(matrix))) <= 1e-12:
@@ -600,20 +617,50 @@ class _CausalHullEnvelope:
             )
             if not np.any(feasible):
                 continue
-            simplex_positions.append(positions)
-            simplex_weights.append(weights)
-            feasible_masks.append(feasible)
-        if not simplex_positions:
+            retained_simplex_count += 1
+            for query_index in np.flatnonzero(feasible):
+                # Zero-weight vertices do not change the decomposition.  Drop
+                # them here so identical lower-dimensional decompositions are
+                # represented once instead of once per containing simplex.
+                positive = np.flatnonzero(weights[:, query_index] != 0.0)
+                positive_positions = tuple(int(positions[index]) for index in positive)
+                positive_weights = tuple(
+                    float(weights[index, query_index]) for index in positive
+                )
+                # Keep a fixed-width representation for batched evaluation;
+                # padded positions carry zero weights and therefore do not
+                # change the decomposition value.
+                padded_positions = positive_positions + (positive_positions[-1],) * (
+                    dimension - len(positive_positions)
+                )
+                padded_weights = positive_weights + (0.0,) * (
+                    dimension - len(positive_weights)
+                )
+                query_positions[int(query_index)].append(padded_positions)
+                query_weights[int(query_index)].append(padded_weights)
+        if retained_simplex_count == 0:
             raise ValueError("causal-hull envelope has no feasible decomposition")
-        feasible = np.asarray(feasible_masks, dtype=bool)
-        if np.any(~np.any(feasible, axis=0)):
-            raise ValueError("causal-hull references do not span every query composition")
+        # Convert each query independently to compact numeric arrays after
+        # deduplicating zero-weight-containing simplices.
+        compact_positions: list[np.ndarray] = []
+        compact_weights: list[np.ndarray] = []
+        for positions, weights in zip(query_positions, query_weights, strict=True):
+            if not positions:
+                raise ValueError("causal-hull references do not span every query composition")
+            unique = tuple(dict.fromkeys(zip(positions, weights, strict=True)))
+            compact_positions.append(
+                np.asarray([position for position, _ in unique], dtype=np.int64)
+            )
+            compact_weights.append(
+                np.asarray([weight for _, weight in unique], dtype=np.float64)
+            )
         return cls(
-            simplex_active_positions=np.asarray(simplex_positions, dtype=np.int64),
-            simplex_weights=np.asarray(simplex_weights, dtype=np.float64),
-            feasible=feasible,
+            query_active_positions=tuple(compact_positions),
+            query_weights=tuple(compact_weights),
             active_count=len(active_matrix),
             query_count=len(query_matrix),
+            retained_simplex_count=retained_simplex_count,
+            feasible_nnz=sum(len(values) for values in compact_positions),
         )
 
     def competing_hull_energies(self, active_energies: np.ndarray) -> np.ndarray:
@@ -624,16 +671,25 @@ class _CausalHullEnvelope:
             raise ValueError("causal-hull active energies disagree with geometry")
         if not np.isfinite(values).all():
             raise ValueError("causal-hull active energies must be finite")
-        hull = np.full((len(values), self.query_count), np.inf, dtype=np.float64)
-        for positions, weights, feasible in zip(
-            self.simplex_active_positions,
-            self.simplex_weights,
-            self.feasible,
-            strict=True,
+        hull = np.empty((len(values), self.query_count), dtype=np.float64)
+        for query_index, (positions, weights) in enumerate(
+            zip(self.query_active_positions, self.query_weights, strict=True)
         ):
-            candidate_values = values[:, positions] @ weights
-            candidate_values[:, ~feasible] = np.inf
-            np.minimum(hull, candidate_values, out=hull)
+            query_hull = np.full(len(values), np.inf, dtype=np.float64)
+            for start in range(0, len(positions), _CAUSAL_HULL_DECOMPOSITION_CHUNK_SIZE):
+                stop = start + _CAUSAL_HULL_DECOMPOSITION_CHUNK_SIZE
+                candidate_values = np.einsum(
+                    "mdk,dk->md",
+                    values[:, positions[start:stop]],
+                    weights[start:stop],
+                    optimize=True,
+                )
+                np.minimum(
+                    query_hull,
+                    np.min(candidate_values, axis=1),
+                    out=query_hull,
+                )
+            hull[:, query_index] = query_hull
         if not np.isfinite(hull).all():
             raise ValueError("causal-hull energy is undefined for a query composition")
         return hull

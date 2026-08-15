@@ -293,6 +293,105 @@ def test_cal_entropy_candidate_parallelism_preserves_fixed_backend_scores() -> N
     assert int(np.argmax(parallel.scores)) == int(np.argmax(serial.scores))
 
 
+def test_cal_entropy_matches_unbatched_reference_sampling() -> None:
+    query_compositions = (
+        {"A": 0.5, "B": 0.5},
+        {"A": 0.25, "B": 0.75},
+        {"A": 0.75, "B": 0.25},
+    )
+    reference_compositions = ({"A": 1.0}, {"B": 1.0})
+    reference_energies = np.zeros(2)
+    posterior = ProtocolTargetEnergyPosterior(
+        mean=(-0.40, -0.25, -0.32),
+        covariance=((0.04, 0.012, 0.008), (0.012, 0.03, 0.006), (0.008, 0.006, 0.02)),
+        system_offset_mean=0.0,
+        system_offset_variance=0.0,
+        history_count=0,
+    )
+    template = FixedCompositionHullTemplate.from_compositions(
+        query_compositions=query_compositions,
+        reference_compositions=reference_compositions,
+    )
+    sample_count = 8
+    fantasy_count = 2
+    seed = 19
+    grid = _unique_query_composition_grid(query_compositions)
+    runtime_plan = _CalHullRuntimePlan.from_inputs(
+        query_compositions=query_compositions,
+        reference_compositions=reference_compositions,
+        evaluation_compositions=grid,
+        fixed_template=template,
+    )
+    mean = np.asarray(posterior.mean)
+    covariance = np.asarray(posterior.covariance)
+    current = _sample_gaussian(mean, covariance, sample_count=sample_count, seed=seed)
+    current_entropy = _gaussian_hull_entropy(
+        _cal_hull_values(
+            query_compositions=query_compositions,
+            sampled_query_energies=current,
+            reference_compositions=reference_compositions,
+            reference_energies=reference_energies,
+            evaluation_compositions=grid,
+            fixed_template=template,
+            runtime_plan=runtime_plan,
+        )
+    )
+    expected = []
+    for query_index in range(len(mean)):
+        variance = float(covariance[query_index, query_index])
+        fantasies = _sample_gaussian(
+            np.asarray((mean[query_index],)),
+            np.asarray(((variance,),)),
+            sample_count=fantasy_count,
+            seed=seed + 9001,
+        )[:, 0]
+        entropy_sum = 0.0
+        for fantasy_index, outcome in enumerate(fantasies):
+            conditional_mean, conditional_covariance = _condition_gaussian_on_scalar(
+                mean,
+                covariance,
+                index=query_index,
+                outcome=float(outcome),
+            )
+            conditional_samples = _sample_gaussian(
+                conditional_mean,
+                conditional_covariance,
+                sample_count=sample_count,
+                seed=seed + 104729 * (fantasy_index + 1),
+            )
+            entropy_sum += _gaussian_hull_entropy(
+                _cal_hull_values(
+                    query_compositions=query_compositions,
+                    sampled_query_energies=conditional_samples,
+                    reference_compositions=reference_compositions,
+                    reference_energies=reference_energies,
+                    evaluation_compositions=grid,
+                    fixed_template=template,
+                    runtime_plan=runtime_plan,
+                )
+            )
+        expected.append(entropy_sum / fantasy_count)
+
+    optimized = protocol_hull_entropy(
+        posterior,
+        query_compositions=query_compositions,
+        reference_compositions=reference_compositions,
+        reference_energies=reference_energies,
+        costs=np.ones(3),
+        posterior_sample_count=sample_count,
+        fantasy_count=fantasy_count,
+        seed=seed,
+        fixed_template=template,
+    )
+    np.testing.assert_allclose(optimized.current_entropy, current_entropy, rtol=0.0, atol=0.0)
+    np.testing.assert_allclose(
+        optimized.expected_conditional_entropies,
+        expected,
+        rtol=1e-12,
+        atol=1e-12,
+    )
+
+
 def test_cal_fixed_backend_is_invariant_to_query_order() -> None:
     first = (
         {"A": 0.25, "B": 0.75},

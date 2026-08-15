@@ -35,6 +35,7 @@ from .posterior import (
     _sample_gaussian,
     _sample_gaussian_blocks,
     _sample_gaussian_from_factor,
+    _standard_normal_block,
 )
 from .selective_planning import selective_gate
 from .utils import _normalized_composition_key
@@ -946,15 +947,14 @@ def complete_pool_posterior_mean_hull_margin(
     )
     active_energies = np.concatenate((references, means))
     margins = np.empty(len(means), dtype=np.float64)
-    positions = envelope.simplex_active_positions
-    simplex_energies = active_energies[positions]
     for candidate_index in all_indices:
-        weights = envelope.simplex_weights[:, :, candidate_index]
+        positions = envelope.query_active_positions[candidate_index]
+        weights = envelope.query_weights[candidate_index]
+        simplex_energies = active_energies[positions]
         candidate_position = positions == len(references) + candidate_index
         excluded = np.any(candidate_position & (weights > 0.0), axis=1)
-        feasible = envelope.feasible[:, candidate_index] & ~excluded
         competing_values = np.einsum("sd,sd->s", simplex_energies, weights)
-        competing_values[~feasible] = np.inf
+        competing_values[excluded] = np.inf
         if not np.isfinite(competing_values).any():
             raise ValueError("complete-pool leave-one-out hull is undefined")
         margins[candidate_index] = means[candidate_index] - np.min(competing_values)
@@ -1036,41 +1036,61 @@ def protocol_hull_entropy(
         current_hulls,
         relative_ridge=relative_ridge,
     )
+    fantasy_standard_normal = _standard_normal_block(
+        dimension=1,
+        sample_count=fantasy_count,
+        seed=seed + 9001,
+    )[:, 0]
+    conditional_standard_normals = tuple(
+        _standard_normal_block(
+            dimension=size,
+            sample_count=actual_sample_count,
+            seed=seed + 104729 * (fantasy_index + 1),
+        )
+        for fantasy_index in range(fantasy_count)
+    )
+
     def evaluate_candidate(query_index: int) -> tuple[int, float]:
         variance = float(covariance[query_index, query_index])
         if variance <= 1e-15:
             return query_index, current_entropy
-        fantasy_energies = _sample_gaussian(
-            np.asarray((mean[query_index],), dtype=np.float64),
-            np.asarray(((variance,),), dtype=np.float64),
-            sample_count=fantasy_count,
-            seed=seed + 9001,
-        )[:, 0]
-        conditional_entropy_sum = 0.0
+        scalar_factor = _gaussian_factor(
+            np.asarray(((variance,),), dtype=np.float64)
+        )[0, 0]
+        fantasy_energies = mean[query_index] + scalar_factor * fantasy_standard_normal
+        conditional_mean, conditional_covariance = _condition_gaussian_on_scalar(
+            mean,
+            covariance,
+            index=query_index,
+            outcome=float(fantasy_energies[0]),
+        )
+        conditional_factor = _gaussian_factor(conditional_covariance)
+        conditional_sample_blocks: list[np.ndarray] = []
         for fantasy_index, outcome in enumerate(fantasy_energies):
-            conditional_mean, conditional_covariance = _condition_gaussian_on_scalar(
+            conditional_mean, _ = _condition_gaussian_on_scalar(
                 mean,
                 covariance,
                 index=query_index,
                 outcome=float(outcome),
             )
-            conditional_samples = _sample_gaussian(
-                conditional_mean,
-                conditional_covariance,
-                sample_count=actual_sample_count,
-                seed=seed + 104729 * (fantasy_index + 1),
+            conditional_sample_blocks.append(
+                conditional_mean
+                + conditional_standard_normals[fantasy_index] @ conditional_factor.T
             )
-            conditional_hulls = _cal_hull_values(
-                query_compositions=query_compositions,
-                sampled_query_energies=conditional_samples,
-                reference_compositions=reference_compositions,
-                reference_energies=reference_energies,
-                evaluation_compositions=evaluation_compositions,
-                fixed_template=fixed_template,
-                runtime_plan=runtime_plan,
-            )
+        conditional_samples = np.concatenate(conditional_sample_blocks, axis=0)
+        conditional_hulls = _cal_hull_values(
+            query_compositions=query_compositions,
+            sampled_query_energies=conditional_samples,
+            reference_compositions=reference_compositions,
+            reference_energies=reference_energies,
+            evaluation_compositions=evaluation_compositions,
+            fixed_template=fixed_template,
+            runtime_plan=runtime_plan,
+        ).reshape(fantasy_count, actual_sample_count, len(evaluation_compositions))
+        conditional_entropy_sum = 0.0
+        for fantasy_index in range(fantasy_count):
             conditional_entropy_sum += _gaussian_hull_entropy(
-                conditional_hulls,
+                conditional_hulls[fantasy_index],
                 relative_ridge=relative_ridge,
             )
         return query_index, conditional_entropy_sum / fantasy_count

@@ -102,12 +102,31 @@ def _sample_gaussian_from_factor(
     dimension = len(mean)
     if factor.shape != (dimension, dimension):
         raise ValueError("Gaussian factor dimensions disagree with mean")
+    normal = _standard_normal_block(
+        dimension=dimension,
+        sample_count=sample_count,
+        seed=seed,
+    )
+    return mean + normal @ factor.T
+
+
+def _standard_normal_block(
+    *,
+    dimension: int,
+    sample_count: int,
+    seed: int,
+) -> np.ndarray:
+    """Return one registered scrambled-Sobol standard-normal block."""
+
+    if dimension < 1:
+        raise ValueError("Gaussian sampling requires a positive dimension")
+    if sample_count < 1:
+        raise ValueError("Gaussian sampling requires a positive sample count")
     exponent = math.ceil(math.log2(sample_count))
     unit = qmc.Sobol(d=dimension, scramble=True, seed=seed).random_base2(exponent)
     unit = unit[:sample_count]
     epsilon = COVARIANCE_CLIP_EPSILON
-    normal = ndtri(np.clip(unit, epsilon, 1.0 - epsilon))
-    return mean + normal @ factor.T
+    return ndtri(np.clip(unit, epsilon, 1.0 - epsilon))
 
 
 def _sample_gaussian_blocks(
