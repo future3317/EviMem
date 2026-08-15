@@ -3,6 +3,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
+import matmem.hull_geometry as hull_geometry
 from matmem.hull_geometry import (
     FixedCompositionHullTemplate,
     _CausalHullEnvelope,
@@ -1495,6 +1496,41 @@ def test_cached_causal_hull_envelope_matches_pymatgen_competing_hull(
             diagram.get_hull_energy_per_atom(Composition(value)) for value in query_compositions
         ]
     np.testing.assert_allclose(actual, expected, atol=1e-10)
+
+
+def test_causal_hull_tiling_matches_dense_evaluation(monkeypatch: pytest.MonkeyPatch) -> None:
+    rng = np.random.default_rng(812)
+    positions = rng.integers(0, 6, size=(7, 4), dtype=np.int64)
+    weights = rng.random((7, 4))
+    weights /= weights.sum(axis=1, keepdims=True)
+    second_positions = rng.integers(0, 6, size=(5, 4), dtype=np.int64)
+    second_weights = rng.random((5, 4))
+    second_weights /= second_weights.sum(axis=1, keepdims=True)
+    envelope = _CausalHullEnvelope(
+        query_active_positions=(positions, second_positions),
+        query_weights=(weights, second_weights),
+        active_count=6,
+        query_count=2,
+        retained_simplex_count=2,
+        feasible_nnz=12,
+    )
+    values = rng.normal(size=(11, 6))
+    monkeypatch.setattr(hull_geometry, "_CAUSAL_HULL_DECOMPOSITION_CHUNK_SIZE", 3)
+    monkeypatch.setattr(hull_geometry, "_CAUSAL_HULL_SCRATCH_BUDGET_BYTES", 128)
+
+    actual = envelope.competing_hull_energies(values)
+    expected = np.column_stack(
+        (
+            np.min(np.einsum("mdk,dk->md", values[:, positions], weights), axis=1),
+            np.min(
+                np.einsum(
+                    "mdk,dk->md", values[:, second_positions], second_weights
+                ),
+                axis=1,
+            ),
+        )
+    )
+    np.testing.assert_allclose(actual, expected, rtol=0.0, atol=1e-12)
 
 
 def test_source_rollout_evaluator_matches_manual_pymatgen_continuation() -> None:

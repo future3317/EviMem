@@ -173,9 +173,15 @@ development-only objective/adjudicator ablation. It uses the same five-fold
 230-system input, B=6 trajectories, seed=20260810, posterior MC=200,
 fixed-composition hull backend, eight candidate workers, and 21600-second
 selection timeout, with the single policy
-`complete_pool_posterior_mean_hull_margin`. Its summary is descriptive for the
-paired development panel (B=1..6 utility prefixes and integrated budget area)
-and does not define a new planner or alter the frozen E53/E54/E55 estimands.
+`complete_pool_posterior_mean_hull_margin`. It is an objective/adjudicator
+ablation rather than a new planner and does not alter the frozen E53/E54/E55
+estimands. The completed paired development analysis reports Delta-Hull minus
+margin effects of `0.000` at B=6 (95% interval `[-0.058,+0.058]`, p=1.000)
+and `-0.089` in integrated area (95% interval `[-0.252,+0.074]`, p=0.303)
+over all 230 systems; the five fold-specific area effects range from `-0.217`
+to `+0.152`. The raw baseline summary remains descriptive at the trajectory
+level, while the formal paired contrast is recorded in the external E55 P0
+aggregation.
 For each transport-supported system, the summary contract requires six
 candidate-level leave-one-out margin diagnostic states. Systems without
 transport-element support follow the registered deterministic fallback: their
@@ -183,6 +189,19 @@ six-step utility trajectory is retained, but no margin diagnostics are
 expected. The summary records both the fallback count and diagnostic coverage;
 it does not treat fallback systems as if their diagnostics were observed. No
 policy trajectory is regenerated during summarization.
+
+The E55 numerical-convergence audit completed with all registered Delta and CAL
+units and no failure markers. A read-only matched-state reanalysis of the
+existing CAL traces compared the frozen 200-world/10-fantasy configuration with
+400 worlds/20 fantasies on 58 action-prefix/candidate states: top-1 action
+agreement was 82.8% and median rank correlation was 0.894 (Q1--Q3:
+0.727--0.973). An authorized Delta-Hull randomized-Sobol robustness diagnostic
+also completed four scramblings (20 fold JSON outputs, no failures); integrated
+area ranged from 12.776 to 12.850 and B=6 mean T from 3.787 to 3.822, with
+94.1% mean pairwise top-1 agreement. These are development diagnostics only;
+the frozen headline trajectories and estimands are unchanged. The external
+aggregation is
+`/home/workspace/lrh/DATA/EviMem-RL/analysis/matpes_e55_p0_analysis_aggregation_20260815/summary.json`.
 
 ## Invariants that remain binding
 

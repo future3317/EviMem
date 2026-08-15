@@ -26,6 +26,7 @@ if TYPE_CHECKING:
 
 
 _CAUSAL_HULL_DECOMPOSITION_CHUNK_SIZE = 2048
+_CAUSAL_HULL_SCRATCH_BUDGET_BYTES = 32 * 1024 * 1024
 
 
 class FixedCompositionHullTemplate(BaseModel):
@@ -676,19 +677,38 @@ class _CausalHullEnvelope:
             zip(self.query_active_positions, self.query_weights, strict=True)
         ):
             query_hull = np.full(len(values), np.inf, dtype=np.float64)
-            for start in range(0, len(positions), _CAUSAL_HULL_DECOMPOSITION_CHUNK_SIZE):
-                stop = start + _CAUSAL_HULL_DECOMPOSITION_CHUNK_SIZE
-                candidate_values = np.einsum(
-                    "mdk,dk->md",
-                    values[:, positions[start:stop]],
-                    weights[start:stop],
-                    optimize=True,
-                )
-                np.minimum(
-                    query_hull,
-                    np.min(candidate_values, axis=1),
-                    out=query_hull,
-                )
+            decomposition_width = int(positions.shape[1])
+            if decomposition_width < 1:
+                raise ValueError("causal-hull decomposition has no vertices")
+            decomposition_chunk = min(
+                _CAUSAL_HULL_DECOMPOSITION_CHUNK_SIZE,
+                len(positions),
+            )
+            tile_bytes_per_pair = (decomposition_width + 1) * np.dtype(
+                np.float64
+            ).itemsize
+            row_chunk = max(
+                1,
+                _CAUSAL_HULL_SCRATCH_BUDGET_BYTES
+                // (decomposition_chunk * tile_bytes_per_pair),
+            )
+            for row_start in range(0, len(values), row_chunk):
+                row_stop = min(row_start + row_chunk, len(values))
+                row_hull = np.full(row_stop - row_start, np.inf, dtype=np.float64)
+                for start in range(0, len(positions), decomposition_chunk):
+                    stop = min(start + decomposition_chunk, len(positions))
+                    candidate_values = np.einsum(
+                        "mdk,dk->md",
+                        values[row_start:row_stop, positions[start:stop]],
+                        weights[start:stop],
+                        optimize=True,
+                    )
+                    np.minimum(
+                        row_hull,
+                        np.min(candidate_values, axis=1),
+                        out=row_hull,
+                    )
+                query_hull[row_start:row_stop] = row_hull
             hull[:, query_index] = query_hull
         if not np.isfinite(hull).all():
             raise ValueError("causal-hull energy is undefined for a query composition")
