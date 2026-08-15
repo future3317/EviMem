@@ -11,6 +11,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import time
 from collections.abc import Iterable, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
@@ -974,6 +975,7 @@ def protocol_hull_entropy(
     seed: int = 0,
     fixed_template: FixedCompositionHullTemplate | None = None,
     candidate_workers: int = 1,
+    timing_output: dict[str, float] | None = None,
 ) -> ProtocolHullEntropyResult:
     """Score actions by expected reduction in joint completed-hull entropy.
 
@@ -1003,6 +1005,8 @@ def protocol_hull_entropy(
     if len(reference_compositions) != len(np.asarray(reference_energies).reshape(-1)):
         raise ValueError("hull entropy reference arrays disagree")
 
+    timing_started = time.perf_counter() if timing_output is not None else None
+    runtime_plan_started = time.perf_counter() if timing_output is not None else None
     evaluation_compositions = _unique_query_composition_grid(query_compositions)
     runtime_plan = (
         None
@@ -1014,27 +1018,20 @@ def protocol_hull_entropy(
             fixed_template=fixed_template,
         )
     )
+    runtime_plan_seconds = (
+        0.0
+        if runtime_plan_started is None
+        else time.perf_counter() - runtime_plan_started
+    )
     actual_sample_count = int(posterior_sample_count)
     if len(evaluation_compositions) >= 200:
         actual_sample_count = max(actual_sample_count, len(evaluation_compositions) + 32)
+    conditional_started = time.perf_counter() if timing_output is not None else None
     current_samples = _sample_gaussian(
         mean,
         covariance,
         sample_count=actual_sample_count,
         seed=seed,
-    )
-    current_hulls = _cal_hull_values(
-        query_compositions=query_compositions,
-        sampled_query_energies=current_samples,
-        reference_compositions=reference_compositions,
-        reference_energies=reference_energies,
-        evaluation_compositions=evaluation_compositions,
-        fixed_template=fixed_template,
-        runtime_plan=runtime_plan,
-    )
-    current_entropy = _gaussian_hull_entropy(
-        current_hulls,
-        relative_ridge=relative_ridge,
     )
     fantasy_standard_normal = _standard_normal_block(
         dimension=1,
@@ -1049,11 +1046,44 @@ def protocol_hull_entropy(
         )
         for fantasy_index in range(fantasy_count)
     )
+    current_conditional_seconds = (
+        0.0
+        if conditional_started is None
+        else time.perf_counter() - conditional_started
+    )
+    current_sparse_started = time.perf_counter() if timing_output is not None else None
+    current_hulls = _cal_hull_values(
+        query_compositions=query_compositions,
+        sampled_query_energies=current_samples,
+        reference_compositions=reference_compositions,
+        reference_energies=reference_energies,
+        evaluation_compositions=evaluation_compositions,
+        fixed_template=fixed_template,
+        runtime_plan=runtime_plan,
+    )
+    current_sparse_seconds = (
+        0.0
+        if current_sparse_started is None
+        else time.perf_counter() - current_sparse_started
+    )
+    current_entropy_started = time.perf_counter() if timing_output is not None else None
+    current_entropy = _gaussian_hull_entropy(
+        current_hulls,
+        relative_ridge=relative_ridge,
+    )
+    current_entropy_seconds = (
+        0.0
+        if current_entropy_started is None
+        else time.perf_counter() - current_entropy_started
+    )
 
-    def evaluate_candidate(query_index: int) -> tuple[int, float]:
+    def evaluate_candidate(query_index: int) -> tuple[int, float, float, float, float]:
         variance = float(covariance[query_index, query_index])
         if variance <= 1e-15:
-            return query_index, current_entropy
+            return query_index, current_entropy, 0.0, 0.0, 0.0
+        candidate_conditional_started = (
+            time.perf_counter() if timing_output is not None else None
+        )
         scalar_factor = _gaussian_factor(
             np.asarray(((variance,),), dtype=np.float64)
         )[0, 0]
@@ -1078,6 +1108,14 @@ def protocol_hull_entropy(
                 + conditional_standard_normals[fantasy_index] @ conditional_factor.T
             )
         conditional_samples = np.concatenate(conditional_sample_blocks, axis=0)
+        candidate_conditional_seconds = (
+            0.0
+            if candidate_conditional_started is None
+            else time.perf_counter() - candidate_conditional_started
+        )
+        candidate_sparse_started = (
+            time.perf_counter() if timing_output is not None else None
+        )
         conditional_hulls = _cal_hull_values(
             query_compositions=query_compositions,
             sampled_query_energies=conditional_samples,
@@ -1087,16 +1125,36 @@ def protocol_hull_entropy(
             fixed_template=fixed_template,
             runtime_plan=runtime_plan,
         ).reshape(fantasy_count, actual_sample_count, len(evaluation_compositions))
+        candidate_sparse_seconds = (
+            0.0
+            if candidate_sparse_started is None
+            else time.perf_counter() - candidate_sparse_started
+        )
+        candidate_entropy_started = (
+            time.perf_counter() if timing_output is not None else None
+        )
         conditional_entropy_sum = 0.0
         for fantasy_index in range(fantasy_count):
             conditional_entropy_sum += _gaussian_hull_entropy(
                 conditional_hulls[fantasy_index],
                 relative_ridge=relative_ridge,
             )
-        return query_index, conditional_entropy_sum / fantasy_count
+        candidate_entropy_seconds = (
+            0.0
+            if candidate_entropy_started is None
+            else time.perf_counter() - candidate_entropy_started
+        )
+        return (
+            query_index,
+            conditional_entropy_sum / fantasy_count,
+            candidate_conditional_seconds,
+            candidate_sparse_seconds,
+            candidate_entropy_seconds,
+        )
 
     expected_entropies = np.empty(size, dtype=np.float64)
     candidate_indices = tuple(range(size))
+    candidate_wall_started = time.perf_counter() if timing_output is not None else None
     if candidate_workers == 1 or size == 1:
         evaluated = map(evaluate_candidate, candidate_indices)
     else:
@@ -1105,9 +1163,57 @@ def protocol_hull_entropy(
             thread_name_prefix="cal-hull-entropy-candidate",
         ) as executor:
             evaluated = tuple(executor.map(evaluate_candidate, candidate_indices))
-    for query_index, expected_entropy in evaluated:
+    candidate_phase_seconds = np.zeros(3, dtype=np.float64)
+    for (
+        query_index,
+        expected_entropy,
+        candidate_conditional_seconds,
+        candidate_sparse_seconds,
+        candidate_entropy_seconds,
+    ) in evaluated:
         expected_entropies[query_index] = expected_entropy
+        candidate_phase_seconds += (
+            candidate_conditional_seconds,
+            candidate_sparse_seconds,
+            candidate_entropy_seconds,
+        )
+    candidate_wall_seconds = (
+        0.0
+        if candidate_wall_started is None
+        else time.perf_counter() - candidate_wall_started
+    )
     reductions = current_entropy - expected_entropies
+    if timing_output is not None and timing_started is not None:
+        total_wall_seconds = time.perf_counter() - timing_started
+        conditional_seconds = current_conditional_seconds + float(
+            candidate_phase_seconds[0]
+        )
+        sparse_seconds = current_sparse_seconds + float(candidate_phase_seconds[1])
+        entropy_seconds = current_entropy_seconds + float(candidate_phase_seconds[2])
+        phase_sum_seconds = (
+            runtime_plan_seconds + conditional_seconds + sparse_seconds + entropy_seconds
+        )
+        other_seconds = (
+            total_wall_seconds - phase_sum_seconds
+            if candidate_workers == 1 or size == 1
+            else total_wall_seconds
+            - runtime_plan_seconds
+            - current_conditional_seconds
+            - current_sparse_seconds
+            - current_entropy_seconds
+            - candidate_wall_seconds
+        )
+        phase_seconds = {
+            "runtime_plan_build_seconds": runtime_plan_seconds,
+            "conditional_gaussian_seconds": conditional_seconds,
+            "sparse_hull_kernel_seconds": sparse_seconds,
+            "entropy_seconds": entropy_seconds,
+            "candidate_evaluation_wall_seconds": candidate_wall_seconds,
+            "candidate_phase_sum_seconds": float(np.sum(candidate_phase_seconds)),
+            "other_seconds": max(0.0, other_seconds),
+            "total_wall_seconds": total_wall_seconds,
+        }
+        timing_output.update(phase_seconds)
     return ProtocolHullEntropyResult(
         scores=tuple(float(value) for value in reductions),
         expected_entropy_reductions=tuple(float(value) for value in reductions),

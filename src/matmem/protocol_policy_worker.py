@@ -839,10 +839,12 @@ def select(
                             }
                         )
                 elif policy == "cal_style_hull_entropy":
+                    cal_timing = {} if diagnostics is not None else None
                     result = protocol_hull_entropy(
                         posterior,
                         fixed_template=fixed_template,
                         candidate_workers=hull_candidate_workers,
+                        timing_output=cal_timing,
                         **hull_arguments,
                     )
                     values = result.scores
@@ -883,6 +885,8 @@ def select(
                                 "relative_ridge": result.relative_ridge,
                             }
                         )
+                        if cal_timing is not None:
+                            diagnostics["phase_timings_seconds"] = cal_timing
                 else:
                     result = protocol_hull_knowledge_gradient(
                         posterior,

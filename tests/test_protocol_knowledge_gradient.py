@@ -281,7 +281,13 @@ def test_cal_entropy_candidate_parallelism_preserves_fixed_backend_scores() -> N
         history_count=0,
     )
 
-    serial = protocol_hull_entropy(posterior, candidate_workers=1, **kwargs)
+    serial_timing: dict[str, float] = {}
+    serial = protocol_hull_entropy(
+        posterior,
+        candidate_workers=1,
+        timing_output=serial_timing,
+        **kwargs,
+    )
     parallel = protocol_hull_entropy(posterior, candidate_workers=2, **kwargs)
 
     np.testing.assert_allclose(parallel.scores, serial.scores, rtol=0.0, atol=0.0)
@@ -292,6 +298,19 @@ def test_cal_entropy_candidate_parallelism_preserves_fixed_backend_scores() -> N
         atol=0.0,
     )
     assert int(np.argmax(parallel.scores)) == int(np.argmax(serial.scores))
+    required_timing_keys = {
+        "runtime_plan_build_seconds",
+        "conditional_gaussian_seconds",
+        "sparse_hull_kernel_seconds",
+        "entropy_seconds",
+        "other_seconds",
+        "total_wall_seconds",
+    }
+    assert required_timing_keys <= serial_timing.keys()
+    assert all(
+        np.isfinite(serial_timing[key]) and serial_timing[key] >= 0.0
+        for key in required_timing_keys
+    )
 
 
 def test_cal_entropy_matches_unbatched_reference_sampling() -> None:
