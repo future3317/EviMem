@@ -55,6 +55,7 @@ def _command(
     hull_candidate_workers: int,
     selection_timeout_seconds: float,
     policies: tuple[str, ...],
+    seed: int,
 ) -> tuple[str, ...]:
     return (
         sys.executable,
@@ -72,7 +73,7 @@ def _command(
         "--minimum-candidates",
         "12",
         "--seed",
-        str(SEED),
+        str(seed),
         "--posterior-sample-count",
         str(posterior_sample_count),
         "--fantasy-count",
@@ -109,6 +110,7 @@ def build_units(
     selection_timeout_seconds: float = 7200.0,
     policies: tuple[str, ...] = POLICIES,
     protocol: str = PROTOCOL,
+    seed: int = SEED,
 ) -> list[Unit]:
     """Build one explicitly selected E54 stage without opening outcomes."""
 
@@ -175,7 +177,7 @@ def build_units(
             "crossfit_manifest_sha256": _sha256(crossfit),
             "fold_index": fold,
             "budget": 6,
-            "seed": SEED,
+            "seed": seed,
             "posterior_sample_count": posterior_sample_count,
             "fantasy_count": fantasy_count,
             "hull_candidate_workers": hull_candidate_workers,
@@ -197,6 +199,7 @@ def build_units(
                     hull_candidate_workers=hull_candidate_workers,
                     selection_timeout_seconds=selection_timeout_seconds,
                     policies=policies,
+                    seed=seed,
                 ),
                 output=output,
                 log=output.with_suffix(".log"),
@@ -282,6 +285,7 @@ def main() -> None:
     parser.add_argument("--selection-timeout-seconds", type=float, default=7200.0)
     parser.add_argument("--policies", nargs="+", default=POLICIES)
     parser.add_argument("--protocol", default=PROTOCOL)
+    parser.add_argument("--seed", type=int, default=SEED)
     args = parser.parse_args()
     if args.max_workers < 1:
         raise ValueError("max-workers must be positive")
@@ -299,6 +303,7 @@ def main() -> None:
         selection_timeout_seconds=args.selection_timeout_seconds,
         policies=tuple(args.policies),
         protocol=args.protocol,
+        seed=args.seed,
     )
     failures: list[str] = []
     with ThreadPoolExecutor(max_workers=min(args.max_workers, len(units))) as executor:

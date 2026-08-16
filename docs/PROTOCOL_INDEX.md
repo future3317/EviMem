@@ -13,6 +13,9 @@ records. Evidence dispositions and opened-data boundaries always remain in
 - `RAW_RESULTS_MANIFEST.md`: pointers and hashes for external artifacts.
 - `MATPES_CONFIRMATORY_INFRASTRUCTURE.md`: task/vault and reveal-boundary
   infrastructure; the existing 324-system corpus is development-only.
+- `CAL_KERNEL_PERFORMANCE_DECISION_RECORD.md`: closed CAL kernel performance
+  decision and preserved benchmark provenance; it does not change paper
+  estimands or scientific results.
 
 ## Active campaign
 
