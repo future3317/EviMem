@@ -46,7 +46,12 @@ def _prefix_utility(strategy: dict[str, Any], budget: int) -> float:
     return float(sum(labels[pair_id] for pair_id in selected[:budget]))
 
 
-def _load_panel(paths: list[Path], *, expected_system_count: int) -> dict[str, Any]:
+def _load_panel(
+    paths: list[Path],
+    *,
+    expected_system_count: int,
+    posterior_sample_count: int,
+) -> dict[str, Any]:
     rows: dict[str, dict[str, np.ndarray]] = {}
     task_hashes: set[str] = set()
     vault_hashes: set[str] = set()
@@ -59,8 +64,11 @@ def _load_panel(paths: list[Path], *, expected_system_count: int) -> dict[str, A
             raise ValueError(f"unexpected E53 policy roster in {path}")
         if int(payload.get("config", {}).get("query_budget", -1)) != 6:
             raise ValueError(f"E53 unit is not a B=6 trajectory: {path}")
-        if int(payload.get("config", {}).get("posterior_sample_count", -1)) != 1024:
-            raise ValueError(f"E53 unit has the wrong posterior sample count: {path}")
+        if int(payload.get("config", {}).get("posterior_sample_count", -1)) != posterior_sample_count:
+            raise ValueError(
+                f"E53 unit has the wrong posterior sample count "
+                f"(expected {posterior_sample_count}): {path}"
+            )
         task_hashes.add(str(payload.get("task_sha256")))
         vault_hashes.add(str(payload.get("oracle_vault_sha256")))
         input_hashes[str(path.resolve())] = _sha256(path)
@@ -154,6 +162,7 @@ def summarize(
     expected_development_system_count: int,
     expected_secondary_system_count: int | None,
     randomization_draws: int = 100_000,
+    posterior_sample_count: int = 1024,
 ) -> dict[str, Any]:
     repo_root = Path(__file__).resolve().parents[1]
     if output.resolve().is_relative_to(repo_root):
@@ -166,6 +175,7 @@ def summarize(
     development = _load_panel(
         development_paths,
         expected_system_count=expected_development_system_count,
+        posterior_sample_count=posterior_sample_count,
     )
     panels = {
         "development": _summarize_panel(
@@ -180,6 +190,7 @@ def summarize(
         secondary = _load_panel(
             [secondary_path],
             expected_system_count=expected_secondary_system_count,
+            posterior_sample_count=posterior_sample_count,
         )
         panels["secondary"] = _summarize_panel(
             secondary,
@@ -208,6 +219,7 @@ def main() -> None:
     parser.add_argument("--expected-development-systems", type=int, default=230)
     parser.add_argument("--expected-secondary-systems", type=int, default=94)
     parser.add_argument("--randomization-draws", type=int, default=100_000)
+    parser.add_argument("--posterior-sample-count", type=int, default=1024)
     args = parser.parse_args()
     result = summarize(
         development_root=args.development_root,
@@ -218,6 +230,7 @@ def main() -> None:
             args.expected_secondary_systems if args.secondary is not None else None
         ),
         randomization_draws=args.randomization_draws,
+        posterior_sample_count=args.posterior_sample_count,
     )
     print(json.dumps({"status": result["status"], "panels": list(result["panels"])}))
 
