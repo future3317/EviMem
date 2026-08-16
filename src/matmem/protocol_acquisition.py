@@ -18,12 +18,10 @@ from dataclasses import dataclass
 
 import numpy as np
 from pydantic import BaseModel, ConfigDict, Field, model_validator
-from scipy.sparse import csr_matrix
 from scipy.stats import t as student_t
 
 from .constants import HULL_NUMERICAL_TOLERANCE
 from .hull_geometry import (
-    _CAUSAL_HULL_SCRATCH_BUDGET_BYTES,
     FixedCompositionHullTemplate,
     FixedHullRuntimePlan,
     _CausalHullEnvelope,
@@ -311,7 +309,6 @@ class _CalHullRuntimePlan:
     fixed_template: FixedCompositionHullTemplate
     grouped_query_indices: tuple[np.ndarray, ...]
     envelope: _CausalHullEnvelope
-    csr_projections: tuple[csr_matrix, ...]
 
     @classmethod
     def from_inputs(
@@ -345,80 +342,18 @@ class _CalHullRuntimePlan:
         )
         if any(key not in groups for key in ordered_keys):
             raise ValueError("CAL evaluation grid is not covered by query compositions")
-        envelope = _CausalHullEnvelope.build(
-            query_compositions=evaluation_compositions,
-            reference_compositions=reference_compositions,
-            selected_query_indices=range(len(evaluation_compositions)),
-            tolerance=fixed_template.numerical_tolerance,
-        )
-        csr_projections: list[csr_matrix] = []
-        for positions, weights in zip(
-            envelope.query_active_positions,
-            envelope.query_weights,
-            strict=True,
-        ):
-            decomposition_count, decomposition_width = positions.shape
-            indptr = np.arange(
-                0,
-                (decomposition_count + 1) * decomposition_width,
-                decomposition_width,
-                dtype=np.int64,
-            )
-            projection = csr_matrix(
-                (
-                    weights.reshape(-1),
-                    positions.reshape(-1),
-                    indptr,
-                ),
-                shape=(decomposition_count, envelope.active_count),
-                copy=False,
-            )
-            projection.data.flags.writeable = False
-            projection.indices.flags.writeable = False
-            projection.indptr.flags.writeable = False
-            csr_projections.append(projection)
         return cls(
             fixed_template=fixed_template,
             grouped_query_indices=tuple(
                 np.asarray(groups[key], dtype=np.int64) for key in ordered_keys
             ),
-            envelope=envelope,
-            csr_projections=tuple(csr_projections),
+            envelope=_CausalHullEnvelope.build(
+                query_compositions=evaluation_compositions,
+                reference_compositions=reference_compositions,
+                selected_query_indices=range(len(evaluation_compositions)),
+                tolerance=fixed_template.numerical_tolerance,
+            ),
         )
-
-    def competing_hull_energies(self, active_energies: np.ndarray) -> np.ndarray:
-        """Evaluate raw CSR decompositions without materializing gathers."""
-
-        values = np.asarray(active_energies, dtype=np.float64)
-        if values.ndim == 1:
-            values = values[None, :]
-        if values.ndim != 2 or values.shape[1] != self.envelope.active_count:
-            raise ValueError("CAL active energies disagree with geometry")
-        if not np.isfinite(values).all():
-            raise ValueError("CAL active energies must be finite")
-        hull = np.empty((len(values), self.envelope.query_count), dtype=np.float64)
-        for query_index, projection in enumerate(self.csr_projections):
-            decomposition_count = projection.shape[0]
-            if decomposition_count < 1:
-                raise ValueError("CAL decomposition has no vertices")
-            row_chunk = max(
-                1,
-                _CAUSAL_HULL_SCRATCH_BUDGET_BYTES
-                // (decomposition_count * np.dtype(np.float64).itemsize),
-            )
-            query_hull = np.full(len(values), np.inf, dtype=np.float64)
-            for row_start in range(0, len(values), row_chunk):
-                row_stop = min(row_start + row_chunk, len(values))
-                decomposition_scores = projection @ values[row_start:row_stop].T
-                np.min(
-                    decomposition_scores,
-                    axis=0,
-                    out=query_hull[row_start:row_stop],
-                )
-            hull[:, query_index] = query_hull
-        if not np.isfinite(hull).all():
-            raise ValueError("CAL hull energy is undefined for a query composition")
-        return hull
 
 
 def _cal_hull_values(
@@ -468,7 +403,7 @@ def _cal_hull_values(
             grouped_samples,
         ]
     )
-    return plan.competing_hull_energies(active_energies)
+    return plan.envelope.competing_hull_energies(active_energies)
 
 
 class DualHorizonSourceRolloutResult(BaseModel):
