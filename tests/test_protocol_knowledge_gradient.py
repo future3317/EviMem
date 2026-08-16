@@ -247,8 +247,18 @@ def test_cal_runtime_plan_matches_rebuilt_fixed_backend_hull_values() -> None:
         fixed_template=template,
         runtime_plan=runtime_plan,
     )
+    grouped_samples = np.column_stack(
+        [np.min(samples[:, indices], axis=1) for indices in runtime_plan.grouped_query_indices]
+    )
+    active_energies = np.column_stack(
+        [np.zeros((len(samples), len(references))), grouped_samples]
+    )
+    sparse = runtime_plan.envelope.competing_hull_energies(active_energies)
+    dense = runtime_plan.competing_hull_energies(active_energies)
 
     np.testing.assert_allclose(planned, baseline, rtol=0.0, atol=0.0)
+    np.testing.assert_allclose(dense, sparse, rtol=0.0, atol=1e-12)
+    assert all(not projection.flags.writeable for projection in runtime_plan.dense_projections)
 
 
 def test_cal_entropy_candidate_parallelism_preserves_fixed_backend_scores() -> None:
